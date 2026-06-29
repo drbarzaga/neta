@@ -14,6 +14,7 @@ import { PreferencesForm } from './_components/preferences-form';
 import { RegionForm } from './_components/region-form';
 import { AppearanceForm } from './_components/appearance-form';
 import { PasskeysForm } from './_components/passkeys-form';
+import { ApiKeyForm } from './_components/api-key-form';
 
 export const metadata: Metadata = { title: 'Configuración — Neta' };
 
@@ -57,6 +58,8 @@ export default async function ConfiguracionPage() {
       />
 
       <PasskeysForm />
+
+      <ApiKeyForm configured={Boolean(settings.anthropicApiKey)} />
 
       <AppearanceForm initialEnabled={settings.animationsEnabled} />
 

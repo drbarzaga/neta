@@ -1,112 +1,79 @@
-# Neta — Gestor de gastos mensuales
+<h1 align="center">Neta</h1>
 
-App para gestionar gastos mensuales (reemplazo del Google Sheet): tabla por mes estilo
-planilla, multimoneda UYU/USD con cotización automática del dólar, dashboard con gráficos,
-analítica mes a mes y correos (recordatorios de vencimiento, resumen mensual y alertas de
-presupuesto).
+Monthly budgeting app: per-month expense table, multi-currency with automatic USD exchange
+rate, dashboard with charts, an AI financial advisor, and emails (due-date reminders,
+monthly summary, and budget alerts).
 
-## Stack
+<p>
+  <strong>Supported countries:</strong><br>
+  🇺🇾&nbsp;Uruguay &nbsp;·&nbsp; 🇦🇷&nbsp;Argentina &nbsp;·&nbsp; 🇨🇱&nbsp;Chile &nbsp;·&nbsp;
+  🇧🇷&nbsp;Brazil &nbsp;·&nbsp; 🇲🇽&nbsp;Mexico &nbsp;·&nbsp; 🇧🇴&nbsp;Bolivia &nbsp;·&nbsp;
+  🇨🇴&nbsp;Colombia &nbsp;·&nbsp; 🇻🇪&nbsp;Venezuela
+</p>
 
-- **Next.js 16** (App Router, `proxy.ts`) · React 19 · TypeScript
-- **Tailwind v4 + shadcn/ui** (preset `b4OF7scDY`, iconos remixicon)
-- **Drizzle ORM + Neon (Postgres)**
-- **Better Auth** (email/contraseña, multiusuario)
-- **React Email + Resend** (correos)
-- **Recharts** (gráficos) · nuqs · sonner · react-hook-form + zod
-- **bun** como gestor de paquetes · deploy en **Vercel** (cron vía `vercel.json`)
+**Stack:** Next.js 16 · React 19 · TypeScript · Tailwind v4 + shadcn/ui · Drizzle + Neon
+(Postgres) · Better Auth (email + passkeys) · Anthropic (Claude) · React Email + Resend ·
+deployed on Vercel · bun.
 
-## Puesta en marcha
+## Getting started
 
-1. Instalar dependencias:
+> **Prerequisites:** [bun](https://bun.sh) and a [Neon](https://neon.tech) Postgres database.
 
-   ```bash
-   bun install
-   ```
+**1. Install dependencies**
+```bash
+bun install
+```
 
-2. Copiar variables de entorno y completarlas:
+**2. Configure environment** — copy the example file and fill it in (see below)
+```bash
+cp .env.example .env
+```
 
-   ```bash
-   cp .env.example .env
-   ```
+**3. Set up the database**
+```bash
+bun run db:migrate   # create tables
+bun run db:seed      # optional: sample data
+```
 
-   | Variable | Para qué |
-   |---|---|
-   | `DATABASE_URL` | Cadena de conexión de Neon (Postgres) |
-   | `BETTER_AUTH_SECRET` | Secreto de sesión (string largo aleatorio) |
-   | `BETTER_AUTH_URL` | URL base (`http://localhost:3000` en local) |
-   | `RESEND_API_KEY` | API key de Resend (correos). Sin ella, los envíos se omiten |
-   | `EMAIL_FROM` | Remitente, ej. `Neta <onboarding@resend.dev>` |
-   | `CRON_SECRET` | Protege los endpoints `/api/cron/*` |
-   | `NEXT_PUBLIC_APP_URL` | URL pública (links en correos) |
+**4. Run it** → http://localhost:3000
+```bash
+bun run dev
+```
 
-3. Crear las tablas y (opcional) cargar datos de ejemplo:
+### Environment variables
 
-   ```bash
-   bun run db:migrate     # aplica db/migrations
-   bun run db:seed        # usuario demo@finanzas.local / changeme123 + mes "Marzo de 2026"
-   ```
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon (Postgres) connection string |
+| `BETTER_AUTH_SECRET` · `BETTER_AUTH_URL` | Session secret and base URL |
+| `RESEND_API_KEY` · `EMAIL_FROM` | Emails. Without the key, sending is skipped |
+| `CRON_SECRET` | Protects the `/api/cron/*` endpoints |
+| `NEXT_PUBLIC_APP_URL` | Public URL (used in email links) |
 
-4. Levantar en desarrollo:
-
-   ```bash
-   bun run dev
-   ```
-
-   Abrí http://localhost:3000 → registrá una cuenta (o usá el usuario demo si corriste el seed).
+> **AI advisor (BYOK):** no API key is needed in the server env. Each user pastes their own
+> key (Anthropic or OpenRouter) in **Settings**; it's validated and stored encrypted.
+> `ANTHROPIC_API_KEY` is supported only as an optional shared fallback.
 
 ## Scripts
 
-| Script | Acción |
+| Command | What it does |
 |---|---|
-| `bun run dev` | Servidor de desarrollo |
-| `bun run build` / `start` | Build de producción / servir |
-| `bun run check-types` | `tsc --noEmit` |
-| `bun run lint` | ESLint |
-| `bun run db:generate` | Genera migración desde el schema |
-| `bun run db:migrate` / `db:push` | Aplica migraciones / push directo |
-| `bun run db:studio` | Drizzle Studio |
-| `bun run db:seed` | Datos de ejemplo |
-| `bun run email:dev` | Previsualizar plantillas de correo (React Email) |
+| `bun run dev` | Start the dev server |
+| `bun run build` / `start` | Production build / serve |
+| `bun run check-types` | Type-check with `tsc` |
+| `bun run lint` | Lint with ESLint |
+| `bun run db:generate` | Generate a migration from the schema |
+| `bun run db:migrate` / `db:push` | Apply migrations / push schema directly |
+| `bun run db:studio` | Open Drizzle Studio |
+| `bun run db:seed` | Seed sample data |
+| `bun run email:dev` | Preview email templates |
 
-## Estructura
+## Notes
 
-```
-app/
-  (auth)/            login, register, forgot/reset password
-  (dashboard)/       resumen (/), meses, meses/[id], analitica, categorias, importar, configuracion
-  api/auth/[...all]  handler de Better Auth
-  api/cron/*         endpoints de notificaciones y cotización (protegidos por CRON_SECRET)
-db/                  schema Drizzle, migraciones, seed, conexión
-emails/              plantillas React Email
-lib/                 auth, money, exchange-rate, notifications, sheet-parser, dates, ...
-```
-
-Cada módulo del dashboard sigue el patrón `page.tsx` (RSC) + `schema.ts` (Zod) +
-`actions.ts` (`"use server"`) + `queries.ts` + `_components/`.
-
-## Importar tu Google Sheet
-
-En la sección **Importar**: descargá la pestaña del mes como CSV (Archivo → Descargar → CSV
-en Google Sheets) y subila. El parser detecta automáticamente *Ingreso total*, *Dólar*, la
-fila de encabezados y los gastos; revisás la vista previa y confirmás.
-
-## Correos y cron (Vercel)
-
-`vercel.json` define 4 crons que llaman a `/api/cron/*`. Vercel agrega automáticamente el
-header `Authorization: Bearer $CRON_SECRET`. Para probarlos en local:
-
-```bash
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/refresh-rate
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/due-reminders
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/budget-alert
-curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/cron/monthly-summary
-```
-
-Las preferencias de cada correo (activar/desactivar, días de anticipación, umbral de
-presupuesto) se ajustan en **Configuración**.
-
-## Deploy
-
-Subí el repo a Vercel, configurá las variables de entorno (incluyendo `CRON_SECRET` para
-activar los crons) y conectá la base de Neon. Ejecutá `bun run db:migrate` contra la BD de
-producción.
+- **Import:** in the *Importar* section, upload the CSV of your Google Sheets tab; the parser
+  detects income, exchange rate, headers, and expenses for you to review and confirm.
+- **Cron (Vercel):** `vercel.json` defines the `/api/cron/*` jobs (exchange rate and emails),
+  protected by `CRON_SECRET`. Email preferences are managed in *Configuración*.
+- **Deploy:** push the repo to Vercel, set the environment variables, and run
+  `bun run db:migrate` against the production database.
+</content>

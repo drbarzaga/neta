@@ -5,8 +5,15 @@ import { db, eq, emailPreference, userSettings } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { COUNTRIES } from '@/lib/countries';
+import { encryptSecret } from '@/lib/crypto';
+import { validateApiKey } from '@/lib/ai';
 import { getOrCreateEmailPreference, getOrCreateUserSettings } from './queries';
-import { preferenceSchema, regionSchema, appearanceSchema } from './schema';
+import {
+  preferenceSchema,
+  regionSchema,
+  appearanceSchema,
+  apiKeySchema,
+} from './schema';
 
 export async function updateEmailPreference(
   input: unknown
@@ -43,6 +50,38 @@ export async function updateUserSettings(input: unknown): Promise<ActionResult> 
 
   // El header (cotización por país) vive en el layout del dashboard.
   revalidatePath('/', 'layout');
+  return ok();
+}
+
+/** Guarda (cifrada) o borra la API key de Anthropic del usuario (BYOK). */
+export async function updateAnthropicKey(
+  input: unknown
+): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = apiKeySchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+
+  const raw = parsed.data.apiKey.trim();
+
+  // Validamos contra el proveedor (Anthropic u OpenRouter) antes de guardar.
+  if (raw !== '') {
+    const check = await validateApiKey(raw);
+    if (!check.ok) return fail(check.error ?? 'La key no es válida');
+  }
+
+  const value = raw === '' ? null : encryptSecret(raw);
+
+  await getOrCreateUserSettings(session.userId);
+  await db
+    .update(userSettings)
+    .set({ anthropicApiKey: value })
+    .where(eq(userSettings.userId, session.userId));
+
+  revalidatePath('/configuracion');
   return ok();
 }
 

@@ -1,6 +1,7 @@
 import { verifySession } from '@/lib/auth-server';
-import { isAiConfigured, advisorStream, type AdvisorMessage } from '@/lib/ai';
+import { streamAdvice, serverApiKey, type AdvisorMessage } from '@/lib/ai';
 import { buildFinancialContext } from '@/lib/advisor-context';
+import { getUserAiConfig } from '@/app/(dashboard)/configuracion/queries';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -26,10 +27,15 @@ export async function POST(req: Request) {
   if (!session) {
     return new Response('No autorizado', { status: 401 });
   }
-  if (!isAiConfigured()) {
-    return new Response('La IA no está configurada en el servidor.', {
-      status: 503,
-    });
+
+  // BYOK: primero la key del usuario; si no tiene, la del servidor (si existe).
+  const userAi = await getUserAiConfig(session.userId);
+  const apiKey = userAi.key ?? serverApiKey;
+  if (!apiKey) {
+    return new Response(
+      'Configura tu API key (Anthropic u OpenRouter) en Configuración para usar el asesor.',
+      { status: 503 }
+    );
   }
 
   let body: unknown;
@@ -52,14 +58,14 @@ export async function POST(req: Request) {
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        const ai = advisorStream(context, trimmed);
-        for await (const event of ai) {
-          if (
-            event.type === 'content_block_delta' &&
-            event.delta.type === 'text_delta'
-          ) {
-            controller.enqueue(encoder.encode(event.delta.text));
-          }
+        const ai = streamAdvice({
+          apiKey,
+          model: userAi.model,
+          context,
+          messages: trimmed,
+        });
+        for await (const chunk of ai) {
+          controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
         const msg =

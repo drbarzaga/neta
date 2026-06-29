@@ -23,3 +23,16 @@ export const appearanceSchema = z.object({
 });
 
 export type AppearanceInput = z.infer<typeof appearanceSchema>;
+
+// BYOK: el campo vacío borra la key; si no, debe ser de Anthropic (sk-ant-) o
+// de OpenRouter (sk-or-).
+export const apiKeySchema = z.object({
+  apiKey: z
+    .string()
+    .max(200)
+    .refine((v) => v === '' || v.startsWith('sk-ant-') || v.startsWith('sk-or-'), {
+      message: 'Usa una key de Anthropic (sk-ant-…) o de OpenRouter (sk-or-…).',
+    }),
+});
+
+export type ApiKeyInput = z.infer<typeof apiKeySchema>;

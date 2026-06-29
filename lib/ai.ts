@@ -1,30 +1,74 @@
 import 'server-only';
 import Anthropic from '@anthropic-ai/sdk';
 
-const MODEL = 'claude-opus-4-8';
+const ANTHROPIC_MODEL = 'claude-opus-4-8';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const DEFAULT_OPENROUTER_MODEL = 'openai/gpt-4o';
 
-const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null;
-
-export function isAiConfigured(): boolean {
-  return client !== null;
-}
+/** Key del servidor (fallback, Anthropic). Cada usuario puede usar la suya (BYOK). */
+export const serverApiKey = process.env.ANTHROPIC_API_KEY ?? null;
 
 export interface AdvisorMessage {
   role: 'user' | 'assistant';
   content: string;
 }
 
-/**
- * Abre un stream con el asesor financiero. `context` es el resumen de los
- * datos del usuario (ver lib/advisor-context) y `messages` la conversación.
- * Devuelve el stream del SDK; quien lo consume reenvía solo el texto.
- */
-export function advisorStream(context: string, messages: AdvisorMessage[]) {
-  if (!client) {
-    throw new Error('IA no configurada: falta ANTHROPIC_API_KEY.');
-  }
+export type AiProvider = 'openrouter' | 'anthropic';
 
-  const system = [
+/** Proveedor detectado a partir del prefijo de la key. null si no se reconoce. */
+export function providerForKey(apiKey: string): AiProvider | null {
+  if (apiKey.startsWith('sk-or-')) return 'openrouter';
+  if (apiKey.startsWith('sk-ant-')) return 'anthropic';
+  return null;
+}
+
+/**
+ * Verifica contra el proveedor que la key es válida (y de paso detecta cuál es).
+ * Hace una llamada barata a un endpoint de solo lectura, sin gastar tokens.
+ */
+export async function validateApiKey(
+  apiKey: string
+): Promise<{ ok: boolean; provider: AiProvider | null; error?: string }> {
+  const provider = providerForKey(apiKey);
+  if (!provider) {
+    return {
+      ok: false,
+      provider: null,
+      error: 'No reconocemos esa key. Usa una de Anthropic o de OpenRouter.',
+    };
+  }
+  try {
+    const res =
+      provider === 'anthropic'
+        ? await fetch('https://api.anthropic.com/v1/models?limit=1', {
+            headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          })
+        : await fetch('https://openrouter.ai/api/v1/key', {
+            headers: { Authorization: `Bearer ${apiKey}` },
+          });
+
+    if (res.status === 401 || res.status === 403) {
+      return { ok: false, provider, error: 'La key no es válida o fue revocada.' };
+    }
+    if (!res.ok) {
+      return {
+        ok: false,
+        provider,
+        error: `El proveedor respondió ${res.status}. Intenta de nuevo.`,
+      };
+    }
+    return { ok: true, provider };
+  } catch {
+    return {
+      ok: false,
+      provider,
+      error: 'No pudimos validar la key (problema de conexión).',
+    };
+  }
+}
+
+function buildSystem(context: string): string {
+  return [
     'Eres un asesor financiero personal dentro de "Neta", una app de presupuesto mensual.',
     'Hablas en español neutro, cercano y claro. Tratas al usuario de "tú" y evitas modismos regionales o rioplatenses.',
     '',
@@ -52,13 +96,109 @@ export function advisorStream(context: string, messages: AdvisorMessage[]) {
     'DATOS DEL USUARIO:',
     context,
   ].join('\n');
+}
 
-  return client.messages.stream({
-    model: MODEL,
+/** Stream del asesor con Claude (Anthropic) directo. */
+async function* anthropicStream(
+  apiKey: string,
+  system: string,
+  messages: AdvisorMessage[]
+): AsyncGenerator<string> {
+  const client = new Anthropic({ apiKey });
+  const stream = client.messages.stream({
+    model: ANTHROPIC_MODEL,
     max_tokens: 4096,
     thinking: { type: 'adaptive' },
     output_config: { effort: 'medium' },
     system,
     messages: messages.map((m) => ({ role: m.role, content: m.content })),
   });
+  for await (const event of stream) {
+    if (
+      event.type === 'content_block_delta' &&
+      event.delta.type === 'text_delta'
+    ) {
+      yield event.delta.text;
+    }
+  }
+}
+
+/** Stream del asesor vía OpenRouter (API compatible con OpenAI, SSE por fetch). */
+async function* openRouterStream(
+  apiKey: string,
+  model: string,
+  system: string,
+  messages: AdvisorMessage[]
+): AsyncGenerator<string> {
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'X-Title': 'Neta',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 4096,
+      stream: true,
+      messages: [
+        { role: 'system', content: system },
+        ...messages.map((m) => ({ role: m.role, content: m.content })),
+      ],
+    }),
+  });
+
+  if (!res.ok || !res.body) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(
+      `OpenRouter respondió ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`
+    );
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? ''; // la última puede estar incompleta
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed.startsWith('data:')) continue;
+      const data = trimmed.slice(5).trim();
+      if (data === '' || data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        const delta = json.choices?.[0]?.delta?.content;
+        if (typeof delta === 'string' && delta) yield delta;
+      } catch {
+        // línea parcial o keep-alive; se ignora
+      }
+    }
+  }
+}
+
+/**
+ * Genera la respuesta del asesor como flujo de texto, eligiendo el proveedor
+ * según la key (OpenRouter si empieza con "sk-or-", si no Anthropic/Claude).
+ * `model` solo aplica a OpenRouter.
+ */
+export function streamAdvice(args: {
+  apiKey: string;
+  model?: string | null;
+  context: string;
+  messages: AdvisorMessage[];
+}): AsyncGenerator<string> {
+  const system = buildSystem(args.context);
+  if (providerForKey(args.apiKey) === 'openrouter') {
+    return openRouterStream(
+      args.apiKey,
+      args.model?.trim() || DEFAULT_OPENROUTER_MODEL,
+      system,
+      args.messages
+    );
+  }
+  return anthropicStream(args.apiKey, system, args.messages);
 }

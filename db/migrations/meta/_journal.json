@@ -50,6 +50,20 @@
       "when": 1782763418890,
       "tag": "0006_light_ma_gnuci",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782768327767,
+      "tag": "0007_fearless_power_pack",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1782768701472,
+      "tag": "0008_hard_ma_gnuci",
+      "breakpoints": true
     }
   ]
 }
