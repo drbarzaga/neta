@@ -235,7 +235,9 @@ export async function GET(
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      // inline → el navegador lo muestra en la pestaña en vez de descargarlo
+      // (igual el usuario puede guardarlo desde el visor). filename sugiere el nombre.
+      'Content-Disposition': `inline; filename="${filename}"`,
     },
   });
 }
