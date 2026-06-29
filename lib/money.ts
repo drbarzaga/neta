@@ -1,0 +1,91 @@
+import { currencyDecimals } from '@/lib/countries';
+
+const DEFAULT_LOCALE = 'es-UY';
+
+interface MoneyLike {
+  amount: number;
+  currency: string; // código ISO (moneda local o 'USD')
+}
+
+/** Convierte un importe a moneda local usando la cotización del mes (USD -> local). */
+export function toLocal(item: MoneyLike, rate: number): number {
+  return item.currency === 'USD' ? item.amount * rate : item.amount;
+}
+
+/** Convierte un importe a dólares usando la cotización del mes. */
+export function toUsd(item: MoneyLike, rate: number): number {
+  if (item.currency === 'USD') return item.amount;
+  return rate > 0 ? item.amount / rate : 0;
+}
+
+export interface PeriodTotals {
+  totalLocal: number;
+  totalUsd: number;
+  restante: number; // en moneda local
+  pctUsado: number;
+  pagadoLocal: number;
+  pendienteLocal: number;
+  byCategory: Record<string, number>; // en moneda local
+}
+
+interface ExpenseLike extends MoneyLike {
+  categoryId: string;
+  status: 'pendiente' | 'pagado' | 'vencido';
+}
+
+/** Totales de un mes a partir de sus gastos, la cotización y el ingreso (en local). */
+export function periodTotals(
+  expenses: ExpenseLike[],
+  rate: number,
+  incomeTotal: number
+): PeriodTotals {
+  let totalLocal = 0;
+  let pagadoLocal = 0;
+  const byCategory: Record<string, number> = {};
+
+  for (const e of expenses) {
+    const local = toLocal(e, rate);
+    totalLocal += local;
+    if (e.status === 'pagado') pagadoLocal += local;
+    byCategory[e.categoryId] = (byCategory[e.categoryId] ?? 0) + local;
+  }
+
+  return {
+    totalLocal,
+    totalUsd: rate > 0 ? totalLocal / rate : 0,
+    restante: incomeTotal - totalLocal,
+    pctUsado: incomeTotal > 0 ? (totalLocal / incomeTotal) * 100 : 0,
+    pagadoLocal,
+    pendienteLocal: totalLocal - pagadoLocal,
+    byCategory,
+  };
+}
+
+const fmtCache = new Map<string, Intl.NumberFormat>();
+
+function getFormatter(currency: string, locale: string): Intl.NumberFormat {
+  const key = `${locale}:${currency}`;
+  let f = fmtCache.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: currencyDecimals(currency),
+    });
+    fmtCache.set(key, f);
+  }
+  return f;
+}
+
+/** Formatea un importe en cualquier moneda (ISO) con el locale dado. */
+export function formatMoney(
+  amount: number,
+  currency: string,
+  locale: string = DEFAULT_LOCALE
+): string {
+  return getFormatter(currency, locale).format(amount);
+}
+
+export function formatUSD(n: number, locale: string = DEFAULT_LOCALE): string {
+  return formatMoney(n, 'USD', locale);
+}
