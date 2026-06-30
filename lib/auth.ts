@@ -41,6 +41,12 @@ export const auth = betterAuth({
     // verificamos el correo, el cambio se aplica directo.
     changeEmail: { enabled: true },
   },
+  session: {
+    // Cierre por inactividad: la sesión expira a los 30 min y se refresca con
+    // la actividad (cada request, pasados 5 min, renueva el vencimiento).
+    expiresIn: 60 * 30,
+    updateAge: 60 * 5,
+  },
   plugins: [
     passkey({ rpID, rpName: 'Neta' }),
     lastLoginMethod(),

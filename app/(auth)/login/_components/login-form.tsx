@@ -7,8 +7,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Fingerprint } from 'lucide-react';
+import { Fingerprint, Clock } from 'lucide-react';
 import { authClient } from '@/lib/auth-client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +37,7 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
-export function LoginForm() {
+export function LoginForm({ expired = false }: { expired?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
@@ -112,6 +113,14 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle className="text-2xl">Iniciar sesión</CardTitle>
         <CardDescription className="text-base">Accede a tu gestor de gastos.</CardDescription>
+        {expired && (
+          <Alert className="mt-2">
+            <Clock className="size-4" />
+            <AlertDescription>
+              Tu sesión se cerró por inactividad. Inicia sesión de nuevo.
+            </AlertDescription>
+          </Alert>
+        )}
       </CardHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>

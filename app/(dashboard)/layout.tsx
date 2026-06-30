@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { HeaderUser } from '@/components/header-user';
 import { AnimationsProvider } from '@/components/animations-provider';
 import { AdvisorWidget } from '@/components/advisor/advisor-widget';
+import { IdleLogout } from '@/components/idle-logout';
 import { AppSidebar } from './_components/app-sidebar';
 import { HeaderRate, HeaderRateFallback } from './_components/header-rate';
 import { getOrCreateUserSettings } from './configuracion/queries';
@@ -52,6 +53,7 @@ export default async function DashboardLayout({
         </main>
       </SidebarInset>
       <AdvisorWidget />
+      <IdleLogout />
     </SidebarProvider>
     </AnimationsProvider>
   );
