@@ -15,7 +15,7 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS } from '@/lib/nav';
+import { NAV_ITEMS, isNewNavItem } from '@/lib/nav';
 import { NavUser } from './nav-user';
 
 export function AppSidebar({
@@ -59,6 +59,7 @@ export function AppSidebar({
                   item.href === '/'
                     ? pathname === '/'
                     : pathname.startsWith(item.href);
+                const isNew = isNewNavItem(item);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -66,7 +67,7 @@ export function AppSidebar({
                       size="lg"
                       isActive={active}
                       className={cn(
-                        'gap-3 text-[0.95rem] font-medium [&>svg]:size-5',
+                        'relative gap-3 text-[0.95rem] font-medium [&>svg]:size-5',
                         // Colapsado: icono arriba, texto debajo, todo centrado.
                         'group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full',
                         'group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center',
@@ -78,6 +79,16 @@ export function AppSidebar({
                         <span className="group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:text-center group-data-[collapsible=icon]:text-[0.65rem] group-data-[collapsible=icon]:font-medium group-data-[collapsible=icon]:leading-tight group-data-[collapsible=icon]:!overflow-visible group-data-[collapsible=icon]:!whitespace-normal group-data-[collapsible=icon]:break-words">
                           {item.title}
                         </span>
+                        {isNew && (
+                          <>
+                            {/* Expandido: pill "Nuevo" a la derecha, centrado */}
+                            <span className="bg-primary/15 text-primary ml-auto rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold group-data-[collapsible=icon]:hidden">
+                              Nuevo
+                            </span>
+                            {/* Colapsado: puntito sobre el icono */}
+                            <span className="bg-primary ring-sidebar absolute top-1.5 right-3 hidden size-2 rounded-full ring-2 group-data-[collapsible=icon]:block" />
+                          </>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
