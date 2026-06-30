@@ -42,6 +42,7 @@ export async function createGoal(input: unknown): Promise<ActionResult> {
     currency: data.currency,
     targetDate: data.targetDate ?? null,
     note: data.note ?? null,
+    icon: data.icon,
     color: data.color,
     sortOrder: nextOrder,
   });

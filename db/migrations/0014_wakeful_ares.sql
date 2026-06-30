@@ -1,0 +1,1 @@
+ALTER TABLE "goal" ADD COLUMN "icon" text DEFAULT 'target' NOT NULL;

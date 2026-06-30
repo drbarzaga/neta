@@ -48,6 +48,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
+import { IconPicker } from '@/components/icon-picker';
+import { CategoryIcon } from '@/components/category-icon';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import type { Goal } from '@/db';
@@ -231,11 +233,7 @@ function GoalCard({
             className="flex size-9 shrink-0 items-center justify-center rounded-xl"
             style={{ backgroundColor: `${goal.color}22`, color: goal.color }}
           >
-            {goal.completed ? (
-              <Trophy className="size-5" />
-            ) : (
-              <Target className="size-5" />
-            )}
+            <CategoryIcon name={goal.icon} className="size-5" />
           </span>
           <CardTitle className="truncate text-base group-hover:underline">
             {goal.title}
@@ -399,6 +397,7 @@ export function GoalDialog({
   const [currency, setCurrency] = useState(goal?.currency ?? localCurrency);
   const [targetDate, setTargetDate] = useState(goal?.targetDate ?? '');
   const [note, setNote] = useState(goal?.note ?? '');
+  const [icon, setIcon] = useState(goal?.icon ?? 'target');
   const [color, setColor] = useState(goal?.color ?? '#10b981');
 
   const isEdit = goal !== null;
@@ -415,6 +414,7 @@ export function GoalDialog({
       currency,
       targetDate: targetDate || null,
       note: note.trim() || null,
+      icon,
       color,
     };
     if (Number.isNaN(payload.targetAmount) || Number.isNaN(payload.savedAmount)) {
@@ -517,15 +517,21 @@ export function GoalDialog({
             />
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="goal-color">Color</Label>
-            <Input
-              id="goal-color"
-              type="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              className="h-10 w-16 p-1"
-            />
+          <div className="flex items-end gap-4">
+            <div className="grid gap-1.5">
+              <Label>Icono</Label>
+              <IconPicker value={icon} color={color} onChange={setIcon} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="goal-color">Color</Label>
+              <Input
+                id="goal-color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="h-10 w-16 p-1"
+              />
+            </div>
           </div>
         </div>
 

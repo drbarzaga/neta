@@ -27,6 +27,7 @@ export const goal = pgTable('goal', {
   currency: text().notNull().default('UYU'), // ISO-4217 (moneda local o USD)
   targetDate: date({ mode: 'string' }), // fecha objetivo, opcional
   note: text(), // descripción / notas libres, opcional
+  icon: text().notNull().default('target'), // clave del catálogo lib/category-icons
   color: text().notNull().default('#10b981'),
   completed: boolean().notNull().default(false),
   completedAt: timestamp(),

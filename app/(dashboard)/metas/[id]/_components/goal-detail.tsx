@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Target,
-  Trophy,
   Check,
   RotateCcw,
   Plus,
@@ -42,6 +41,7 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import { ProgressRing } from '@/components/progress-ring';
+import { CategoryIcon } from '@/components/category-icon';
 import { useAnimations } from '@/components/animations-provider';
 import { TrendingUp } from 'lucide-react';
 import { useConfirm } from '@/components/confirm-provider';
@@ -242,11 +242,7 @@ export function GoalDetail({
           className="flex size-10 shrink-0 items-center justify-center rounded-xl"
           style={{ backgroundColor: `${goal.color}22`, color: goal.color }}
         >
-          {goal.completed ? (
-            <Trophy className="size-5" />
-          ) : (
-            <Target className="size-5" />
-          )}
+          <CategoryIcon name={goal.icon} className="size-5" />
         </span>
         <h1 className="flex-1 text-2xl font-semibold tracking-tight">
           {goal.title}

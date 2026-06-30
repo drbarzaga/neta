@@ -33,6 +33,17 @@ import {
   Coins,
   TrendingUp,
   CalendarDays,
+  Target,
+  Trophy,
+  Rocket,
+  Star,
+  Heart,
+  Gem,
+  Bike,
+  Umbrella,
+  Building2,
+  Sprout,
+  PartyPopper,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -71,6 +82,17 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   coins: Coins,
   'trending-up': TrendingUp,
   calendar: CalendarDays,
+  target: Target,
+  trophy: Trophy,
+  rocket: Rocket,
+  star: Star,
+  heart: Heart,
+  gem: Gem,
+  bike: Bike,
+  umbrella: Umbrella,
+  building: Building2,
+  sprout: Sprout,
+  'party-popper': PartyPopper,
 };
 
 export const CATEGORY_ICON_KEYS = Object.keys(CATEGORY_ICONS);

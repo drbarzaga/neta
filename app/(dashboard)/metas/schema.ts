@@ -16,6 +16,7 @@ export const createGoalSchema = z.object({
   currency: currencyEnum.default('UYU'),
   targetDate: dateField,
   note: noteField,
+  icon: z.string().min(1).max(40).default('target'),
   color: z.string().max(20).default('#10b981'),
 });
 
@@ -27,6 +28,7 @@ export const updateGoalSchema = z.object({
   currency: currencyEnum.optional(),
   targetDate: dateField,
   note: noteField,
+  icon: z.string().min(1).max(40).optional(),
   color: z.string().max(20).optional(),
 });
 
