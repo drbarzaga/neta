@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Send, SquarePen, X } from 'lucide-react';
+import { Sparkles, Send, SquarePen, X, Check, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -13,16 +14,69 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { executeAdvisorAction } from '@/app/api/advisor/actions';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+type AdvisorAction =
+  | { type: 'add_expense'; category: string; concept: string; amount: number; currency?: string }
+  | { type: 'mark_paid'; concept: string }
+  | { type: 'create_goal'; title: string; target: number; currency?: string; targetDate?: string | null }
+  | { type: 'contribute_goal'; goal: string; amount: number };
+
+/** Separa el texto visible de las acciones propuestas (<action>{...}</action>). */
+function parseAdvisorContent(raw: string): {
+  text: string;
+  actions: AdvisorAction[];
+} {
+  const actions: AdvisorAction[] = [];
+  const re = /<action>([\s\S]*?)<\/action>/g;
+  let cleaned = '';
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(raw))) {
+    cleaned += raw.slice(last, m.index);
+    try {
+      const obj = JSON.parse(m[1].trim());
+      if (obj && typeof obj.type === 'string') actions.push(obj as AdvisorAction);
+    } catch {
+      // JSON inválido: se ignora
+    }
+    last = re.lastIndex;
+  }
+  cleaned += raw.slice(last);
+  // Oculta una etiqueta abierta sin cerrar (mientras llega por streaming).
+  const open = cleaned.lastIndexOf('<action>');
+  if (open !== -1 && !cleaned.slice(open).includes('</action>')) {
+    cleaned = cleaned.slice(0, open);
+  }
+  return { text: cleaned.trim(), actions };
+}
+
+function actionLabel(a: AdvisorAction): string {
+  switch (a.type) {
+    case 'add_expense':
+      return `Agregar gasto: ${a.concept} · ${a.amount} ${a.currency ?? ''} en ${a.category}`.replace(
+        / +/g,
+        ' '
+      );
+    case 'mark_paid':
+      return `Marcar como pagado: ${a.concept}`;
+    case 'create_goal':
+      return `Crear meta: ${a.title} · objetivo ${a.target} ${a.currency ?? ''}`.trim();
+    case 'contribute_goal':
+      return `Abonar ${a.amount} a la meta «${a.goal}»`;
+  }
+}
+
 const SUGGESTIONS = [
   '¿Cómo va mi presupuesto este mes?',
   '¿En qué puedo ahorrar?',
-  'Compara los últimos dos meses',
+  '¿Qué pasa si gasto $5.000 menos este mes?',
+  '¿Cuánto debo ahorrar por mes para mi meta?',
 ];
 
 /** Loader de tres puntos que saltan en secuencia. */
@@ -49,6 +103,9 @@ export function AdvisorWidget() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [actionState, setActionState] = useState<
+    Record<string, 'running' | 'done' | 'dismissed'>
+  >({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,6 +168,24 @@ export function AdvisorWidget() {
     if (streaming) return;
     setMessages([]);
     setInput('');
+    setActionState({});
+  }
+
+  function confirmAction(key: string, action: AdvisorAction) {
+    setActionState((s) => ({ ...s, [key]: 'running' }));
+    executeAdvisorAction(action).then((res) => {
+      if (res.ok) {
+        setActionState((s) => ({ ...s, [key]: 'done' }));
+        toast.success('Listo, lo hice');
+      } else {
+        toast.error(res.error ?? 'No se pudo realizar la acción');
+        setActionState((s) => {
+          const next = { ...s };
+          delete next[key];
+          return next;
+        });
+      }
+    });
   }
 
   const empty = messages.length === 0;
@@ -207,6 +282,9 @@ export function AdvisorWidget() {
                   i === messages.length - 1 &&
                   m.role === 'assistant';
                 const isUser = m.role === 'user';
+                const parsed = isUser
+                  ? { text: m.content, actions: [] as AdvisorAction[] }
+                  : parseAdvisorContent(m.content);
                 return (
                   <div
                     key={i}
@@ -223,10 +301,10 @@ export function AdvisorWidget() {
                     <div
                       className={cn(
                         'flex min-w-0 flex-col gap-1.5',
-                        isUser ? 'items-end' : 'items-start'
+                        isUser ? 'items-end' : 'w-full items-start'
                       )}
                     >
-                      {m.content && (
+                      {parsed.text && (
                         <div
                           className={cn(
                             'max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap shadow-sm',
@@ -235,9 +313,60 @@ export function AdvisorWidget() {
                               : 'bg-background rounded-tl-md'
                           )}
                         >
-                          {m.content}
+                          {parsed.text}
                         </div>
                       )}
+
+                      {/* Acciones propuestas por el asesor */}
+                      {parsed.actions.map((a, ai) => {
+                        const key = `${i}:${ai}`;
+                        const st = actionState[key];
+                        return (
+                          <div
+                            key={ai}
+                            className="bg-background flex w-full max-w-[92%] items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-sm"
+                          >
+                            <Zap className="text-primary size-4 shrink-0" />
+                            <span className="min-w-0 flex-1">{actionLabel(a)}</span>
+                            {st === 'done' ? (
+                              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                                <Check className="size-3.5" /> Hecho
+                              </span>
+                            ) : st === 'dismissed' ? (
+                              <span className="text-muted-foreground shrink-0 text-xs">
+                                Descartado
+                              </span>
+                            ) : (
+                              <span className="flex shrink-0 items-center gap-1">
+                                <Button
+                                  size="sm"
+                                  className="h-7"
+                                  disabled={st === 'running'}
+                                  onClick={() => confirmAction(key, a)}
+                                >
+                                  {st === 'running' ? '…' : 'Confirmar'}
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="size-7"
+                                  aria-label="Descartar"
+                                  disabled={st === 'running'}
+                                  onClick={() =>
+                                    setActionState((s) => ({
+                                      ...s,
+                                      [key]: 'dismissed',
+                                    }))
+                                  }
+                                >
+                                  <X className="size-4" />
+                                </Button>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+
                       {isStreamingLast && <TypingDots className="px-2 py-1" />}
                     </div>
                   </div>

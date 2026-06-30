@@ -1,5 +1,5 @@
 import 'server-only';
-import { db, eq, desc, asc, period, expense, category } from '@/db';
+import { db, eq, desc, asc, period, expense, category, goal } from '@/db';
 import { periodTotals, formatMoney } from '@/lib/money';
 
 const MAX_PERIODS = 12;
@@ -13,7 +13,7 @@ export async function buildFinancialContext(userId: string): Promise<{
   hasData: boolean;
   context: string;
 }> {
-  const [periods, cats] = await Promise.all([
+  const [periods, cats, goals] = await Promise.all([
     db
       .select()
       .from(period)
@@ -25,6 +25,11 @@ export async function buildFinancialContext(userId: string): Promise<{
       .from(category)
       .where(eq(category.userId, userId))
       .orderBy(asc(category.sortOrder)),
+    db
+      .select()
+      .from(goal)
+      .where(eq(goal.userId, userId))
+      .orderBy(asc(goal.sortOrder)),
   ]);
 
   if (periods.length === 0) {
@@ -45,11 +50,32 @@ export async function buildFinancialContext(userId: string): Promise<{
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const lines: string[] = [
-    `Fecha de hoy: ${today}.`,
+  const lines: string[] = [`Fecha de hoy: ${today}.`, ''];
+
+  if (cats.length > 0) {
+    lines.push(
+      `Categorías del usuario (usa estos nombres exactos): ${cats
+        .map((c) => c.name)
+        .join(', ')}.`,
+      ''
+    );
+  }
+
+  if (goals.length > 0) {
+    lines.push('Metas del usuario:');
+    for (const g of goals) {
+      const cur = g.currency;
+      lines.push(
+        `- ${g.title}: ${formatMoney(g.savedAmount, cur, 'es-UY')} de ${formatMoney(g.targetAmount, cur, 'es-UY')}${g.completed ? ' (completada)' : ''}`
+      );
+    }
+    lines.push('');
+  }
+
+  lines.push(
     `Meses disponibles (del más reciente al más antiguo, máximo ${MAX_PERIODS}):`,
-    '',
-  ];
+    ''
+  );
 
   for (const p of periods) {
     const items = byPeriod.get(p.id) ?? [];

@@ -85,6 +85,20 @@
       "when": 1782826439949,
       "tag": "0011_mixed_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782836821230,
+      "tag": "0012_fair_rachel_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1782837915263,
+      "tag": "0013_mature_darkhawk",
+      "breakpoints": true
     }
   ]
 }

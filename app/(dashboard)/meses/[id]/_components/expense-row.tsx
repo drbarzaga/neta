@@ -40,6 +40,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-provider';
 import { BrandLogo } from '@/components/brand-logo';
+import { DatePicker } from '@/components/date-picker';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal } from '@/db';
@@ -240,13 +241,11 @@ export function ExpenseRow({
         </Select>
       </TableCell>
       <TableCell className="w-36">
-        <Input
-          type="date"
-          value={expense.dueDate ?? ''}
-          onChange={(e) =>
-            save({ id: expense.id, dueDate: e.target.value || null })
-          }
-          className="h-8 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
+        <DatePicker
+          value={expense.dueDate}
+          onChange={(iso) => save({ id: expense.id, dueDate: iso })}
+          placeholder="—"
+          className="h-8 w-full border-transparent bg-transparent px-2 text-sm hover:border-input"
         />
       </TableCell>
       <TableCell className="w-44 px-4">

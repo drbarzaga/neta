@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirm-provider';
+import { DatePicker } from '@/components/date-picker';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import type { Goal } from '@/db';
@@ -495,12 +496,11 @@ export function GoalDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="goal-date">Fecha objetivo (opcional)</Label>
-              <Input
-                id="goal-date"
-                type="date"
+              <Label>Fecha objetivo (opcional)</Label>
+              <DatePicker
                 value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
+                onChange={(iso) => setTargetDate(iso ?? '')}
+                className="w-full"
               />
             </div>
           </div>
