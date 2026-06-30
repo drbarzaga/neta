@@ -6,3 +6,5 @@ export * from './expense-template';
 export * from './email-preference';
 export * from './exchange-rate';
 export * from './user-settings';
+export * from './goal';
+export * from './goal-contribution';

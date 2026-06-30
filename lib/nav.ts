@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   CalendarDays,
+  Target,
   BarChart3,
   Tags,
   Bookmark,
@@ -18,6 +19,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { title: 'Resumen', href: '/', icon: LayoutDashboard },
   { title: 'Meses', href: '/meses', icon: CalendarDays },
+  { title: 'Metas', href: '/metas', icon: Target },
   { title: 'Analítica', href: '/analitica', icon: BarChart3 },
   { title: 'Categorías', href: '/categorias', icon: Tags },
   { title: 'Plantillas', href: '/plantillas', icon: Bookmark },

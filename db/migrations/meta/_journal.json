@@ -64,6 +64,20 @@
       "when": 1782768701472,
       "tag": "0008_hard_ma_gnuci",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782820341571,
+      "tag": "0009_certain_albert_cleary",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782820876220,
+      "tag": "0010_giant_ultimo",
+      "breakpoints": true
     }
   ]
 }
