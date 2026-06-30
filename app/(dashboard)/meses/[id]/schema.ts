@@ -40,6 +40,15 @@ export const setExpenseGoalSchema = z.object({
   goalId: z.uuid().nullable(),
 });
 
+// Mover un gasto a otra categoría (o reordenar dentro de la misma) y fijar el
+// orden de la categoría destino con la lista de ids.
+export const moveExpenseSchema = z.object({
+  id: z.uuid(),
+  periodId: z.uuid(),
+  toCategoryId: z.uuid(),
+  orderedIds: z.array(z.uuid()).min(1),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;

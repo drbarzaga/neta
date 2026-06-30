@@ -15,11 +15,13 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragEndEvent,
+  type DragOverEvent,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -34,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
+  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -54,7 +57,7 @@ import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { MonthActions } from './month-actions';
-import { addExpense, updatePeriodHeader, reorderExpenses } from '../actions';
+import { addExpense, updatePeriodHeader, moveExpense } from '../actions';
 
 export function MonthDetail({
   period,
@@ -93,25 +96,78 @@ export function MonthDetail({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  function handleDragEnd(categoryId: string, event: DragEndEvent) {
+  // ¿En qué categoría está un id? (un id puede ser un gasto o una categoría vacía)
+  function containerOf(list: Expense[], id: string): string | undefined {
+    if (categories.some((c) => c.id === id)) return id;
+    return list.find((e) => e.id === id)?.categoryId;
+  }
+
+  // Mientras se arrastra entre categorías, mueve el ítem de categoría (optimista).
+  function handleDragOver(event: DragOverEvent) {
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const catItems = items.filter((e) => e.categoryId === categoryId);
-    const oldIndex = catItems.findIndex((e) => e.id === active.id);
-    const newIndex = catItems.findIndex((e) => e.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+    setItems((prev) => {
+      const activeItem = prev.find((e) => e.id === activeId);
+      if (!activeItem) return prev;
+      const overContainer = containerOf(prev, overId);
+      if (!overContainer || activeItem.categoryId === overContainer) return prev;
 
-    const reordered = arrayMove(catItems, oldIndex, newIndex);
-    const queue = [...reordered];
-    setItems(items.map((e) => (e.categoryId === categoryId ? queue.shift()! : e)));
-
-    startTransition(async () => {
-      const res = await reorderExpenses({
-        periodId: period.id,
-        categoryId,
-        orderedIds: reordered.map((e) => e.id),
+      const without = prev.filter((e) => e.id !== activeId);
+      const moved = { ...activeItem, categoryId: overContainer };
+      const overIsContainer = categories.some((c) => c.id === overId);
+      if (!overIsContainer) {
+        const idx = without.findIndex((e) => e.id === overId);
+        if (idx === -1) return [...without, moved];
+        return [...without.slice(0, idx), moved, ...without.slice(idx)];
+      }
+      // Soltado sobre una categoría vacía / su zona: al final de esa categoría.
+      let lastIdx = -1;
+      without.forEach((e, i) => {
+        if (e.categoryId === overContainer) lastIdx = i;
       });
-      if (!res.ok) toast.error(res.error ?? 'No se pudo reordenar');
+      return [...without.slice(0, lastIdx + 1), moved, ...without.slice(lastIdx + 1)];
+    });
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over) return;
+    const activeId = String(active.id);
+    const overId = String(over.id);
+
+    const activeItem = items.find((e) => e.id === activeId);
+    if (!activeItem) return;
+    const container = activeItem.categoryId; // ya refleja el destino tras dragOver
+
+    let next = items;
+    const overItem = items.find((e) => e.id === overId);
+    if (overItem && overItem.categoryId === container && overId !== activeId) {
+      const ids = items.filter((e) => e.categoryId === container).map((e) => e.id);
+      const oldIndex = ids.indexOf(activeId);
+      const newIndex = ids.indexOf(overId);
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(ids, oldIndex, newIndex);
+        const byId = new Map(items.map((e) => [e.id, e]));
+        const queue = reordered.map((id) => byId.get(id)!);
+        let qi = 0;
+        next = items.map((e) => (e.categoryId === container ? queue[qi++] : e));
+        setItems(next);
+      }
+    }
+
+    const orderedIds = next
+      .filter((e) => e.categoryId === container)
+      .map((e) => e.id);
+    startTransition(async () => {
+      const res = await moveExpense({
+        id: activeId,
+        periodId: period.id,
+        toCategoryId: container,
+        orderedIds,
+      });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo mover');
     });
   }
 
@@ -207,7 +263,6 @@ export function MonthDetail({
     });
   }
 
-  let order = 0;
   const pct = Math.min(100, Math.max(0, totals.pctUsado));
   const overBudget = totals.restante < 0;
 
@@ -331,7 +386,15 @@ export function MonthDetail({
         </Button>
       </div>
 
-      {/* Secciones por categoría (colapsables) */}
+      {/* Secciones por categoría (colapsables). Un solo DndContext permite
+          reordenar dentro de una categoría y mover gastos entre categorías. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        autoScroll={false}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
       <div className="flex flex-col gap-4">
         {categories.map((cat) => {
           const rows = grouped.get(cat.id) ?? [];
@@ -386,30 +449,14 @@ export function MonthDetail({
                           <TableHead className="w-10" />
                         </TableRow>
                       </TableHeader>
-                      <TableBody>
-                        <DndContext
-                          sensors={sensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(event) => handleDragEnd(cat.id, event)}
-                        >
-                          <SortableContext
-                            items={rows.map((e) => e.id)}
-                            strategy={verticalListSortingStrategy}
-                          >
-                            {rows.map((e) => (
-                              <ExpenseRow
-                                key={e.id}
-                                expense={e}
-                                order={++order}
-                                rate={liveRate}
-                                localCurrency={localCurrency}
-                                locale={locale}
-                                goals={goals}
-                              />
-                            ))}
-                          </SortableContext>
-                        </DndContext>
-                      </TableBody>
+                      <CategoryRows
+                        categoryId={cat.id}
+                        rows={rows}
+                        rate={liveRate}
+                        localCurrency={localCurrency}
+                        locale={locale}
+                        goals={goals}
+                      />
                     </Table>
                     <div className="px-2 py-2">
                       <Button
@@ -429,7 +476,58 @@ export function MonthDetail({
           );
         })}
       </div>
+      </DndContext>
     </div>
+  );
+}
+
+/** Cuerpo de tabla de una categoría: droppable + sortable + filas. */
+function CategoryRows({
+  categoryId,
+  rows,
+  rate,
+  localCurrency,
+  locale,
+  goals,
+}: {
+  categoryId: string;
+  rows: Expense[];
+  rate: number;
+  localCurrency: string;
+  locale: string;
+  goals: Goal[];
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: categoryId });
+  return (
+    <TableBody ref={setNodeRef} className={cn(isOver && 'bg-primary/5')}>
+      <SortableContext
+        items={rows.map((e) => e.id)}
+        strategy={verticalListSortingStrategy}
+      >
+        {rows.length === 0 ? (
+          <TableRow className="hover:bg-transparent">
+            <TableCell
+              colSpan={9}
+              className="text-muted-foreground py-6 text-center text-sm"
+            >
+              Arrastra un gasto aquí o usa «Agregar gasto».
+            </TableCell>
+          </TableRow>
+        ) : (
+          rows.map((e, i) => (
+            <ExpenseRow
+              key={e.id}
+              expense={e}
+              order={i + 1}
+              rate={rate}
+              localCurrency={localCurrency}
+              locale={locale}
+              goals={goals}
+            />
+          ))
+        )}
+      </SortableContext>
+    </TableBody>
   );
 }
 

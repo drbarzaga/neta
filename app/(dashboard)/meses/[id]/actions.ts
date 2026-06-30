@@ -8,6 +8,7 @@ import {
   inArray,
   expense,
   period,
+  category,
   expenseTemplate,
   goal,
   goalContribution,
@@ -22,6 +23,7 @@ import {
   periodHeaderSchema,
   reorderExpensesSchema,
   setExpenseGoalSchema,
+  moveExpenseSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -227,6 +229,68 @@ export async function reorderExpenses(input: unknown): Promise<ActionResult> {
       .update(expense)
       .set({ sortOrder: order++ })
       .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  }
+
+  revalidate(periodId);
+  return ok();
+}
+
+/**
+ * Mueve un gasto a otra categoría (o lo reordena en la misma) y fija el orden
+ * de la categoría destino. `orderedIds` es el nuevo orden completo del destino,
+ * incluyendo el gasto movido.
+ */
+export async function moveExpense(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = moveExpenseSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, periodId, toCategoryId, orderedIds } = parsed.data;
+
+  if (!(await ownsPeriod(session.userId, periodId))) return UNAUTHORIZED;
+
+  // La categoría destino debe ser del usuario.
+  const [cat] = await db
+    .select({ id: category.id })
+    .from(category)
+    .where(and(eq(category.id, toCategoryId), eq(category.userId, session.userId)));
+  if (!cat) return fail('Categoría no encontrada');
+
+  // Mueve el gasto a la categoría destino.
+  const moved = await db
+    .update(expense)
+    .set({ categoryId: toCategoryId })
+    .where(
+      and(
+        eq(expense.id, id),
+        eq(expense.userId, session.userId),
+        eq(expense.periodId, periodId)
+      )
+    )
+    .returning({ id: expense.id });
+  if (moved.length === 0) return UNAUTHORIZED;
+
+  // Reordena la categoría destino según orderedIds (solo ids ya en esa categoría).
+  const owned = await db
+    .select({ id: expense.id })
+    .from(expense)
+    .where(
+      and(
+        eq(expense.userId, session.userId),
+        eq(expense.periodId, periodId),
+        eq(expense.categoryId, toCategoryId)
+      )
+    );
+  const valid = new Set(owned.map((e) => e.id));
+
+  let order = 0;
+  for (const eid of orderedIds) {
+    if (!valid.has(eid)) continue;
+    await db
+      .update(expense)
+      .set({ sortOrder: order++ })
+      .where(and(eq(expense.id, eid), eq(expense.userId, session.userId)));
   }
 
   revalidate(periodId);
