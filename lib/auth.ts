@@ -42,9 +42,9 @@ export const auth = betterAuth({
     changeEmail: { enabled: true },
   },
   session: {
-    // Cierre por inactividad: la sesión expira a los 30 min y se refresca con
+    // Cierre por inactividad: la sesión expira a la hora y se refresca con
     // la actividad (cada request, pasados 5 min, renueva el vencimiento).
-    expiresIn: 60 * 30,
+    expiresIn: 60 * 60,
     updateAge: 60 * 5,
   },
   plugins: [

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { authClient } from '@/lib/auth-client';
 
 /** Minutos de inactividad antes de cerrar la sesión. */
-const IDLE_MINUTES = 30;
+const IDLE_MINUTES = 60;
 const IDLE_MS = IDLE_MINUTES * 60 * 1000;
 
 const ACTIVITY_EVENTS = [
