@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db, eq, and, desc, period, category, expense, goal } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { addExpense, updateExpense } from '@/app/(dashboard)/meses/[id]/actions';
+import { createPeriod } from '@/app/(dashboard)/meses/actions';
 import { createGoal, contributeGoal } from '@/app/(dashboard)/metas/actions';
 
 export interface AdvisorActionResult {
@@ -34,6 +35,13 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     type: z.literal('contribute_goal'),
     goal: z.string().min(1),
     amount: z.number(),
+  }),
+  z.object({
+    type: z.literal('create_month'),
+    year: z.number().int().min(2000).max(2100),
+    month: z.number().int().min(1).max(12),
+    copyFromMonth: z.number().int().min(1).max(12).optional(),
+    copyFromYear: z.number().int().min(2000).max(2100).optional(),
   }),
 ]);
 
@@ -98,6 +106,39 @@ export async function executeAdvisorAction(
       targetAmount: a.target,
       currency: a.currency ?? latest?.localCurrency ?? 'UYU',
       targetDate: a.targetDate ?? null,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'create_month') {
+    let cloneFromId: string | undefined;
+    let incomeTotal = 0;
+    if (a.copyFromMonth) {
+      const cy = a.copyFromYear ?? a.year;
+      const [src] = await db
+        .select({ id: period.id, income: period.incomeTotal })
+        .from(period)
+        .where(
+          and(
+            eq(period.userId, session.userId),
+            eq(period.year, cy),
+            eq(period.month, a.copyFromMonth)
+          )
+        );
+      if (!src) {
+        return {
+          ok: false,
+          error: `No encontré el mes ${a.copyFromMonth}/${cy} para copiar`,
+        };
+      }
+      cloneFromId = src.id;
+      incomeTotal = src.income;
+    }
+    const res = await createPeriod({
+      year: a.year,
+      month: a.month,
+      incomeTotal,
+      cloneFromId,
     });
     return { ok: res.ok, error: res.error };
   }

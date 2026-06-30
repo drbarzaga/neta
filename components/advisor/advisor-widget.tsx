@@ -25,7 +25,27 @@ type AdvisorAction =
   | { type: 'add_expense'; category: string; concept: string; amount: number; currency?: string }
   | { type: 'mark_paid'; concept: string }
   | { type: 'create_goal'; title: string; target: number; currency?: string; targetDate?: string | null }
-  | { type: 'contribute_goal'; goal: string; amount: number };
+  | { type: 'contribute_goal'; goal: string; amount: number }
+  | { type: 'create_month'; year: number; month: number; copyFromMonth?: number; copyFromYear?: number };
+
+const MONTHS_ES = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
+
+function monthName(m: number): string {
+  return MONTHS_ES[m - 1] ?? String(m);
+}
 
 /** Separa el texto visible de las acciones propuestas (<action>{...}</action>). */
 function parseAdvisorContent(raw: string): {
@@ -69,6 +89,12 @@ function actionLabel(a: AdvisorAction): string {
       return `Crear meta: ${a.title} · objetivo ${a.target} ${a.currency ?? ''}`.trim();
     case 'contribute_goal':
       return `Abonar ${a.amount} a la meta «${a.goal}»`;
+    case 'create_month': {
+      const base = a.copyFromMonth
+        ? ` (copiando ${monthName(a.copyFromMonth)})`
+        : '';
+      return `Crear mes: ${monthName(a.month)} de ${a.year}${base}`;
+    }
   }
 }
 

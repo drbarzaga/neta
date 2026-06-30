@@ -107,6 +107,7 @@ function buildSystem(context: string): string {
     '  • mark_paid {concept} — marca como pagado un gasto del mes más reciente.',
     '  • create_goal {title, target, currency?, targetDate?} — crea una meta de ahorro.',
     '  • contribute_goal {goal, amount} — registra un abono a una meta existente.',
+    '  • create_month {year, month, copyFromMonth?, copyFromYear?} — crea un mes (año y mes numéricos). Para "basado en/copiando" otro mes, pasa copyFromMonth (y copyFromYear si difiere); copia los gastos e ingreso de ese mes.',
     '- Usa EXACTAMENTE los nombres de categorías y metas que aparecen en los datos.',
     '- Solo propone acciones que el usuario pidió explícitamente. Si falta un dato, pregúntalo en vez de inventarlo.',
     '- No expliques el JSON ni muestres la etiqueta en tu texto; el sistema la convierte en un botón de confirmar.',
