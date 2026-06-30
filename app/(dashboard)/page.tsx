@@ -15,6 +15,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Money, Pct } from '@/components/money';
 import { CategoryIcon } from '@/components/category-icon';
 import { BrandLogo } from '@/components/brand-logo';
@@ -221,22 +227,30 @@ export default async function DashboardPage() {
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              {subscriptions.slice(0, 10).map((s) => (
-                <span
-                  key={s.id}
-                  title={`${s.concept} · ${formatMoney(toDisp(s.local, rate), dispCode, locale)}`}
-                  className="bg-muted ring-border/50 flex size-11 items-center justify-center rounded-full ring-1"
-                >
-                  <BrandLogo concept={s.concept} className="size-5" />
-                </span>
-              ))}
-              {subscriptions.length > 10 && (
-                <span className="bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full text-xs font-medium">
-                  +{subscriptions.length - 10}
-                </span>
-              )}
-            </div>
+            <TooltipProvider delayDuration={100}>
+              <div className="flex flex-wrap items-center gap-2.5">
+                {subscriptions.slice(0, 10).map((s) => (
+                  <Tooltip key={s.id}>
+                    <TooltipTrigger asChild>
+                      <span className="bg-muted ring-border/50 flex size-11 cursor-default items-center justify-center rounded-full ring-1">
+                        <BrandLogo concept={s.concept} className="size-5" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="flex flex-col items-center gap-0.5">
+                      <span className="font-medium">{s.concept}</span>
+                      <span className="tabular-nums">
+                        {formatMoney(toDisp(s.local, rate), dispCode, locale)} / mes
+                      </span>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+                {subscriptions.length > 10 && (
+                  <span className="bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full text-xs font-medium">
+                    +{subscriptions.length - 10}
+                  </span>
+                )}
+              </div>
+            </TooltipProvider>
           </CardContent>
         </Card>
       )}

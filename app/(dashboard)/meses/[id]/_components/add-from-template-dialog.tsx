@@ -20,16 +20,29 @@ import { CategoryIcon } from '@/components/category-icon';
 import type { TemplateRow } from '../../../plantillas/queries';
 import { addExpensesFromTemplates } from '../actions';
 
+/** Clave para emparejar una plantilla con un gasto ya presente en el mes. */
+function key(categoryId: string, concept: string) {
+  return `${categoryId}|${concept.trim().toLowerCase()}`;
+}
+
 export function AddFromTemplateDialog({
   periodId,
   templates,
+  taken,
 }: {
   periodId: string;
   templates: TemplateRow[];
+  /** Claves (categoría|concepto) de gastos ya presentes en el mes. */
+  taken?: Set<string>;
 }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [pending, startTransition] = useTransition();
+
+  // Solo ofrecemos plantillas que aún no estén cargadas en este mes.
+  const available = taken
+    ? templates.filter((t) => !taken.has(key(t.categoryId, t.concept)))
+    : templates;
 
   const ids = Object.keys(selected).filter((k) => selected[k]);
 
@@ -73,10 +86,15 @@ export function AddFromTemplateDialog({
               <Link href="/plantillas">Crear plantillas</Link>
             </Button>
           </div>
+        ) : available.length === 0 ? (
+          <div className="text-muted-foreground flex flex-col items-center gap-3 py-8 text-center text-sm">
+            <Bookmark className="size-8" />
+            <p>Ya agregaste todas tus plantillas a este mes.</p>
+          </div>
         ) : (
           <div className="-mx-2 max-h-[50vh] overflow-y-auto px-2">
             <div className="flex flex-col gap-1">
-              {templates.map((t) => (
+              {available.map((t) => (
                 <label
                   key={t.id}
                   className="hover:bg-muted/60 flex cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5"

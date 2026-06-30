@@ -199,6 +199,16 @@ export function MonthDetail({
     return map;
   }, [categories, items]);
 
+  // Plantillas ya presentes en el mes (clave categoría|concepto), para no
+  // ofrecerlas de nuevo en "Agregar desde plantilla".
+  const takenTemplateKeys = useMemo(
+    () =>
+      new Set(
+        items.map((e) => `${e.categoryId}|${e.concept.trim().toLowerCase()}`)
+      ),
+    [items]
+  );
+
   const allOpen = categories.every((c) => openMap[c.id] !== false);
   const storageKey = `finanzas:collapsed:${period.id}`;
 
@@ -280,7 +290,11 @@ export function MonthDetail({
         <Badge variant={period.status === 'open' ? 'default' : 'secondary'}>
           {period.status === 'open' ? 'Abierto' : 'Cerrado'}
         </Badge>
-        <AddFromTemplateDialog periodId={period.id} templates={templates} />
+        <AddFromTemplateDialog
+          periodId={period.id}
+          templates={templates}
+          taken={takenTemplateKeys}
+        />
         <MonthActions
           periodId={period.id}
           label={period.label}
