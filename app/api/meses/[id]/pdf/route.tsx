@@ -3,6 +3,9 @@ import {
   Page,
   View,
   Text,
+  Svg,
+  Circle,
+  G,
   StyleSheet,
   renderToBuffer,
 } from '@react-pdf/renderer';
@@ -47,6 +50,11 @@ const styles = StyleSheet.create({
   },
   cardLabel: { color: '#6b7280', fontSize: 8 },
   cardValue: { fontSize: 14, fontFamily: 'Helvetica-Bold', marginTop: 4 },
+  ringCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  ringInfo: { flex: 1, gap: 2 },
+  ringInfoLabel: { fontSize: 7, color: '#9ca3af' },
+  ringPaid: { fontSize: 9, color: '#059669', fontFamily: 'Helvetica-Bold' },
+  ringPend: { fontSize: 9, color: '#d97706', fontFamily: 'Helvetica-Bold' },
   catHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -61,18 +69,24 @@ const styles = StyleSheet.create({
   catName: { fontSize: 11, fontFamily: 'Helvetica-Bold', color: '#ffffff' },
   trow: {
     flexDirection: 'row',
-    paddingVertical: 4,
+    gap: 12,
+    paddingVertical: 5,
     paddingHorizontal: 8,
     borderBottomWidth: 0.5,
     borderBottomColor: '#e5e7eb',
   },
-  thead: { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 3 },
+  thead: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
   th: { color: '#6b7280', fontSize: 8 },
   cConcept: { flex: 3 },
   cAmount: { flex: 2, textAlign: 'right' },
   cUsd: { flex: 2, textAlign: 'right', color: '#6b7280' },
-  cStatus: { flex: 1.5 },
-  cDue: { flex: 1.5 },
+  cStatus: { flex: 2 },
+  cDue: { flex: 2 },
   footer: {
     position: 'absolute',
     bottom: 24,
@@ -95,6 +109,51 @@ function formatDate(iso: string | null): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+/** Anillo de progreso (mismo que la página del mes), dibujado con SVG. */
+function Ring({ pct, color, size = 64 }: { pct: number; color: string; size?: number }) {
+  const stroke = 8;
+  const r = (size - stroke) / 2;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.min(100, Math.max(0, pct));
+  const dash = (clamped / 100) * circ;
+  const m = size / 2;
+  return (
+    <Svg width={size} height={size}>
+      <Circle cx={m} cy={m} r={r} stroke="#e5e7eb" strokeWidth={stroke} fill="none" />
+      <G transform={`rotate(-90, ${m}, ${m})`}>
+        <Circle
+          cx={m}
+          cy={m}
+          r={r}
+          stroke={color}
+          strokeWidth={stroke}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={`${dash} ${circ}`}
+        />
+      </G>
+      <Text
+        x={m}
+        y={m + 1}
+        textAnchor="middle"
+        fill="#111827"
+        style={{ fontSize: 13, fontFamily: 'Helvetica-Bold' }}
+      >
+        {`${Math.round(pct)}%`}
+      </Text>
+      <Text
+        x={m}
+        y={m + 11}
+        textAnchor="middle"
+        fill="#6b7280"
+        style={{ fontSize: 5.5 }}
+      >
+        USADO
+      </Text>
+    </Svg>
+  );
 }
 
 export async function GET(
@@ -120,6 +179,12 @@ export async function GET(
 
   const rate = period.dollarRate;
   const totals = periodTotals(expenses, rate, period.incomeTotal);
+  const overBudget = totals.restante < 0;
+  const ringColor = overBudget
+    ? '#dc2626'
+    : totals.pctUsado > 90
+      ? '#f59e0b'
+      : PRIMARY;
   const grouped = new Map<string, typeof expenses>();
   for (const c of categories) grouped.set(c.id, []);
   for (const e of expenses) {
@@ -167,10 +232,20 @@ export async function GET(
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Restante del mes</Text>
             <Text style={styles.cardValue}>{fmtLocal(totals.restante)}</Text>
+            <Text style={styles.cardLabel}>
+              {formatUSD(
+                toUsd({ amount: totals.restante, currency: localCurrency }, rate),
+                locale
+              )}
+            </Text>
           </View>
-          <View style={styles.card}>
-            <Text style={styles.cardLabel}>% usado</Text>
-            <Text style={styles.cardValue}>{totals.pctUsado.toFixed(1)}%</Text>
+          <View style={[styles.card, styles.ringCard]}>
+            <Ring pct={totals.pctUsado} color={ringColor} size={64} />
+            <View style={styles.ringInfo}>
+              <Text style={styles.ringInfoLabel}>Estado de pagos</Text>
+              <Text style={styles.ringPaid}>{fmtLocal(totals.pagadoLocal)} pagado</Text>
+              <Text style={styles.ringPend}>{fmtLocal(totals.pendienteLocal)} pend.</Text>
+            </View>
           </View>
         </View>
 
