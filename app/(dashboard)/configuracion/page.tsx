@@ -1,15 +1,7 @@
 import type { Metadata } from 'next';
 import { requireSession } from '@/lib/auth-server';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { getOrCreateEmailPreference, getOrCreateUserSettings } from './queries';
+import { ProfileForm } from './_components/profile-form';
 import { PreferencesForm } from './_components/preferences-form';
 import { RegionForm } from './_components/region-form';
 import { AppearanceForm } from './_components/appearance-form';
@@ -32,22 +24,7 @@ export default async function ConfiguracionPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Perfil</CardTitle>
-          <CardDescription>Datos de tu cuenta.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="grid gap-1.5">
-            <Label>Nombre</Label>
-            <Input value={user.name} disabled />
-          </div>
-          <div className="grid gap-1.5">
-            <Label>Email</Label>
-            <Input value={user.email} disabled />
-          </div>
-        </CardContent>
-      </Card>
+      <ProfileForm initialName={user.name} initialEmail={user.email} />
 
       <RegionForm
         initial={{

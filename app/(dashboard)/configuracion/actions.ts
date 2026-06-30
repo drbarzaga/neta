@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, emailPreference, userSettings } from '@/db';
+import { db, eq, sql, emailPreference, userSettings, user } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { COUNTRIES } from '@/lib/countries';
@@ -14,6 +14,24 @@ import {
   appearanceSchema,
   apiKeySchema,
 } from './schema';
+
+/** ¿El correo está libre? (lo usa el campo de email del perfil, estilo Google). */
+export async function checkEmailAvailable(
+  email: string
+): Promise<{ available: boolean }> {
+  const session = await verifySession();
+  if (!session) return { available: false };
+  const e = email.trim().toLowerCase();
+  if (!e) return { available: false };
+
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(sql`lower(${user.email}) = ${e}`);
+  // Disponible si nadie más (otro usuario) ya lo tiene.
+  const taken = rows.some((r) => r.id !== session.userId);
+  return { available: !taken };
+}
 
 export async function updateEmailPreference(
   input: unknown

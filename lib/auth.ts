@@ -36,6 +36,11 @@ export const auth = betterAuth({
       });
     },
   },
+  user: {
+    // Permite que el usuario cambie su correo desde Configuración. Como no
+    // verificamos el correo, el cambio se aplica directo.
+    changeEmail: { enabled: true },
+  },
   plugins: [
     passkey({ rpID, rpName: 'Neta' }),
     lastLoginMethod(),
