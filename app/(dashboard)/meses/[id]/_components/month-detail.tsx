@@ -48,7 +48,7 @@ import { CategoryIcon } from '@/components/category-icon';
 import { ProgressRing } from '@/components/progress-ring';
 import { periodTotals } from '@/lib/money';
 import { Money, Pct } from '@/components/money';
-import type { Category, Expense, Period } from '@/db';
+import type { Category, Expense, Period, Goal } from '@/db';
 import type { TemplateRow } from '../../../plantillas/queries';
 import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
@@ -61,6 +61,7 @@ export function MonthDetail({
   categories,
   expenses,
   templates,
+  goals,
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -68,6 +69,7 @@ export function MonthDetail({
   categories: Category[];
   expenses: Expense[];
   templates: TemplateRow[];
+  goals: Goal[];
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -373,13 +375,14 @@ export function MonthDetail({
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-12">#</TableHead>
-                          <TableHead>Concepto</TableHead>
-                          <TableHead className="text-right">Monto</TableHead>
-                          <TableHead>Mon.</TableHead>
-                          <TableHead className="text-right">USD aprox</TableHead>
-                          <TableHead>Estado</TableHead>
-                          <TableHead>Vencimiento</TableHead>
+                          <TableHead className="w-12 text-center">#</TableHead>
+                          <TableHead className="px-4">Concepto</TableHead>
+                          <TableHead className="w-32 px-4 text-right">Monto</TableHead>
+                          <TableHead className="w-20 px-4">Mon.</TableHead>
+                          <TableHead className="w-28 px-4 text-right">USD aprox</TableHead>
+                          <TableHead className="w-32 px-4">Estado</TableHead>
+                          <TableHead className="w-36 px-4">Vencimiento</TableHead>
+                          <TableHead className="w-44 px-4">Meta</TableHead>
                           <TableHead className="w-10" />
                         </TableRow>
                       </TableHeader>
@@ -401,6 +404,7 @@ export function MonthDetail({
                                 rate={liveRate}
                                 localCurrency={localCurrency}
                                 locale={locale}
+                                goals={goals}
                               />
                             ))}
                           </SortableContext>

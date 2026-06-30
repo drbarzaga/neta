@@ -9,6 +9,7 @@ import {
   CircleCheck,
   CircleAlert,
   GripVertical,
+  Target,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -28,15 +29,25 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-provider';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
-import type { Expense } from '@/db';
-import { updateExpense, deleteExpense, saveExpenseAsTemplate } from '../actions';
+import type { Expense, Goal } from '@/db';
+import {
+  updateExpense,
+  deleteExpense,
+  saveExpenseAsTemplate,
+  setExpenseGoal,
+} from '../actions';
 
 const STATUS_STYLES: Record<string, string> = {
   pendiente: 'text-amber-700 dark:text-amber-400',
@@ -56,12 +67,14 @@ export function ExpenseRow({
   rate,
   localCurrency = 'UYU',
   locale = 'es-UY',
+  goals = [],
 }: {
   expense: Expense;
   order: number;
   rate: number;
   localCurrency?: string;
   locale?: string;
+  goals?: Goal[];
 }) {
   const [pending, startTransition] = useTransition();
   const confirm = useConfirm();
@@ -123,8 +136,20 @@ export function ExpenseRow({
     });
   }
 
+  function linkGoal(goalId: string | null) {
+    if (goalId === (expense.goalId ?? null)) return;
+    startTransition(async () => {
+      const res = await setExpenseGoal({ id: expense.id, goalId });
+      if (!res.ok) toast.error(res.error ?? 'Error al vincular');
+      else toast.success(goalId ? 'Gasto vinculado a la meta' : 'Gasto desvinculado');
+    });
+  }
+
   const usd = toUsd({ amount: amount === '' ? 0 : Number(amount), currency: expense.currency }, rate);
   const StatusIcon = STATUS_ICONS[expense.status];
+  const linkedGoal = expense.goalId
+    ? goals.find((g) => g.id === expense.goalId) ?? null
+    : null;
 
   return (
     <TableRow
@@ -174,7 +199,7 @@ export function ExpenseRow({
           value={expense.currency}
           onValueChange={(v) => save({ id: expense.id, currency: v })}
         >
-          <SelectTrigger size="sm" className="h-8 w-full border-transparent bg-transparent hover:border-input">
+          <SelectTrigger size="sm" className="h-8 w-full border-transparent bg-transparent px-2 hover:border-input">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -183,7 +208,7 @@ export function ExpenseRow({
           </SelectContent>
         </Select>
       </TableCell>
-      <TableCell className="text-muted-foreground w-28 text-right text-sm tabular-nums">
+      <TableCell className="text-muted-foreground w-28 pr-4 text-right text-sm tabular-nums">
         {usd ? <Money value={usd} currency="USD" locale={locale} /> : '—'}
       </TableCell>
       <TableCell className="w-32">
@@ -196,7 +221,7 @@ export function ExpenseRow({
           <SelectTrigger
             size="sm"
             className={cn(
-              'h-8 w-full border-transparent bg-transparent font-medium hover:border-input',
+              'h-8 w-full border-transparent bg-transparent px-2 font-medium hover:border-input',
               STATUS_STYLES[expense.status]
             )}
           >
@@ -220,6 +245,23 @@ export function ExpenseRow({
           className="h-8 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
         />
       </TableCell>
+      <TableCell className="w-44 px-4">
+        {linkedGoal ? (
+          <span
+            title={`Este gasto aporta a la meta: ${linkedGoal.title}`}
+            className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: `${linkedGoal.color}1a`,
+              color: linkedGoal.color,
+            }}
+          >
+            <Target className="size-3 shrink-0" />
+            <span className="truncate">{linkedGoal.title}</span>
+          </span>
+        ) : (
+          <span className="text-muted-foreground/50 text-sm">—</span>
+        )}
+      </TableCell>
       <TableCell className="w-10">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -233,6 +275,31 @@ export function ExpenseRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Target className="size-4" />
+                {linkedGoal ? 'Meta vinculada' : 'Vincular a meta'}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {goals.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No tienes metas activas
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuRadioGroup
+                    value={expense.goalId ?? ''}
+                    onValueChange={(v) => linkGoal(v || null)}
+                  >
+                    <DropdownMenuRadioItem value="">Ninguna</DropdownMenuRadioItem>
+                    {goals.map((g) => (
+                      <DropdownMenuRadioItem key={g.id} value={g.id}>
+                        {g.title}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem onClick={handleSaveTemplate}>
               <Bookmark className="size-4" /> Guardar como plantilla
             </DropdownMenuItem>

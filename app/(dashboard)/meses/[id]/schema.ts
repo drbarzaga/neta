@@ -34,6 +34,12 @@ export const reorderExpensesSchema = z.object({
   orderedIds: z.array(z.uuid()).min(1),
 });
 
+// Vincular (o desvincular con null) un gasto a una meta.
+export const setExpenseGoalSchema = z.object({
+  id: z.uuid(),
+  goalId: z.uuid().nullable(),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;

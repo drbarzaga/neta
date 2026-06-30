@@ -112,7 +112,11 @@ export async function deleteContribution(input: unknown): Promise<ActionResult> 
   if (!parsed.success) return fail('Datos inválidos');
 
   const [c] = await db
-    .select({ amount: goalContribution.amount, goalId: goalContribution.goalId })
+    .select({
+      amount: goalContribution.amount,
+      goalId: goalContribution.goalId,
+      expenseId: goalContribution.expenseId,
+    })
     .from(goalContribution)
     .where(
       and(
@@ -121,6 +125,9 @@ export async function deleteContribution(input: unknown): Promise<ActionResult> 
       )
     );
   if (!c) return UNAUTHORIZED;
+  if (c.expenseId) {
+    return fail('Este abono viene de un gasto vinculado; edítalo desde el mes.');
+  }
 
   const [g] = await db
     .select({ saved: goal.savedAmount })

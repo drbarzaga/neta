@@ -78,6 +78,13 @@
       "when": 1782820876220,
       "tag": "0010_giant_ultimo",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782826439949,
+      "tag": "0011_mixed_talon",
+      "breakpoints": true
     }
   ]
 }

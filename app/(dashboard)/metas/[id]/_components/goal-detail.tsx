@@ -526,42 +526,59 @@ export function GoalDetail({
             </p>
           ) : (
             <ul className="divide-border divide-y">
-              {contributions.map((c) => (
-                <li key={c.id} className="flex items-center gap-3 px-6 py-3">
-                  <CalendarClock className="text-muted-foreground size-4 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm">
-                      {formatDateTime(c.createdAt, locale)}
-                      {c.note && (
-                        <span className="text-muted-foreground"> · {c.note}</span>
-                      )}
-                    </p>
-                  </div>
-                  <span
-                    className={cn(
-                      'text-sm font-medium tabular-nums',
-                      c.amount < 0
-                        ? 'text-destructive'
-                        : 'text-emerald-600 dark:text-emerald-400'
+              {contributions.map((c) => {
+                const auto = c.expenseId !== null;
+                return (
+                  <li key={c.id} className="flex items-center gap-3 px-6 py-3">
+                    {auto ? (
+                      <Target className="text-muted-foreground size-4 shrink-0" />
+                    ) : (
+                      <CalendarClock className="text-muted-foreground size-4 shrink-0" />
                     )}
-                  >
-                    {c.amount < 0 ? '' : '+'}
-                    {fmt(c.amount)}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive size-8 shrink-0"
-                    aria-label="Eliminar abono"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => deleteContribution({ id: c.id }), 'Abono eliminado')
-                    }
-                  >
-                    <Trash2 className="size-4" />
-                  </Button>
-                </li>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm">
+                        {formatDateTime(c.createdAt, locale)}
+                        {c.note && (
+                          <span className="text-muted-foreground"> · {c.note}</span>
+                        )}
+                      </p>
+                      {auto && (
+                        <p className="text-muted-foreground text-xs">
+                          Automático (gasto pagado)
+                        </p>
+                      )}
+                    </div>
+                    <span
+                      className={cn(
+                        'text-sm font-medium tabular-nums',
+                        c.amount < 0
+                          ? 'text-destructive'
+                          : 'text-emerald-600 dark:text-emerald-400'
+                      )}
+                    >
+                      {c.amount < 0 ? '' : '+'}
+                      {fmt(c.amount)}
+                    </span>
+                    {!auto && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-muted-foreground hover:text-destructive size-8 shrink-0"
+                        aria-label="Eliminar abono"
+                        disabled={pending}
+                        onClick={() =>
+                          run(
+                            () => deleteContribution({ id: c.id }),
+                            'Abono eliminado'
+                          )
+                        }
+                      >
+                        <Trash2 className="size-4" />
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

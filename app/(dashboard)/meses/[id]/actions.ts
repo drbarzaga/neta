@@ -1,7 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, inArray, expense, period, expenseTemplate } from '@/db';
+import {
+  db,
+  eq,
+  and,
+  inArray,
+  expense,
+  period,
+  expenseTemplate,
+  goal,
+  goalContribution,
+} from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { refreshRate } from '@/lib/exchange-rate';
@@ -11,6 +21,7 @@ import {
   updateExpenseSchema,
   periodHeaderSchema,
   reorderExpensesSchema,
+  setExpenseGoalSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -18,6 +29,7 @@ function revalidate(periodId: string) {
   revalidatePath('/meses');
   revalidatePath('/');
   revalidatePath('/analitica');
+  revalidatePath('/metas');
 }
 
 async function ownsPeriod(userId: string, periodId: string) {
@@ -26,6 +38,124 @@ async function ownsPeriod(userId: string, periodId: string) {
     .from(period)
     .where(and(eq(period.id, periodId), eq(period.userId, userId)));
   return Boolean(p);
+}
+
+/** Convierte un monto entre moneda local y USD (las únicas posibles aquí). */
+function convertAmount(
+  amount: number,
+  from: string,
+  to: string,
+  rate: number
+): number {
+  if (from === to) return amount;
+  const value = to === 'USD' ? (rate > 0 ? amount / rate : 0) : amount * rate;
+  return Math.round(value * 100) / 100;
+}
+
+/** Suma `delta` al ahorrado de una meta (sin bajar de 0) y revalida su detalle. */
+async function adjustGoalSaved(userId: string, goalId: string, delta: number) {
+  if (delta === 0) return;
+  const [g] = await db
+    .select({ saved: goal.savedAmount })
+    .from(goal)
+    .where(and(eq(goal.id, goalId), eq(goal.userId, userId)));
+  if (!g) return;
+  await db
+    .update(goal)
+    .set({ savedAmount: Math.max(0, g.saved + delta) })
+    .where(and(eq(goal.id, goalId), eq(goal.userId, userId)));
+  revalidatePath(`/metas/${goalId}`);
+}
+
+/**
+ * Reconcilia el abono automático de un gasto vinculado a una meta. La regla:
+ * existe un abono (con expenseId) si y solo si el gasto está vinculado y pagado;
+ * su monto es el del gasto convertido a la moneda de la meta (cotización del mes).
+ */
+async function syncExpenseGoalContribution(userId: string, expenseId: string) {
+  const [e] = await db
+    .select({
+      amount: expense.amount,
+      currency: expense.currency,
+      status: expense.status,
+      goalId: expense.goalId,
+      periodId: expense.periodId,
+      concept: expense.concept,
+    })
+    .from(expense)
+    .where(and(eq(expense.id, expenseId), eq(expense.userId, userId)));
+  if (!e) return;
+
+  const [existing] = await db
+    .select()
+    .from(goalContribution)
+    .where(
+      and(
+        eq(goalContribution.userId, userId),
+        eq(goalContribution.expenseId, expenseId)
+      )
+    );
+
+  const targetGoalId = e.goalId;
+  const desired = targetGoalId !== null && e.status === 'pagado';
+
+  if (!desired || !targetGoalId) {
+    if (existing) {
+      await adjustGoalSaved(userId, existing.goalId, -existing.amount);
+      await db
+        .delete(goalContribution)
+        .where(eq(goalContribution.id, existing.id));
+    }
+    return;
+  }
+
+  const [g] = await db
+    .select({ currency: goal.currency })
+    .from(goal)
+    .where(and(eq(goal.id, targetGoalId), eq(goal.userId, userId)));
+  if (!g) {
+    if (existing) {
+      await adjustGoalSaved(userId, existing.goalId, -existing.amount);
+      await db
+        .delete(goalContribution)
+        .where(eq(goalContribution.id, existing.id));
+    }
+    return;
+  }
+
+  const [p] = await db
+    .select({ rate: period.dollarRate })
+    .from(period)
+    .where(eq(period.id, e.periodId));
+  const amount = convertAmount(e.amount, e.currency, g.currency, p?.rate ?? 0);
+  const note = `Gasto: ${e.concept}`;
+
+  if (!existing) {
+    await db.insert(goalContribution).values({
+      userId,
+      goalId: targetGoalId,
+      expenseId,
+      amount,
+      note,
+    });
+    await adjustGoalSaved(userId, targetGoalId, amount);
+    return;
+  }
+
+  if (existing.goalId === targetGoalId) {
+    await adjustGoalSaved(userId, targetGoalId, amount - existing.amount);
+    await db
+      .update(goalContribution)
+      .set({ amount, note })
+      .where(eq(goalContribution.id, existing.id));
+  } else {
+    await adjustGoalSaved(userId, existing.goalId, -existing.amount);
+    await adjustGoalSaved(userId, targetGoalId, amount);
+    await db
+      .update(goalContribution)
+      .set({ goalId: targetGoalId, amount, note })
+      .where(eq(goalContribution.id, existing.id));
+  }
 }
 
 export async function addExpense(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -122,6 +252,43 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
     .set(fields)
     .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
 
+  // El monto/moneda/estado pudo cambiar: reconcilia el aporte a la meta vinculada.
+  await syncExpenseGoalContribution(session.userId, id);
+
+  revalidate(current.periodId);
+  return ok();
+}
+
+/** Vincula (o desvincula con null) un gasto a una meta y reconcilia el aporte. */
+export async function setExpenseGoal(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setExpenseGoalSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, goalId } = parsed.data;
+
+  const [current] = await db
+    .select({ periodId: expense.periodId })
+    .from(expense)
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!current) return UNAUTHORIZED;
+
+  if (goalId) {
+    const [g] = await db
+      .select({ id: goal.id })
+      .from(goal)
+      .where(and(eq(goal.id, goalId), eq(goal.userId, session.userId)));
+    if (!g) return fail('Meta no encontrada');
+  }
+
+  await db
+    .update(expense)
+    .set({ goalId })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+
+  await syncExpenseGoalContribution(session.userId, id);
+
   revalidate(current.periodId);
   return ok();
 }
@@ -166,6 +333,20 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
     .from(expense)
     .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
   if (!current) return UNAUTHORIZED;
+
+  // Si tenía un aporte automático a una meta, revierte el monto antes de borrar.
+  const [contrib] = await db
+    .select({ id: goalContribution.id, goalId: goalContribution.goalId, amount: goalContribution.amount })
+    .from(goalContribution)
+    .where(
+      and(
+        eq(goalContribution.userId, session.userId),
+        eq(goalContribution.expenseId, id)
+      )
+    );
+  if (contrib) {
+    await adjustGoalSaved(session.userId, contrib.goalId, -contrib.amount);
+  }
 
   await db
     .delete(expense)

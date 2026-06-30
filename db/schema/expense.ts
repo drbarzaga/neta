@@ -11,6 +11,7 @@ import {
 import { user } from './auth';
 import { period } from './period';
 import { category } from './category';
+import { goal } from './goal';
 
 export const expenseStatus = pgEnum('expense_status', [
   'pendiente',
@@ -37,6 +38,8 @@ export const expense = pgTable('expense', {
   currency: text().notNull().default('UYU'), // código ISO-4217 (moneda local o USD)
   status: expenseStatus().notNull().default('pendiente'),
   dueDate: date({ mode: 'string' }),
+  // Meta vinculada (opcional): al marcarse "pagado" aporta a esa meta.
+  goalId: uuid().references(() => goal.id, { onDelete: 'set null' }),
   sortOrder: integer().notNull().default(0),
   createdAt: timestamp().notNull().defaultNow(),
 });
