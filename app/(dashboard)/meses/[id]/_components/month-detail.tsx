@@ -427,7 +427,7 @@ export function MonthDetail({
                 <CollapsibleTrigger asChild>
                   <button
                     type="button"
-                    className="group hover:bg-muted/40 flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors"
+                    className="group hover:bg-muted/40 flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <span
