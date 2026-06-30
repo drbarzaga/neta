@@ -4,12 +4,44 @@ import { revalidatePath } from 'next/cache';
 import { db, eq, and, category, expense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
-import { addCategorySchema, updateCategorySchema } from './schema';
+import {
+  addCategorySchema,
+  updateCategorySchema,
+  reorderCategoriesSchema,
+} from './schema';
 
 function revalidate() {
   revalidatePath('/categorias');
   revalidatePath('/');
   revalidatePath('/analitica');
+  revalidatePath('/meses', 'layout');
+}
+
+/** Reordena las categorías del usuario según la lista de ids. */
+export async function reorderCategories(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = reorderCategoriesSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+
+  const owned = await db
+    .select({ id: category.id })
+    .from(category)
+    .where(eq(category.userId, session.userId));
+  const valid = new Set(owned.map((c) => c.id));
+
+  let order = 0;
+  for (const id of parsed.data.orderedIds) {
+    if (!valid.has(id)) continue;
+    await db
+      .update(category)
+      .set({ sortOrder: order++ })
+      .where(and(eq(category.id, id), eq(category.userId, session.userId)));
+  }
+
+  revalidate();
+  return ok();
 }
 
 export async function addCategory(input: unknown): Promise<ActionResult> {

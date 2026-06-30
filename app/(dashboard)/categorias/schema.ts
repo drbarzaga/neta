@@ -13,4 +13,8 @@ export const updateCategorySchema = z.object({
   icon: z.string().min(1).max(40).optional(),
 });
 
+export const reorderCategoriesSchema = z.object({
+  orderedIds: z.array(z.uuid()).min(1),
+});
+
 export type AddCategoryInput = z.infer<typeof addCategorySchema>;

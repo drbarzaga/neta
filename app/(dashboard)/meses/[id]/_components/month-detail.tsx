@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
+  GripVertical,
   Wallet,
   CreditCard,
   PiggyBank,
@@ -25,9 +26,11 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
+  useSortable,
   arrayMove,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +61,7 @@ import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { MonthActions } from './month-actions';
 import { addExpense, updatePeriodHeader, moveExpense } from '../actions';
+import { reorderCategories } from '../../../categorias/actions';
 
 export function MonthDetail({
   period,
@@ -92,12 +96,21 @@ export function MonthDetail({
     setItems(expenses);
   }
 
+  // Orden local de las categorías/secciones (drag & drop optimista).
+  const [cats, setCats] = useState<Category[]>(categories);
+  const [prevCats, setPrevCats] = useState(categories);
+  if (categories !== prevCats) {
+    setPrevCats(categories);
+    setCats(categories);
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   // ¿En qué categoría está un id? (un id puede ser un gasto o una categoría vacía)
   function containerOf(list: Expense[], id: string): string | undefined {
+    if (id.startsWith('sec:')) return id.slice(4);
     if (categories.some((c) => c.id === id)) return id;
     return list.find((e) => e.id === id)?.categoryId;
   }
@@ -108,6 +121,7 @@ export function MonthDetail({
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
+    if (activeId.startsWith('sec:')) return; // arrastre de sección: solo en dragEnd
     setItems((prev) => {
       const activeItem = prev.find((e) => e.id === activeId);
       if (!activeItem) return prev;
@@ -136,6 +150,28 @@ export function MonthDetail({
     if (!over) return;
     const activeId = String(active.id);
     const overId = String(over.id);
+
+    // Reordenar secciones (categorías).
+    if (activeId.startsWith('sec:')) {
+      const fromCat = activeId.slice(4);
+      const toCat = overId.startsWith('sec:')
+        ? overId.slice(4)
+        : containerOf(items, overId);
+      if (!toCat || fromCat === toCat) return;
+      const ids = cats.map((c) => c.id);
+      const oldIndex = ids.indexOf(fromCat);
+      const newIndex = ids.indexOf(toCat);
+      if (oldIndex === -1 || newIndex === -1) return;
+      const nextCats = arrayMove(cats, oldIndex, newIndex);
+      setCats(nextCats);
+      startTransition(async () => {
+        const res = await reorderCategories({
+          orderedIds: nextCats.map((c) => c.id),
+        });
+        if (!res.ok) toast.error(res.error ?? 'No se pudo reordenar');
+      });
+      return;
+    }
 
     const activeItem = items.find((e) => e.id === activeId);
     if (!activeItem) return;
@@ -409,87 +445,30 @@ export function MonthDetail({
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-      <div className="flex flex-col gap-4">
-        {categories.map((cat) => {
-          const rows = grouped.get(cat.id) ?? [];
-          const catTotal = rows.reduce(
-            (s, e) => s + (e.currency === 'USD' ? e.amount * liveRate : e.amount),
-            0
-          );
-          const open = openMap[cat.id] !== false;
-          return (
-            <Collapsible
+      <SortableContext
+        items={cats.map((c) => `sec:${c.id}`)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="flex flex-col gap-4">
+          {cats.map((cat) => (
+            <SortableSection
               key={cat.id}
-              open={open}
+              category={cat}
+              rows={grouped.get(cat.id) ?? []}
+              open={openMap[cat.id] !== false}
               onOpenChange={(o) => setSection(cat.id, o)}
-            >
-              <div className="bg-card ring-border/60 overflow-hidden rounded-xl shadow-sm ring-1">
-                <CollapsibleTrigger asChild>
-                  <button
-                    type="button"
-                    className="group hover:bg-muted/40 flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="flex size-9 items-center justify-center rounded-xl"
-                        style={{ backgroundColor: `${cat.color}33`, color: cat.color }}
-                      >
-                        <CategoryIcon name={cat.icon} className="size-5" />
-                      </span>
-                      <span className="font-semibold">{cat.name}</span>
-                      <Badge variant="secondary" className="rounded-full">
-                        {rows.length}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Money animateOnMount value={toDisp(catTotal)} currency={dispCode} locale={locale} className="text-base font-semibold tabular-nums" />
-                      <ChevronDown className="text-muted-foreground size-4 transition-transform group-data-[state=open]:rotate-180" />
-                    </div>
-                  </button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="border-t">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-12 text-center">#</TableHead>
-                          <TableHead className="px-4">Concepto</TableHead>
-                          <TableHead className="w-32 px-4 text-right">Monto</TableHead>
-                          <TableHead className="w-20 px-4">Mon.</TableHead>
-                          <TableHead className="w-28 px-4 text-right">USD aprox</TableHead>
-                          <TableHead className="w-32 px-4">Estado</TableHead>
-                          <TableHead className="w-36 px-4">Vencimiento</TableHead>
-                          <TableHead className="w-44 px-4">Meta</TableHead>
-                          <TableHead className="w-10" />
-                        </TableRow>
-                      </TableHeader>
-                      <CategoryRows
-                        categoryId={cat.id}
-                        rows={rows}
-                        rate={liveRate}
-                        localCurrency={localCurrency}
-                        locale={locale}
-                        goals={goals}
-                      />
-                    </Table>
-                    <div className="px-2 py-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-muted-foreground"
-                        onClick={() => handleAdd(cat.id)}
-                        disabled={pending}
-                      >
-                        <Plus className="size-4" /> Agregar gasto
-                      </Button>
-                    </div>
-                  </div>
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          );
-        })}
-      </div>
+              rate={liveRate}
+              dispCode={dispCode}
+              locale={locale}
+              toDisp={toDisp}
+              localCurrency={localCurrency}
+              goals={goals}
+              onAdd={() => handleAdd(cat.id)}
+              addDisabled={pending}
+            />
+          ))}
+        </div>
+      </SortableContext>
       </DndContext>
     </div>
   );
@@ -542,6 +521,137 @@ function CategoryRows({
         )}
       </SortableContext>
     </TableBody>
+  );
+}
+
+/** Sección (categoría) colapsable y reordenable por su handle. */
+function SortableSection({
+  category,
+  rows,
+  open,
+  onOpenChange,
+  rate,
+  dispCode,
+  locale,
+  toDisp,
+  localCurrency,
+  goals,
+  onAdd,
+  addDisabled,
+}: {
+  category: Category;
+  rows: Expense[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  rate: number;
+  dispCode: string;
+  locale: string;
+  toDisp: (n: number) => number;
+  localCurrency: string;
+  goals: Goal[];
+  onAdd: () => void;
+  addDisabled: boolean;
+}) {
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
+    useSortable({ id: `sec:${category.id}` });
+  const catTotal = rows.reduce(
+    (s, e) => s + (e.currency === 'USD' ? e.amount * rate : e.amount),
+    0
+  );
+
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <div
+        ref={setNodeRef}
+        style={{ transform: CSS.Transform.toString(transform), transition }}
+        {...attributes}
+        className={cn(
+          'bg-card ring-border/60 overflow-hidden rounded-xl shadow-sm ring-1',
+          isDragging && 'relative z-10 shadow-lg'
+        )}
+      >
+        <div className="flex items-stretch">
+          <button
+            type="button"
+            {...listeners}
+            aria-label="Reordenar sección"
+            className="text-muted-foreground/40 hover:text-muted-foreground flex shrink-0 cursor-grab touch-none items-center pl-3 active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" />
+          </button>
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="group hover:bg-muted/40 flex flex-1 cursor-pointer items-center justify-between gap-3 py-3 pr-4 pl-2 text-left transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex size-9 items-center justify-center rounded-xl"
+                  style={{
+                    backgroundColor: `${category.color}33`,
+                    color: category.color,
+                  }}
+                >
+                  <CategoryIcon name={category.icon} className="size-5" />
+                </span>
+                <span className="font-semibold">{category.name}</span>
+                <Badge variant="secondary" className="rounded-full">
+                  {rows.length}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3">
+                <Money
+                  animateOnMount
+                  value={toDisp(catTotal)}
+                  currency={dispCode}
+                  locale={locale}
+                  className="text-base font-semibold tabular-nums"
+                />
+                <ChevronDown className="text-muted-foreground size-4 transition-transform group-data-[state=open]:rotate-180" />
+              </div>
+            </button>
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <div className="border-t">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-12 text-center">#</TableHead>
+                  <TableHead className="px-4">Concepto</TableHead>
+                  <TableHead className="w-32 px-4 text-right">Monto</TableHead>
+                  <TableHead className="w-20 px-4">Mon.</TableHead>
+                  <TableHead className="w-28 px-4 text-right">USD aprox</TableHead>
+                  <TableHead className="w-32 px-4">Estado</TableHead>
+                  <TableHead className="w-36 px-4">Vencimiento</TableHead>
+                  <TableHead className="w-44 px-4">Meta</TableHead>
+                  <TableHead className="w-10" />
+                </TableRow>
+              </TableHeader>
+              <CategoryRows
+                categoryId={category.id}
+                rows={rows}
+                rate={rate}
+                localCurrency={localCurrency}
+                locale={locale}
+                goals={goals}
+              />
+            </Table>
+            <div className="px-2 py-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground"
+                onClick={onAdd}
+                disabled={addDisabled}
+              >
+                <Plus className="size-4" /> Agregar gasto
+              </Button>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
 
