@@ -27,6 +27,13 @@ export const periodHeaderSchema = z.object({
   dollarRate: z.number().min(0),
 });
 
+// Reordenar gastos dentro de una categoría: lista de ids en el nuevo orden.
+export const reorderExpensesSchema = z.object({
+  periodId: z.uuid(),
+  categoryId: z.uuid(),
+  orderedIds: z.array(z.uuid()).min(1),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;

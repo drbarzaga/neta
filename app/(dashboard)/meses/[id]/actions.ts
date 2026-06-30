@@ -10,6 +10,7 @@ import {
   addExpenseSchema,
   updateExpenseSchema,
   periodHeaderSchema,
+  reorderExpensesSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -63,6 +64,43 @@ export async function addExpense(input: unknown): Promise<ActionResult<{ id: str
 
   revalidate(data.periodId);
   return ok({ id: row.id });
+}
+
+/** Reordena los gastos de una categoría según la lista de ids recibida. */
+export async function reorderExpenses(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = reorderExpensesSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { periodId, categoryId, orderedIds } = parsed.data;
+
+  if (!(await ownsPeriod(session.userId, periodId))) return UNAUTHORIZED;
+
+  // Solo tocamos los gastos que pertenecen a este usuario, periodo y categoría.
+  const owned = await db
+    .select({ id: expense.id })
+    .from(expense)
+    .where(
+      and(
+        eq(expense.userId, session.userId),
+        eq(expense.periodId, periodId),
+        eq(expense.categoryId, categoryId)
+      )
+    );
+  const valid = new Set(owned.map((e) => e.id));
+
+  let order = 0;
+  for (const id of orderedIds) {
+    if (!valid.has(id)) continue;
+    await db
+      .update(expense)
+      .set({ sortOrder: order++ })
+      .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  }
+
+  revalidate(periodId);
+  return ok();
 }
 
 export async function updateExpense(input: unknown): Promise<ActionResult> {

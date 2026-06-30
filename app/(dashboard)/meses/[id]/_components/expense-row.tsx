@@ -8,8 +8,11 @@ import {
   Clock,
   CircleCheck,
   CircleAlert,
+  GripVertical,
   type LucideIcon,
 } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -62,6 +65,14 @@ export function ExpenseRow({
 }) {
   const [pending, startTransition] = useTransition();
   const confirm = useConfirm();
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: expense.id });
   const [concept, setConcept] = useState(expense.concept);
   const [amount, setAmount] = useState(expense.amount ? String(expense.amount) : '');
 
@@ -116,9 +127,29 @@ export function ExpenseRow({
   const StatusIcon = STATUS_ICONS[expense.status];
 
   return (
-    <TableRow className={cn(pending && 'opacity-60')}>
-      <TableCell className="text-muted-foreground w-10 text-center text-xs tabular-nums">
-        {order}
+    <TableRow
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={cn(
+        pending && 'opacity-60',
+        isDragging && 'bg-card relative z-10 shadow-lg'
+      )}
+    >
+      <TableCell className="w-12">
+        <div className="flex items-center justify-center gap-1.5">
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label="Arrastrar para reordenar"
+            className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
+          >
+            <GripVertical className="size-4" />
+          </button>
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {order}
+          </span>
+        </div>
       </TableCell>
       <TableCell>
         <Input

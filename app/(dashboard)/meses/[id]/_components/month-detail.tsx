@@ -13,6 +13,19 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +54,7 @@ import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { MonthActions } from './month-actions';
-import { addExpense, updatePeriodHeader } from '../actions';
+import { addExpense, updatePeriodHeader, reorderExpenses } from '../actions';
 
 export function MonthDetail({
   period,
@@ -64,6 +77,42 @@ export function MonthDetail({
     Object.fromEntries(categories.map((c) => [c.id, true]))
   );
 
+  // Orden local de los gastos (para drag-and-drop optimista). Se resincroniza
+  // en el render cuando el servidor envía nuevos datos (alta/edición/baja/
+  // revalidación), sin usar un efecto.
+  const [items, setItems] = useState<Expense[]>(expenses);
+  const [prevExpenses, setPrevExpenses] = useState(expenses);
+  if (expenses !== prevExpenses) {
+    setPrevExpenses(expenses);
+    setItems(expenses);
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  );
+
+  function handleDragEnd(categoryId: string, event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const catItems = items.filter((e) => e.categoryId === categoryId);
+    const oldIndex = catItems.findIndex((e) => e.id === active.id);
+    const newIndex = catItems.findIndex((e) => e.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const reordered = arrayMove(catItems, oldIndex, newIndex);
+    const queue = [...reordered];
+    setItems(items.map((e) => (e.categoryId === categoryId ? queue.shift()! : e)));
+
+    startTransition(async () => {
+      const res = await reorderExpenses({
+        periodId: period.id,
+        categoryId,
+        orderedIds: reordered.map((e) => e.id),
+      });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo reordenar');
+    });
+  }
+
   // Totales en vivo según lo que se está editando. La cotización es la del mes.
   const incomeNum = income.trim() === '' ? 0 : Number(income);
   const liveIncome = Number.isNaN(incomeNum) ? period.incomeTotal : incomeNum;
@@ -85,12 +134,12 @@ export function MonthDetail({
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
     for (const c of categories) map.set(c.id, []);
-    for (const e of expenses) {
+    for (const e of items) {
       if (!map.has(e.categoryId)) map.set(e.categoryId, []);
       map.get(e.categoryId)!.push(e);
     }
     return map;
-  }, [categories, expenses]);
+  }, [categories, items]);
 
   const allOpen = categories.every((c) => openMap[c.id] !== false);
   const storageKey = `finanzas:collapsed:${period.id}`;
@@ -324,7 +373,7 @@ export function MonthDetail({
                     <Table>
                       <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                          <TableHead className="w-10 text-center">#</TableHead>
+                          <TableHead className="w-12">#</TableHead>
                           <TableHead>Concepto</TableHead>
                           <TableHead className="text-right">Monto</TableHead>
                           <TableHead>Mon.</TableHead>
@@ -335,16 +384,27 @@ export function MonthDetail({
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {rows.map((e) => (
-                          <ExpenseRow
-                            key={e.id}
-                            expense={e}
-                            order={++order}
-                            rate={liveRate}
-                            localCurrency={localCurrency}
-                            locale={locale}
-                          />
-                        ))}
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event) => handleDragEnd(cat.id, event)}
+                        >
+                          <SortableContext
+                            items={rows.map((e) => e.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {rows.map((e) => (
+                              <ExpenseRow
+                                key={e.id}
+                                expense={e}
+                                order={++order}
+                                rate={liveRate}
+                                localCurrency={localCurrency}
+                                locale={locale}
+                              />
+                            ))}
+                          </SortableContext>
+                        </DndContext>
                       </TableBody>
                     </Table>
                     <div className="px-2 py-2">
