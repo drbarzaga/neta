@@ -5,6 +5,7 @@ import {
   CreditCard,
   PieChart,
   PiggyBank,
+  Repeat,
 } from 'lucide-react';
 import { requireSession } from '@/lib/auth-server';
 import { Button } from '@/components/ui/button';
@@ -16,10 +17,13 @@ import {
 } from '@/components/ui/card';
 import { Money, Pct } from '@/components/money';
 import { CategoryIcon } from '@/components/category-icon';
+import { BrandLogo } from '@/components/brand-logo';
+import { detectBrand } from '@/lib/brands';
+import { formatMoney } from '@/lib/money';
 import { getCountry } from '@/lib/countries';
 import { getOrCreateUserSettings } from './configuracion/queries';
 import { getPeriodsWithTotals } from './meses/queries';
-import { getCategories } from './meses/[id]/queries';
+import { getCategories, getExpenses } from './meses/[id]/queries';
 import { StatCard } from './_components/stat-card';
 import { CategoryPie, type PieDatum } from './_components/category-pie';
 import { TrendBar, type TrendDatum } from './_components/trend-bar';
@@ -57,7 +61,26 @@ export default async function DashboardPage() {
   }
 
   const current = periods[0];
-  const categories = await getCategories(userId);
+  const [categories, currentExpenses] = await Promise.all([
+    getCategories(userId),
+    getExpenses(userId, current.id),
+  ]);
+
+  // Suscripciones del mes: gastos cuyo concepto coincide con una marca conocida.
+  const subscriptions = currentExpenses
+    .map((e) => {
+      const brand = detectBrand(e.concept);
+      if (!brand) return null;
+      const local = e.currency === 'USD' ? e.amount * current.dollarRate : e.amount;
+      return { id: e.id, concept: e.concept, local, status: e.status };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .sort((a, b) => b.local - a.local);
+  const subsTotalLocal = subscriptions.reduce((s, x) => s + x.local, 0);
+  const subsShare =
+    current.totals.totalLocal > 0
+      ? (subsTotalLocal / current.totals.totalLocal) * 100
+      : 0;
 
   // Moneda en la que se muestra el dashboard.
   const dispCode = showUsd ? 'USD' : current.localCurrency;
@@ -173,6 +196,50 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {subscriptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Repeat className="text-muted-foreground size-5" /> Suscripciones
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+            <div>
+              <div className="flex items-baseline gap-1.5">
+                <Money
+                  value={toDisp(subsTotalLocal, rate)}
+                  currency={dispCode}
+                  locale={locale}
+                  className="text-3xl font-semibold tracking-tight tabular-nums"
+                  animateOnMount
+                />
+                <span className="text-muted-foreground text-sm">/ mes</span>
+              </div>
+              <p className="text-muted-foreground mt-1 text-sm">
+                {subscriptions.length} activa(s) · {subsShare.toFixed(0)}% del gasto
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5">
+              {subscriptions.slice(0, 10).map((s) => (
+                <span
+                  key={s.id}
+                  title={`${s.concept} · ${formatMoney(toDisp(s.local, rate), dispCode, locale)}`}
+                  className="bg-muted ring-border/50 flex size-11 items-center justify-center rounded-full ring-1"
+                >
+                  <BrandLogo concept={s.concept} className="size-5" />
+                </span>
+              ))}
+              {subscriptions.length > 10 && (
+                <span className="bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full text-xs font-medium">
+                  +{subscriptions.length - 10}
+                </span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

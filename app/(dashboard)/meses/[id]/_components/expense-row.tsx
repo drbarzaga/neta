@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-provider';
+import { BrandLogo } from '@/components/brand-logo';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal } from '@/db';
@@ -177,12 +178,15 @@ export function ExpenseRow({
         </div>
       </TableCell>
       <TableCell>
-        <Input
-          value={concept}
-          onChange={(e) => setConcept(e.target.value)}
-          onBlur={saveConcept}
-          className="h-8 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
-        />
+        <div className="flex items-center gap-2">
+          <BrandLogo concept={concept} className="size-4 shrink-0" />
+          <Input
+            value={concept}
+            onChange={(e) => setConcept(e.target.value)}
+            onBlur={saveConcept}
+            className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
+          />
+        </div>
       </TableCell>
       <TableCell className="w-32">
         <Input
