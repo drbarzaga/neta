@@ -37,6 +37,34 @@ const schema = z.object({
 
 type Values = z.infer<typeof schema>;
 
+interface AuthError {
+  message?: string;
+  code?: string;
+}
+
+/** El usuario cerró/canceló el diálogo del navegador (no es un fallo real). */
+function isCancelledPasskey(error: AuthError): boolean {
+  const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
+  return (
+    text.includes('cancel') ||
+    text.includes('abort') ||
+    text.includes('not allowed') ||
+    text.includes('notallowed')
+  );
+}
+
+/** Mensaje en español para los fallos de passkey más comunes. */
+function translatePasskeyError(error: AuthError): string {
+  const text = `${error.code ?? ''} ${error.message ?? ''}`.toLowerCase();
+  if (text.includes('timeout') || text.includes('timed out')) {
+    return 'Se agotó el tiempo para usar la passkey. Intenta de nuevo.';
+  }
+  if (text.includes('no passkey') || text.includes('not found') || text.includes('no credentials')) {
+    return 'No encontramos una passkey en este dispositivo.';
+  }
+  return 'No se pudo iniciar sesión con passkey. Intenta de nuevo.';
+}
+
 export function LoginForm({ expired = false }: { expired?: boolean }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -95,7 +123,9 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
     const { error } = await authClient.signIn.passkey();
     setPasskeyLoading(false);
     if (error) {
-      toast.error(error.message ?? 'No se pudo usar la passkey');
+      // Si el usuario cancela el diálogo del navegador no es un fallo: no molestamos.
+      if (isCancelledPasskey(error)) return;
+      toast.error(translatePasskeyError(error));
       return;
     }
     goHome();
