@@ -27,6 +27,12 @@ export const periodHeaderSchema = z.object({
   dollarRate: z.number().min(0),
 });
 
+// Ajuste manual de la cotización del dólar del mes.
+export const setDollarRateSchema = z.object({
+  id: z.uuid(),
+  dollarRate: z.number().min(0, 'La cotización no puede ser negativa'),
+});
+
 // Reordenar gastos dentro de una categoría: lista de ids en el nuevo orden.
 export const reorderExpensesSchema = z.object({
   periodId: z.uuid(),

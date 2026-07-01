@@ -21,6 +21,7 @@ import {
   addExpenseSchema,
   updateExpenseSchema,
   periodHeaderSchema,
+  setDollarRateSchema,
   reorderExpensesSchema,
   setExpenseGoalSchema,
   moveExpenseSchema,
@@ -457,6 +458,47 @@ export async function refreshDollarRate(
 
   revalidate(periodId);
   return ok({ rate });
+}
+
+/**
+ * Trae la cotización actual del mercado SIN aplicarla al mes, para que el
+ * usuario decida si la usa o mantiene su valor manual.
+ */
+export async function fetchMarketRate(
+  periodId: string
+): Promise<ActionResult<{ rate: number; source: string }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+  if (!(await ownsPeriod(session.userId, periodId))) return UNAUTHORIZED;
+
+  const settings = await getOrCreateUserSettings(session.userId);
+  const rate = await refreshRate(settings.country, settings.arCasa);
+  if (!rate || rate <= 0) return fail('No se pudo obtener la cotización del mercado');
+  // Para Argentina la "fuente" es la casa elegida (blue, oficial…); si no, dolarapi.
+  const source = settings.country === 'AR' ? `dólar ${settings.arCasa}` : 'dolarapi';
+  return ok({ rate, source });
+}
+
+/** Ajusta manualmente la cotización del dólar del mes (sin tocar el ingreso). */
+export async function setDollarRate(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setDollarRateSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const { id, dollarRate } = parsed.data;
+
+  const result = await db
+    .update(period)
+    .set({ dollarRate })
+    .where(and(eq(period.id, id), eq(period.userId, session.userId)))
+    .returning({ id: period.id });
+  if (result.length === 0) return UNAUTHORIZED;
+
+  revalidate(id);
+  return ok();
 }
 
 /** Inserta gastos en el mes a partir de una lista de plantillas. */

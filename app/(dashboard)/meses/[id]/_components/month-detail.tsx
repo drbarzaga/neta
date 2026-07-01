@@ -11,6 +11,7 @@ import {
   Wallet,
   CreditCard,
   PiggyBank,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -60,7 +61,12 @@ import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { MonthActions } from './month-actions';
-import { addExpense, updatePeriodHeader, moveExpense } from '../actions';
+import {
+  addExpense,
+  updatePeriodHeader,
+  moveExpense,
+  fetchMarketRate,
+} from '../actions';
 import { reorderCategories } from '../../../categorias/actions';
 
 export function MonthDetail({
@@ -82,6 +88,9 @@ export function MonthDetail({
 }) {
   const [pending, startTransition] = useTransition();
   const [income, setIncome] = useState(String(period.incomeTotal));
+  const [rate, setRate] = useState(String(period.dollarRate));
+  const [market, setMarket] = useState<{ rate: number; source: string } | null>(null);
+  const [fetchingRate, setFetchingRate] = useState(false);
   const [openMap, setOpenMap] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(categories.map((c) => [c.id, true]))
   );
@@ -207,10 +216,11 @@ export function MonthDetail({
     });
   }
 
-  // Totales en vivo según lo que se está editando. La cotización es la del mes.
+  // Totales en vivo según lo que se está editando (ingreso y cotización).
   const incomeNum = income.trim() === '' ? 0 : Number(income);
   const liveIncome = Number.isNaN(incomeNum) ? period.incomeTotal : incomeNum;
-  const liveRate = period.dollarRate;
+  const rateNum = rate.trim() === '' ? 0 : Number(rate);
+  const liveRate = Number.isNaN(rateNum) ? period.dollarRate : rateNum;
   const localCurrency = period.localCurrency;
 
   // Moneda en la que se muestran los totales.
@@ -283,13 +293,38 @@ export function MonthDetail({
   }, [storageKey]);
 
   function saveHeader() {
-    if (Number.isNaN(incomeNum)) return;
-    if (incomeNum === period.incomeTotal) return;
+    if (Number.isNaN(incomeNum) || Number.isNaN(rateNum)) return;
+    if (incomeNum === period.incomeTotal && rateNum === period.dollarRate) return;
     startTransition(async () => {
       const res = await updatePeriodHeader({
         id: period.id,
         incomeTotal: incomeNum,
-        dollarRate: period.dollarRate,
+        dollarRate: rateNum,
+      });
+      if (!res.ok) toast.error(res.error ?? 'Error al guardar');
+    });
+  }
+
+  // Trae la cotización del mercado (no la aplica): el usuario decide si la usa.
+  function loadMarketRate() {
+    setFetchingRate(true);
+    fetchMarketRate(period.id)
+      .then((res) => {
+        if (res.ok && res.data) setMarket(res.data);
+        else toast.error(res.error ?? 'No se pudo obtener la cotización');
+      })
+      .finally(() => setFetchingRate(false));
+  }
+
+  // Aplica la cotización del mercado al campo (y la guarda).
+  function useMarketRate() {
+    if (!market) return;
+    setRate(String(market.rate));
+    startTransition(async () => {
+      const res = await updatePeriodHeader({
+        id: period.id,
+        incomeTotal: incomeNum,
+        dollarRate: market.rate,
       });
       if (!res.ok) toast.error(res.error ?? 'Error al guardar');
     });
@@ -413,14 +448,51 @@ export function MonthDetail({
               className="w-48 tabular-nums"
             />
           </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Dólar del mes</p>
-            <p className="text-base font-medium tabular-nums">
-              $ {liveRate} <span className="text-muted-foreground text-xs">{localCurrency}/USD</span>
-            </p>
-            <p className="text-muted-foreground text-xs">
-              La cotización se ajusta arriba, en el header.
-            </p>
+          <div className="grid gap-1.5">
+            <Label htmlFor="dollar-rate">Dólar del mes ({localCurrency}/USD)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="dollar-rate"
+                inputMode="decimal"
+                value={rate}
+                onChange={(e) => setRate(e.target.value)}
+                onBlur={saveHeader}
+                className="w-32 tabular-nums"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={loadMarketRate}
+                disabled={fetchingRate}
+              >
+                <RefreshCw className={cn('size-4', fetchingRate && 'animate-spin')} />
+                Traer del mercado
+              </Button>
+            </div>
+            {market ? (
+              <p className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
+                <span>
+                  Mercado ({market.source}):{' '}
+                  <span className="text-foreground font-medium tabular-nums">
+                    $ {market.rate}
+                  </span>
+                </span>
+                {market.rate !== liveRate && (
+                  <button
+                    type="button"
+                    onClick={useMarketRate}
+                    className="text-primary font-medium hover:underline"
+                  >
+                    Usar esta
+                  </button>
+                )}
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-xs">
+                Escribe el valor o tráelo del mercado y decide cuál usar.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
