@@ -10,6 +10,7 @@ import {
   CircleAlert,
   GripVertical,
   Target,
+  CalendarClock,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -49,6 +50,7 @@ import {
   deleteExpense,
   saveExpenseAsTemplate,
   setExpenseGoal,
+  moveExpenseToPeriod,
 } from '../actions';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -70,6 +72,7 @@ export function ExpenseRow({
   localCurrency = 'UYU',
   locale = 'es-UY',
   goals = [],
+  otherPeriods = [],
 }: {
   expense: Expense;
   order: number;
@@ -77,6 +80,7 @@ export function ExpenseRow({
   localCurrency?: string;
   locale?: string;
   goals?: Goal[];
+  otherPeriods?: { id: string; label: string }[];
 }) {
   const [pending, startTransition] = useTransition();
   const confirm = useConfirm();
@@ -144,6 +148,19 @@ export function ExpenseRow({
       const res = await setExpenseGoal({ id: expense.id, goalId });
       if (!res.ok) toast.error(res.error ?? 'Error al vincular');
       else toast.success(goalId ? 'Gasto vinculado a la meta' : 'Gasto desvinculado');
+    });
+  }
+
+  function moveToPeriod(toPeriodId: string, label: string) {
+    startTransition(async () => {
+      // Al posponer/mover se reinicia a "pendiente" (aún no se pagó en el nuevo mes).
+      const res = await moveExpenseToPeriod({
+        id: expense.id,
+        toPeriodId,
+        resetStatus: true,
+      });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo mover el gasto');
+      else toast.success(`"${expense.concept}" movido a ${label}`);
     });
   }
 
@@ -300,6 +317,28 @@ export function ExpenseRow({
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <CalendarClock className="size-4" />
+                Mover a mes
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {otherPeriods.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No hay otros meses
+                  </DropdownMenuItem>
+                ) : (
+                  otherPeriods.map((p) => (
+                    <DropdownMenuItem
+                      key={p.id}
+                      onClick={() => moveToPeriod(p.id, p.label)}
+                    >
+                      {p.label}
+                    </DropdownMenuItem>
+                  ))
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>

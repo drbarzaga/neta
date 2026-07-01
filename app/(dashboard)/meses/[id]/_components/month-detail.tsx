@@ -80,6 +80,7 @@ export function MonthDetail({
   expenses,
   templates,
   goals,
+  otherPeriods = [],
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -88,6 +89,7 @@ export function MonthDetail({
   expenses: Expense[];
   templates: TemplateRow[];
   goals: Goal[];
+  otherPeriods?: { id: string; label: string }[];
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -550,6 +552,7 @@ export function MonthDetail({
               toDisp={toDisp}
               localCurrency={localCurrency}
               goals={goals}
+              otherPeriods={otherPeriods}
               onAdd={() => handleAdd(cat.id)}
               addDisabled={pending}
             />
@@ -569,6 +572,7 @@ function CategoryRows({
   localCurrency,
   locale,
   goals,
+  otherPeriods,
 }: {
   categoryId: string;
   rows: Expense[];
@@ -576,6 +580,7 @@ function CategoryRows({
   localCurrency: string;
   locale: string;
   goals: Goal[];
+  otherPeriods: { id: string; label: string }[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: categoryId });
   return (
@@ -603,6 +608,7 @@ function CategoryRows({
               localCurrency={localCurrency}
               locale={locale}
               goals={goals}
+              otherPeriods={otherPeriods}
             />
           ))
         )}
@@ -623,6 +629,7 @@ function SortableSection({
   toDisp,
   localCurrency,
   goals,
+  otherPeriods,
   onAdd,
   addDisabled,
 }: {
@@ -636,6 +643,7 @@ function SortableSection({
   toDisp: (n: number) => number;
   localCurrency: string;
   goals: Goal[];
+  otherPeriods: { id: string; label: string }[];
   onAdd: () => void;
   addDisabled: boolean;
 }) {
@@ -722,6 +730,7 @@ function SortableSection({
                 localCurrency={localCurrency}
                 locale={locale}
                 goals={goals}
+                otherPeriods={otherPeriods}
               />
             </Table>
             <div className="px-2 py-2">

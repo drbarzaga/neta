@@ -25,6 +25,7 @@ import {
   reorderExpensesSchema,
   setExpenseGoalSchema,
   moveExpenseSchema,
+  moveExpenseToPeriodSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -295,6 +296,63 @@ export async function moveExpense(input: unknown): Promise<ActionResult> {
   }
 
   revalidate(periodId);
+  return ok();
+}
+
+/**
+ * Mueve un gasto a otro mes conservando su categoría (posponer/adelantar). Lo
+ * coloca al final de esa categoría en el mes destino y reconcilia el aporte a
+ * la meta (la cotización puede diferir entre meses).
+ */
+export async function moveExpenseToPeriod(
+  input: unknown
+): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = moveExpenseToPeriodSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, toPeriodId, resetStatus } = parsed.data;
+
+  // Gasto y su categoría/mes actual (con verificación de propiedad).
+  const [current] = await db
+    .select({ periodId: expense.periodId, categoryId: expense.categoryId })
+    .from(expense)
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!current) return UNAUTHORIZED;
+  if (current.periodId === toPeriodId) return fail('El gasto ya está en ese mes');
+
+  // El mes destino debe ser del usuario.
+  if (!(await ownsPeriod(session.userId, toPeriodId))) {
+    return fail('Mes destino no encontrado');
+  }
+
+  // Se coloca al final de la misma categoría en el mes destino.
+  const existing = await db
+    .select({ sortOrder: expense.sortOrder })
+    .from(expense)
+    .where(
+      and(
+        eq(expense.periodId, toPeriodId),
+        eq(expense.categoryId, current.categoryId)
+      )
+    );
+  const nextOrder = existing.reduce((m, e) => Math.max(m, e.sortOrder), -1) + 1;
+
+  await db
+    .update(expense)
+    .set({
+      periodId: toPeriodId,
+      sortOrder: nextOrder,
+      ...(resetStatus && { status: 'pendiente' }),
+    })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+
+  // La cotización del mes destino puede diferir: reconcilia el aporte a la meta.
+  await syncExpenseGoalContribution(session.userId, id);
+
+  revalidate(current.periodId);
+  revalidate(toPeriodId);
   return ok();
 }
 

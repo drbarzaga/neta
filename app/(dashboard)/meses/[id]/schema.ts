@@ -55,6 +55,14 @@ export const moveExpenseSchema = z.object({
   orderedIds: z.array(z.uuid()).min(1),
 });
 
+// Mover (posponer/adelantar) un gasto a otro mes; opcionalmente reinicia el
+// estado a pendiente (típico al posponer algo que no se pudo pagar).
+export const moveExpenseToPeriodSchema = z.object({
+  id: z.uuid(),
+  toPeriodId: z.uuid(),
+  resetStatus: z.boolean().optional(),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;
