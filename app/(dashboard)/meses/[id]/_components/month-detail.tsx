@@ -69,6 +69,11 @@ import {
 } from '../actions';
 import { reorderCategories } from '../../../categorias/actions';
 
+/** Parsea un número tolerando coma decimal y separadores de miles (es-UY/AR). */
+function parseAmount(v: string): number {
+  return Number(v.trim().replace(/\s/g, '').replace(',', '.'));
+}
+
 export function MonthDetail({
   period,
   categories,
@@ -217,9 +222,10 @@ export function MonthDetail({
   }
 
   // Totales en vivo según lo que se está editando (ingreso y cotización).
-  const incomeNum = income.trim() === '' ? 0 : Number(income);
+  // parseAmount tolera coma decimal (es-UY / es-AR escriben "41,35").
+  const incomeNum = income.trim() === '' ? 0 : parseAmount(income);
   const liveIncome = Number.isNaN(incomeNum) ? period.incomeTotal : incomeNum;
-  const rateNum = rate.trim() === '' ? 0 : Number(rate);
+  const rateNum = rate.trim() === '' ? 0 : parseAmount(rate);
   const liveRate = Number.isNaN(rateNum) ? period.dollarRate : rateNum;
   const localCurrency = period.localCurrency;
 
@@ -293,13 +299,16 @@ export function MonthDetail({
   }, [storageKey]);
 
   function saveHeader() {
-    if (Number.isNaN(incomeNum) || Number.isNaN(rateNum)) return;
-    if (incomeNum === period.incomeTotal && rateNum === period.dollarRate) return;
+    // Si un campo quedó inválido, conserva el valor guardado para ese campo en
+    // vez de abortar todo el guardado.
+    const nextIncome = Number.isNaN(incomeNum) ? period.incomeTotal : incomeNum;
+    const nextRate = Number.isNaN(rateNum) ? period.dollarRate : rateNum;
+    if (nextIncome === period.incomeTotal && nextRate === period.dollarRate) return;
     startTransition(async () => {
       const res = await updatePeriodHeader({
         id: period.id,
-        incomeTotal: incomeNum,
-        dollarRate: rateNum,
+        incomeTotal: nextIncome,
+        dollarRate: nextRate,
       });
       if (!res.ok) toast.error(res.error ?? 'Error al guardar');
     });
@@ -323,7 +332,7 @@ export function MonthDetail({
     startTransition(async () => {
       const res = await updatePeriodHeader({
         id: period.id,
-        incomeTotal: incomeNum,
+        incomeTotal: Number.isNaN(incomeNum) ? period.incomeTotal : incomeNum,
         dollarRate: market.rate,
       });
       if (!res.ok) toast.error(res.error ?? 'Error al guardar');
@@ -445,6 +454,9 @@ export function MonthDetail({
               value={income}
               onChange={(e) => setIncome(e.target.value)}
               onBlur={saveHeader}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur();
+              }}
               className="w-48 tabular-nums"
             />
           </div>
@@ -457,6 +469,9 @@ export function MonthDetail({
                 value={rate}
                 onChange={(e) => setRate(e.target.value)}
                 onBlur={saveHeader}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') e.currentTarget.blur();
+                }}
                 className="w-32 tabular-nums"
               />
               <Button
