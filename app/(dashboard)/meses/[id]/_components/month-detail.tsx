@@ -436,7 +436,7 @@ export function MonthDetail({
 
       {/* Ajustes del mes */}
       <Card>
-        <CardContent className="flex flex-wrap items-end gap-x-8 gap-y-4">
+        <CardContent className="flex flex-wrap items-start gap-x-8 gap-y-4">
           <div className="grid gap-1.5">
             <Label htmlFor="income">Ingreso total ({localCurrency})</Label>
             <Input
