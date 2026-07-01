@@ -1,3 +1,4 @@
+import { db, advisorMessage } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { streamAdvice, serverApiKey, type AdvisorMessage } from '@/lib/ai';
 import { buildFinancialContext } from '@/lib/advisor-context';
@@ -51,12 +52,16 @@ export async function POST(req: Request) {
   }
   // Recortamos a las últimas vueltas para acotar el contexto.
   const trimmed = messages.slice(-20);
+  // El último mensaje es el que el usuario acaba de enviar (para persistirlo).
+  const lastUser = trimmed[trimmed.length - 1];
 
   const { context } = await buildFinancialContext(session.userId);
 
   const encoder = new TextEncoder();
+  const userId = session.userId;
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let answer = '';
       try {
         const ai = streamAdvice({
           apiKey,
@@ -65,6 +70,7 @@ export async function POST(req: Request) {
           messages: trimmed,
         });
         for await (const chunk of ai) {
+          answer += chunk;
           controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
@@ -73,6 +79,20 @@ export async function POST(req: Request) {
         controller.enqueue(encoder.encode(`\n\n[Error: ${msg}]`));
       } finally {
         controller.close();
+        // Persistimos el turno (pregunta + respuesta) para retomarlo luego.
+        // Quitamos las <action> propuestas: son efímeras y no deben re-ofrecerse
+        // (ni re-ejecutarse) al recargar la conversación. Los <viz> sí se guardan.
+        const stored = answer.replace(/<action>[\s\S]*?<\/action>/g, '').trim();
+        if (stored && lastUser?.role === 'user') {
+          try {
+            await db.insert(advisorMessage).values([
+              { userId, role: 'user', content: lastUser.content },
+              { userId, role: 'assistant', content: stored },
+            ]);
+          } catch {
+            // Persistir el historial es best-effort; no rompe la respuesta.
+          }
+        }
       }
     },
   });

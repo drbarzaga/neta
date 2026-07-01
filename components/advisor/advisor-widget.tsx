@@ -1,7 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, Send, SquarePen, X, Check, Zap } from 'lucide-react';
+import { usePathname } from 'next/navigation';
+import {
+  Sparkles,
+  Send,
+  SquarePen,
+  X,
+  Check,
+  Zap,
+  TriangleAlert,
+  CircleAlert,
+  CircleCheck,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,19 +25,40 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { executeAdvisorAction } from '@/app/api/advisor/actions';
+import {
+  executeAdvisorAction,
+  getAdvisorHistory,
+  getAdvisorInsights,
+  clearAdvisorHistory,
+} from '@/app/api/advisor/actions';
+import type { AdvisorInsight } from '@/lib/advisor-context';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+type Viz =
+  | { kind: 'progress'; label: string; value: number; caption?: string }
+  | {
+      kind: 'compare';
+      title?: string;
+      rows: { label: string; before: number | string; after: number | string; unit?: string }[];
+    }
+  | { kind: 'stat'; label: string; value: string; hint?: string };
+
 type AdvisorAction =
   | { type: 'add_expense'; category: string; concept: string; amount: number; currency?: string }
   | { type: 'mark_paid'; concept: string }
   | { type: 'create_goal'; title: string; target: number; currency?: string; targetDate?: string | null }
   | { type: 'contribute_goal'; goal: string; amount: number }
-  | { type: 'create_month'; year: number; month: number; copyFromMonth?: number; copyFromYear?: number };
+  | { type: 'create_month'; year: number; month: number; copyFromMonth?: number; copyFromYear?: number }
+  | { type: 'set_income'; amount: number; dollarRate?: number }
+  | { type: 'edit_expense'; concept: string; amount?: number; currency?: string; dueDate?: string | null; status?: 'pendiente' | 'pagado' | 'vencido' }
+  | { type: 'delete_expense'; concept: string }
+  | { type: 'create_category'; name: string; icon?: string; color?: string }
+  | { type: 'complete_goal'; goal: string }
+  | { type: 'update_goal'; goal: string; target?: number; targetDate?: string | null };
 
 const MONTHS_ES = [
   'enero',
@@ -47,21 +79,30 @@ function monthName(m: number): string {
   return MONTHS_ES[m - 1] ?? String(m);
 }
 
-/** Separa el texto visible de las acciones propuestas (<action>{...}</action>). */
+/**
+ * Separa el texto visible de las acciones propuestas (<action>{...}</action>) y
+ * de los visuales (<viz>{...}</viz>).
+ */
 function parseAdvisorContent(raw: string): {
   text: string;
   actions: AdvisorAction[];
+  vizzes: Viz[];
 } {
   const actions: AdvisorAction[] = [];
-  const re = /<action>([\s\S]*?)<\/action>/g;
+  const vizzes: Viz[] = [];
+  const re = /<(action|viz)>([\s\S]*?)<\/\1>/g;
   let cleaned = '';
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(raw))) {
     cleaned += raw.slice(last, m.index);
     try {
-      const obj = JSON.parse(m[1].trim());
-      if (obj && typeof obj.type === 'string') actions.push(obj as AdvisorAction);
+      const obj = JSON.parse(m[2].trim());
+      if (m[1] === 'action' && obj && typeof obj.type === 'string') {
+        actions.push(obj as AdvisorAction);
+      } else if (m[1] === 'viz' && obj && typeof obj.kind === 'string') {
+        vizzes.push(obj as Viz);
+      }
     } catch {
       // JSON inválido: se ignora
     }
@@ -69,11 +110,14 @@ function parseAdvisorContent(raw: string): {
   }
   cleaned += raw.slice(last);
   // Oculta una etiqueta abierta sin cerrar (mientras llega por streaming).
-  const open = cleaned.lastIndexOf('<action>');
-  if (open !== -1 && !cleaned.slice(open).includes('</action>')) {
-    cleaned = cleaned.slice(0, open);
+  for (const tag of ['<action>', '<viz>']) {
+    const open = cleaned.lastIndexOf(tag);
+    const close = `</${tag.slice(1)}`;
+    if (open !== -1 && !cleaned.slice(open).includes(close)) {
+      cleaned = cleaned.slice(0, open);
+    }
   }
-  return { text: cleaned.trim(), actions };
+  return { text: cleaned.trim(), actions, vizzes };
 }
 
 function actionLabel(a: AdvisorAction): string {
@@ -95,15 +139,127 @@ function actionLabel(a: AdvisorAction): string {
         : '';
       return `Crear mes: ${monthName(a.month)} de ${a.year}${base}`;
     }
+    case 'set_income':
+      return `Definir ingreso del mes: ${a.amount}`;
+    case 'edit_expense': {
+      const parts: string[] = [];
+      if (a.amount !== undefined) parts.push(`monto ${a.amount}`);
+      if (a.currency) parts.push(a.currency);
+      if (a.dueDate) parts.push(`vence ${a.dueDate}`);
+      if (a.status) parts.push(a.status);
+      return `Editar gasto: ${a.concept}${parts.length ? ` → ${parts.join(', ')}` : ''}`;
+    }
+    case 'delete_expense':
+      return `Eliminar gasto: ${a.concept}`;
+    case 'create_category':
+      return `Crear categoría: ${a.name}`;
+    case 'complete_goal':
+      return `Marcar meta como completada: «${a.goal}»`;
+    case 'update_goal': {
+      const parts: string[] = [];
+      if (a.target !== undefined) parts.push(`objetivo ${a.target}`);
+      if (a.targetDate) parts.push(`fecha ${a.targetDate}`);
+      return `Actualizar meta «${a.goal}»${parts.length ? ` → ${parts.join(', ')}` : ''}`;
+    }
   }
 }
 
-const SUGGESTIONS = [
-  '¿Cómo va mi presupuesto este mes?',
-  '¿En qué puedo ahorrar?',
-  '¿Qué pasa si gasto $5.000 menos este mes?',
-  '¿Cuánto debo ahorrar por mes para mi meta?',
-];
+/** Sugerencias contextuales según la página donde está abierto el asesor. */
+function pageSuggestions(pathname: string): string[] {
+  if (/^\/meses\/[^/]+/.test(pathname))
+    return ['Analiza este mes', '¿Dónde puedo recortar este mes?'];
+  if (pathname.startsWith('/metas'))
+    return ['¿Voy bien con mis metas?', '¿Cuánto ahorrar por mes para llegar?'];
+  if (pathname.startsWith('/categorias'))
+    return ['¿Qué categoría se me va de las manos?'];
+  return ['¿Cómo va mi presupuesto este mes?', '¿En qué puedo ahorrar?'];
+}
+
+function fmtNum(v: number | string): string {
+  return typeof v === 'number' ? v.toLocaleString('es-UY') : v;
+}
+
+/** Barras/comparativas/estadísticas que el asesor puede emitir con <viz>. */
+function VizCard({ viz }: { viz: Viz }) {
+  if (viz.kind === 'progress') {
+    const pct = Math.max(0, Math.min(100, viz.value));
+    const tone =
+      pct > 100 ? 'bg-destructive' : pct >= 85 ? 'bg-amber-500' : 'bg-primary';
+    return (
+      <div className="bg-background w-full max-w-[92%] space-y-1.5 rounded-xl border px-3 py-2.5 shadow-sm">
+        <div className="flex items-baseline justify-between gap-2 text-sm">
+          <span className="font-medium">{viz.label}</span>
+          <span className="text-muted-foreground tabular-nums">{pct.toFixed(0)}%</span>
+        </div>
+        <div className="bg-muted h-2 overflow-hidden rounded-full">
+          <div className={cn('h-full rounded-full', tone)} style={{ width: `${pct}%` }} />
+        </div>
+        {viz.caption && (
+          <p className="text-muted-foreground text-xs">{viz.caption}</p>
+        )}
+      </div>
+    );
+  }
+
+  if (viz.kind === 'compare') {
+    return (
+      <div className="bg-background w-full max-w-[92%] space-y-2 rounded-xl border px-3 py-2.5 shadow-sm">
+        {viz.title && <p className="text-sm font-medium">{viz.title}</p>}
+        <div className="space-y-1.5">
+          {viz.rows.map((r, i) => (
+            <div key={i} className="flex items-center justify-between gap-2 text-sm">
+              <span className="text-muted-foreground min-w-0 truncate">{r.label}</span>
+              <span className="flex shrink-0 items-center gap-1.5 tabular-nums">
+                <span className="text-muted-foreground line-through">{fmtNum(r.before)}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="font-medium">{fmtNum(r.after)}</span>
+                {r.unit && <span className="text-muted-foreground text-xs">{r.unit}</span>}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-background flex w-full max-w-[92%] items-baseline justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm shadow-sm">
+      <span className="text-muted-foreground min-w-0 truncate">{viz.label}</span>
+      <span className="shrink-0 font-medium tabular-nums">{viz.value}</span>
+    </div>
+  );
+}
+
+const INSIGHT_STYLE: Record<
+  AdvisorInsight['level'],
+  { icon: typeof CircleCheck; className: string }
+> = {
+  ok: { icon: CircleCheck, className: 'text-emerald-600 dark:text-emerald-400' },
+  warn: { icon: CircleAlert, className: 'text-amber-600 dark:text-amber-400' },
+  alert: { icon: TriangleAlert, className: 'text-destructive' },
+};
+
+/** Panel proactivo con el chequeo de salud financiera al abrir. */
+function InsightsPanel({ insights }: { insights: AdvisorInsight[] }) {
+  return (
+    <div className="bg-background w-full space-y-2 rounded-2xl border p-3 text-left shadow-sm">
+      <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+        Tu situación ahora
+      </p>
+      <ul className="space-y-2">
+        {insights.map((ins, i) => {
+          const { icon: Icon, className } = INSIGHT_STYLE[ins.level];
+          return (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <Icon className={cn('mt-0.5 size-4 shrink-0', className)} />
+              <span className="leading-snug">{ins.text}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 /** Loader de tres puntos que saltan en secuencia. */
 function TypingDots({ className }: { className?: string }) {
@@ -132,7 +288,10 @@ export function AdvisorWidget() {
   const [actionState, setActionState] = useState<
     Record<string, 'running' | 'done' | 'dismissed'>
   >({});
+  const [insights, setInsights] = useState<AdvisorInsight[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const loadedRef = useRef(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
@@ -140,6 +299,20 @@ export function AdvisorWidget() {
       behavior: 'smooth',
     });
   }, [messages, streaming]);
+
+  // Al abrir por primera vez, recupera la conversación guardada y el chequeo.
+  useEffect(() => {
+    if (!open || loadedRef.current) return;
+    loadedRef.current = true;
+    void (async () => {
+      const [history, ins] = await Promise.all([
+        getAdvisorHistory(),
+        getAdvisorInsights(),
+      ]);
+      if (history.length > 0) setMessages(history);
+      setInsights(ins);
+    })();
+  }, [open]);
 
   async function send(text: string) {
     const content = text.trim();
@@ -195,6 +368,7 @@ export function AdvisorWidget() {
     setMessages([]);
     setInput('');
     setActionState({});
+    void clearAdvisorHistory();
   }
 
   function confirmAction(key: string, action: AdvisorAction) {
@@ -278,7 +452,7 @@ export function AdvisorWidget() {
             className="bg-muted/30 flex-1 space-y-5 overflow-y-auto px-4 py-5"
           >
             {empty ? (
-              <div className="flex flex-col items-center gap-5 pt-8 text-center">
+              <div className="flex flex-col items-center gap-5 pt-2 text-center">
                 <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
                   <Sparkles className="size-7" />
                 </span>
@@ -288,8 +462,9 @@ export function AdvisorWidget() {
                     Analizo tus presupuestos y te doy ideas concretas.
                   </p>
                 </div>
-                <div className="flex w-full flex-col gap-2 pt-2">
-                  {SUGGESTIONS.map((s) => (
+                {insights.length > 0 && <InsightsPanel insights={insights} />}
+                <div className="flex w-full flex-col gap-2 pt-1">
+                  {pageSuggestions(pathname).map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -309,7 +484,7 @@ export function AdvisorWidget() {
                   m.role === 'assistant';
                 const isUser = m.role === 'user';
                 const parsed = isUser
-                  ? { text: m.content, actions: [] as AdvisorAction[] }
+                  ? { text: m.content, actions: [] as AdvisorAction[], vizzes: [] as Viz[] }
                   : parseAdvisorContent(m.content);
                 return (
                   <div
@@ -342,6 +517,11 @@ export function AdvisorWidget() {
                           {parsed.text}
                         </div>
                       )}
+
+                      {/* Visuales (barras, comparativas) que emite el asesor */}
+                      {parsed.vizzes.map((v, vi) => (
+                        <VizCard key={`v${vi}`} viz={v} />
+                      ))}
 
                       {/* Acciones propuestas por el asesor */}
                       {parsed.actions.map((a, ai) => {
@@ -401,8 +581,26 @@ export function AdvisorWidget() {
             )}
           </div>
 
+          {!empty && !streaming && (
+            <div className="bg-background flex flex-wrap gap-1.5 border-t px-3 pt-2.5">
+              {pageSuggestions(pathname).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => send(s)}
+                  className="border-border/70 text-muted-foreground hover:border-primary/40 hover:text-foreground rounded-full border px-3 py-1 text-xs transition-colors"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
           <form
-            className="bg-background flex items-end gap-2 border-t p-3"
+            className={cn(
+              'bg-background flex items-end gap-2 p-3',
+              (empty || streaming) && 'border-t'
+            )}
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
