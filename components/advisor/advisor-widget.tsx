@@ -164,15 +164,49 @@ function actionLabel(a: AdvisorAction): string {
   }
 }
 
+// Prompts iniciales. El primero de cada lista es el más específico a la página;
+// el resto cubre análisis, ahorro, simulaciones, metas y acciones.
+const GENERAL_SUGGESTIONS = [
+  '¿Cómo va mi presupuesto este mes?',
+  '¿En qué puedo ahorrar?',
+  '¿En qué se me va más plata?',
+  '¿Qué pasa si gasto $5.000 menos este mes?',
+  '¿Qué gastos tengo por pagar?',
+  '¿Cuánto debo ahorrar por mes para mi meta?',
+  'Compara este mes con el anterior',
+  'Dame un plan para llegar a fin de mes',
+];
+
+const MONTH_SUGGESTIONS = [
+  'Analiza este mes',
+  '¿Dónde puedo recortar este mes?',
+  '¿Qué gastos me quedan por pagar?',
+  '¿Voy a cerrar el mes en positivo?',
+  '¿Qué pasa si subo el alquiler un 10%?',
+  'Detecta gastos que puedo bajar o cancelar',
+];
+
+const GOALS_SUGGESTIONS = [
+  '¿Voy bien con mis metas?',
+  '¿Cuánto ahorrar por mes para llegar?',
+  '¿Cuál meta debería priorizar?',
+  '¿Cuándo alcanzo mi meta a este ritmo?',
+  'Propón un abono para mi meta principal',
+];
+
+const CATEGORIES_SUGGESTIONS = [
+  '¿Qué categoría se me va de las manos?',
+  '¿Cómo reparto mejor mi presupuesto?',
+  'Sugiere categorías que me falten',
+  '¿Qué categoría creció más entre meses?',
+];
+
 /** Sugerencias contextuales según la página donde está abierto el asesor. */
 function pageSuggestions(pathname: string): string[] {
-  if (/^\/meses\/[^/]+/.test(pathname))
-    return ['Analiza este mes', '¿Dónde puedo recortar este mes?'];
-  if (pathname.startsWith('/metas'))
-    return ['¿Voy bien con mis metas?', '¿Cuánto ahorrar por mes para llegar?'];
-  if (pathname.startsWith('/categorias'))
-    return ['¿Qué categoría se me va de las manos?'];
-  return ['¿Cómo va mi presupuesto este mes?', '¿En qué puedo ahorrar?'];
+  if (/^\/meses(\/|$)/.test(pathname)) return MONTH_SUGGESTIONS;
+  if (pathname.startsWith('/metas')) return GOALS_SUGGESTIONS;
+  if (pathname.startsWith('/categorias')) return CATEGORIES_SUGGESTIONS;
+  return GENERAL_SUGGESTIONS;
 }
 
 function fmtNum(v: number | string): string {
@@ -583,7 +617,7 @@ export function AdvisorWidget() {
 
           {!empty && !streaming && (
             <div className="bg-background flex flex-wrap gap-1.5 border-t px-3 pt-2.5">
-              {pageSuggestions(pathname).map((s) => (
+              {pageSuggestions(pathname).slice(0, 4).map((s) => (
                 <button
                   key={s}
                   type="button"
