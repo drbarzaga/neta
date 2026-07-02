@@ -120,6 +120,13 @@
       "when": 1783005673929,
       "tag": "0016_productive_flatman",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783015593917,
+      "tag": "0017_solid_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

@@ -1,13 +1,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, ne, desc, period, expense } from '@/db';
+import { db, eq, and, ne, desc, isNull, period, expense, purchase } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { getLatestRate } from '@/lib/exchange-rate';
 import { getCountry } from '@/lib/countries';
 import { ensureDefaultCategories } from '@/lib/categories';
-import { periodLabel, nextMonth } from '@/lib/dates';
+import { periodLabel, nextMonth, monthDiff } from '@/lib/dates';
 import { getOrCreateUserSettings } from '../configuracion/queries';
 import { createPeriodSchema } from './schema';
 
@@ -20,7 +20,14 @@ async function cloneExpenses(
   const source = await db
     .select()
     .from(expense)
-    .where(and(eq(expense.userId, userId), eq(expense.periodId, sourcePeriodId)));
+    .where(
+      and(
+        eq(expense.userId, userId),
+        eq(expense.periodId, sourcePeriodId),
+        // Las cuotas de una compra las coloca su plan, no la clonación.
+        isNull(expense.purchaseId)
+      )
+    );
   if (source.length === 0) return;
 
   await db.insert(expense).values(
@@ -63,7 +70,9 @@ async function addRecurringExpenses(
       and(
         eq(expense.userId, userId),
         eq(expense.periodId, latest.id),
-        eq(expense.recurring, true)
+        eq(expense.recurring, true),
+        // Una cuota no es "recurrente": su repetición la maneja el plan de compra.
+        isNull(expense.purchaseId)
       )
     );
   if (recurring.length === 0) return;
@@ -82,6 +91,57 @@ async function addRecurringExpenses(
       sortOrder: e.sortOrder,
     }))
   );
+}
+
+/**
+ * Crea las cuotas de compras en cuotas que caen en este mes (year/month) y que
+ * todavía no se generaron. Se llama al crear un período nuevo.
+ */
+async function materializeInstallments(
+  userId: string,
+  targetPeriodId: string,
+  year: number,
+  month: number
+) {
+  const plans = await db
+    .select()
+    .from(purchase)
+    .where(eq(purchase.userId, userId));
+  if (plans.length === 0) return;
+
+  for (const plan of plans) {
+    // Offset de este mes respecto al inicio del plan; la cuota es offset+1.
+    const offset = monthDiff(plan.startMonth, plan.startYear, month, year);
+    if (offset < 0 || offset >= plan.installmentsCount) continue;
+    const installmentNumber = offset + 1;
+
+    // Evita duplicar si esa cuota ya existe en este período.
+    const [existing] = await db
+      .select({ id: expense.id })
+      .from(expense)
+      .where(
+        and(
+          eq(expense.userId, userId),
+          eq(expense.periodId, targetPeriodId),
+          eq(expense.purchaseId, plan.id),
+          eq(expense.installmentNumber, installmentNumber)
+        )
+      );
+    if (existing) continue;
+
+    await db.insert(expense).values({
+      userId,
+      periodId: targetPeriodId,
+      categoryId: plan.categoryId,
+      concept: `${plan.concept} (cuota ${installmentNumber}/${plan.installmentsCount})`,
+      amount: plan.installmentAmount,
+      currency: plan.currency,
+      status: 'pendiente',
+      purchaseId: plan.id,
+      installmentNumber,
+      installmentsCount: plan.installmentsCount,
+    });
+  }
 }
 
 export async function createPeriod(
@@ -134,6 +194,9 @@ export async function createPeriod(
     // Mes "en blanco": igual arrastra los gastos recurrentes del último mes.
     await addRecurringExpenses(session.userId, row.id);
   }
+
+  // Cuotas de compras en cuotas que caen en este mes.
+  await materializeInstallments(session.userId, row.id, year, month);
 
   revalidatePath('/meses');
   revalidatePath('/');

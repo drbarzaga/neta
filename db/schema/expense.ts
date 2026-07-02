@@ -13,6 +13,7 @@ import { user } from './auth';
 import { period } from './period';
 import { category } from './category';
 import { goal } from './goal';
+import { purchase } from './purchase';
 
 export const expenseStatus = pgEnum('expense_status', [
   'pendiente',
@@ -43,6 +44,10 @@ export const expense = pgTable('expense', {
   goalId: uuid().references(() => goal.id, { onDelete: 'set null' }),
   // Recurrente: se agrega solo a cada mes nuevo (copiado del último mes previo).
   recurring: boolean().notNull().default(false),
+  // Compra en cuotas (opcional): plan al que pertenece y número de cuota (X de N).
+  purchaseId: uuid().references(() => purchase.id, { onDelete: 'cascade' }),
+  installmentNumber: integer(), // 1..N
+  installmentsCount: integer(), // N (denormalizado para mostrar "X/N")
   sortOrder: integer().notNull().default(0),
   createdAt: timestamp().notNull().defaultNow(),
 });

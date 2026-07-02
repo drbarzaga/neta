@@ -12,10 +12,12 @@ import {
   expenseTemplate,
   goal,
   goalContribution,
+  purchase,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { refreshRate } from '@/lib/exchange-rate';
+import { addMonths } from '@/lib/dates';
 import { getOrCreateUserSettings } from '../../configuracion/queries';
 import {
   addExpenseSchema,
@@ -26,6 +28,7 @@ import {
   setExpenseGoalSchema,
   moveExpenseSchema,
   moveExpenseToPeriodSchema,
+  createInstallmentSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -353,6 +356,117 @@ export async function moveExpenseToPeriod(
 
   revalidate(current.periodId);
   revalidate(toPeriodId);
+  return ok();
+}
+
+/**
+ * Crea una compra en cuotas: registra el plan y genera "cuota X/N" en cada mes
+ * que ya exista (desde el mes de inicio). Los meses que aún no existen reciben
+ * su cuota automáticamente al crearse (ver materializeInstallments).
+ */
+export async function createInstallmentPurchase(
+  input: unknown
+): Promise<ActionResult<{ created: number; total: number }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = createInstallmentSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const data = parsed.data;
+
+  // La categoría debe ser del usuario.
+  const [cat] = await db
+    .select({ id: category.id })
+    .from(category)
+    .where(
+      and(eq(category.id, data.categoryId), eq(category.userId, session.userId))
+    );
+  if (!cat) return fail('Categoría no encontrada');
+
+  const [plan] = await db
+    .insert(purchase)
+    .values({
+      userId: session.userId,
+      categoryId: data.categoryId,
+      concept: data.concept,
+      currency: data.currency,
+      installmentAmount: data.installmentAmount,
+      installmentsCount: data.installmentsCount,
+      startMonth: data.startMonth,
+      startYear: data.startYear,
+    })
+    .returning({ id: purchase.id });
+
+  // Meses del usuario para ubicar cada cuota (los que existan).
+  const periods = await db
+    .select({ id: period.id, year: period.year, month: period.month })
+    .from(period)
+    .where(eq(period.userId, session.userId));
+  const byKey = new Map(periods.map((p) => [`${p.year}-${p.month}`, p.id]));
+
+  let created = 0;
+  const touched = new Set<string>();
+  for (let i = 0; i < data.installmentsCount; i++) {
+    const { month, year } = addMonths(data.startMonth, data.startYear, i);
+    const periodId = byKey.get(`${year}-${month}`);
+    if (!periodId) continue; // el mes se completará al crearse
+
+    const existing = await db
+      .select({ sortOrder: expense.sortOrder })
+      .from(expense)
+      .where(
+        and(eq(expense.periodId, periodId), eq(expense.categoryId, data.categoryId))
+      );
+    const nextOrder = existing.reduce((m, e) => Math.max(m, e.sortOrder), -1) + 1;
+
+    await db.insert(expense).values({
+      userId: session.userId,
+      periodId,
+      categoryId: data.categoryId,
+      concept: `${data.concept} (cuota ${i + 1}/${data.installmentsCount})`,
+      amount: data.installmentAmount,
+      currency: data.currency,
+      status: 'pendiente',
+      purchaseId: plan.id,
+      installmentNumber: i + 1,
+      installmentsCount: data.installmentsCount,
+      sortOrder: nextOrder,
+    });
+    created++;
+    touched.add(periodId);
+  }
+
+  for (const pid of touched) revalidate(pid);
+  revalidatePath('/meses');
+  revalidatePath('/');
+  return ok({ created, total: data.installmentsCount });
+}
+
+/** Elimina una compra en cuotas y todas sus cuotas (en todos los meses). */
+export async function deletePurchase(purchaseId: string): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  // Períodos afectados (para revalidar) antes de borrar.
+  const rows = await db
+    .select({ periodId: expense.periodId })
+    .from(expense)
+    .where(
+      and(
+        eq(expense.userId, session.userId),
+        eq(expense.purchaseId, purchaseId)
+      )
+    );
+
+  const result = await db
+    .delete(purchase)
+    .where(and(eq(purchase.id, purchaseId), eq(purchase.userId, session.userId)))
+    .returning({ id: purchase.id });
+  if (result.length === 0) return UNAUTHORIZED;
+
+  for (const r of new Set(rows.map((r) => r.periodId))) revalidate(r);
   return ok();
 }
 

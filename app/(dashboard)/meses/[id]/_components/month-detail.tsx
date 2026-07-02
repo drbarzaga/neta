@@ -60,6 +60,7 @@ import type { TemplateRow } from '../../../plantillas/queries';
 import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
+import { InstallmentDialog } from './installment-dialog';
 import { MonthActions } from './month-actions';
 import {
   addExpense,
@@ -376,6 +377,13 @@ export function MonthDetail({
           periodId={period.id}
           templates={templates}
           taken={takenTemplateKeys}
+        />
+        <InstallmentDialog
+          categories={categories}
+          localCurrency={localCurrency}
+          startMonth={period.month}
+          startYear={period.year}
+          locale={locale}
         />
         <MonthActions
           periodId={period.id}

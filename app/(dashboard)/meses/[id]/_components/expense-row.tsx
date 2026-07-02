@@ -12,6 +12,7 @@ import {
   Target,
   CalendarClock,
   Repeat,
+  CreditCard,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -52,6 +53,7 @@ import {
   saveExpenseAsTemplate,
   setExpenseGoal,
   moveExpenseToPeriod,
+  deletePurchase,
 } from '../actions';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -152,6 +154,22 @@ export function ExpenseRow({
     });
   }
 
+  async function handleDeletePurchase() {
+    if (!expense.purchaseId) return;
+    const ok = await confirm({
+      title: 'Eliminar compra en cuotas',
+      description: `Se eliminarán TODAS las cuotas de "${expense.concept.replace(/\s*\(cuota.*$/, '')}" en todos los meses. Esta acción no se puede deshacer.`,
+      confirmText: 'Eliminar todo',
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await deletePurchase(expense.purchaseId!);
+      if (!res.ok) toast.error(res.error ?? 'Error al eliminar la compra');
+      else toast.success('Compra en cuotas eliminada');
+    });
+  }
+
   function toggleRecurring() {
     const next = !expense.recurring;
     startTransition(async () => {
@@ -225,6 +243,15 @@ export function ExpenseRow({
               className="text-muted-foreground shrink-0"
             >
               <Repeat className="size-3.5" aria-label="Gasto recurrente" />
+            </span>
+          )}
+          {expense.installmentNumber && expense.installmentsCount && (
+            <span
+              title="Compra en cuotas"
+              className="text-muted-foreground bg-muted flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums"
+            >
+              <CreditCard className="size-3" />
+              {expense.installmentNumber}/{expense.installmentsCount}
             </span>
           )}
         </div>
@@ -373,8 +400,13 @@ export function ExpenseRow({
               <Bookmark className="size-4" /> Guardar como plantilla
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            {expense.purchaseId && (
+              <DropdownMenuItem variant="destructive" onClick={handleDeletePurchase}>
+                <CreditCard className="size-4" /> Eliminar compra (todas las cuotas)
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-              <Trash2 className="size-4" /> Eliminar
+              <Trash2 className="size-4" /> {expense.purchaseId ? 'Eliminar esta cuota' : 'Eliminar'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

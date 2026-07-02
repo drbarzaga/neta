@@ -9,3 +9,4 @@ export * from './user-settings';
 export * from './goal';
 export * from './goal-contribution';
 export * from './advisor-message';
+export * from './purchase';

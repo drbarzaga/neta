@@ -64,6 +64,17 @@ export const moveExpenseToPeriodSchema = z.object({
   resetStatus: z.boolean().optional(),
 });
 
+// Compra en cuotas: genera "cuota X/N" en N meses desde el mes de inicio.
+export const createInstallmentSchema = z.object({
+  concept: z.string().trim().min(1, 'Concepto requerido').max(200),
+  categoryId: z.uuid(),
+  currency: currencyEnum.default('UYU'),
+  installmentAmount: z.number().min(0.01, 'El monto de la cuota debe ser mayor a 0'),
+  installmentsCount: z.number().int().min(2, 'Deben ser al menos 2 cuotas').max(120),
+  startMonth: z.number().int().min(1).max(12),
+  startYear: z.number().int().min(2000).max(2100),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;

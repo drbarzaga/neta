@@ -23,6 +23,22 @@ export function nextMonth(month: number, year: number) {
   return month === 12 ? { month: 1, year: year + 1 } : { month: month + 1, year };
 }
 
+/** Suma `n` meses (n puede ser negativo) y devuelve { month, year }. */
+export function addMonths(month: number, year: number, n: number) {
+  const zero = year * 12 + (month - 1) + n;
+  return { month: (((zero % 12) + 12) % 12) + 1, year: Math.floor(zero / 12) };
+}
+
+/** Cuántos meses hay de (fromMonth/fromYear) a (toMonth/toYear). */
+export function monthDiff(
+  fromMonth: number,
+  fromYear: number,
+  toMonth: number,
+  toYear: number
+): number {
+  return toYear * 12 + (toMonth - 1) - (fromYear * 12 + (fromMonth - 1));
+}
+
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
