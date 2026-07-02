@@ -75,6 +75,14 @@ export const createInstallmentSchema = z.object({
   startYear: z.number().int().min(2000).max(2100),
 });
 
+// Convertir un gasto existente en compra en cuotas. `amountIsTotal`: si el monto
+// del gasto es el total a dividir en N; si no, es el monto de cada cuota.
+export const convertToInstallmentsSchema = z.object({
+  id: z.uuid(),
+  installmentsCount: z.number().int().min(2, 'Deben ser al menos 2 cuotas').max(120),
+  amountIsTotal: z.boolean(),
+});
+
 export type AddExpenseInput = z.infer<typeof addExpenseSchema>;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 export type PeriodHeaderInput = z.infer<typeof periodHeaderSchema>;

@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-provider';
 import { BrandLogo } from '@/components/brand-logo';
 import { DatePicker } from '@/components/date-picker';
+import { ConvertToInstallmentsDialog } from './convert-to-installments-dialog';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal } from '@/db';
@@ -97,6 +98,7 @@ export function ExpenseRow({
   } = useSortable({ id: expense.id });
   const [concept, setConcept] = useState(expense.concept);
   const [amount, setAmount] = useState(expense.amount ? String(expense.amount) : '');
+  const [convertOpen, setConvertOpen] = useState(false);
 
   function save(fields: Parameters<typeof updateExpense>[0]) {
     startTransition(async () => {
@@ -396,6 +398,11 @@ export function ExpenseRow({
               <Repeat className="size-4" />
               {expense.recurring ? 'Quitar de recurrentes' : 'Marcar como recurrente'}
             </DropdownMenuItem>
+            {!expense.purchaseId && (
+              <DropdownMenuItem onClick={() => setConvertOpen(true)}>
+                <CreditCard className="size-4" /> Convertir en cuotas…
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem onClick={handleSaveTemplate}>
               <Bookmark className="size-4" /> Guardar como plantilla
             </DropdownMenuItem>
@@ -410,6 +417,17 @@ export function ExpenseRow({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {!expense.purchaseId && (
+          <ConvertToInstallmentsDialog
+            open={convertOpen}
+            onOpenChange={setConvertOpen}
+            expenseId={expense.id}
+            concept={expense.concept}
+            amount={amount === '' ? 0 : Number(amount)}
+            currency={expense.currency}
+            locale={locale}
+          />
+        )}
       </TableCell>
     </TableRow>
   );

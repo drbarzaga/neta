@@ -29,6 +29,7 @@ import {
   moveExpenseSchema,
   moveExpenseToPeriodSchema,
   createInstallmentSchema,
+  convertToInstallmentsSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -468,6 +469,120 @@ export async function deletePurchase(purchaseId: string): Promise<ActionResult> 
 
   for (const r of new Set(rows.map((r) => r.periodId))) revalidate(r);
   return ok();
+}
+
+/**
+ * Convierte un gasto ya cargado en una compra en cuotas: el gasto pasa a ser la
+ * cuota 1/N (en su mes) y se generan las cuotas 2..N en los meses siguientes.
+ * Si `amountIsTotal`, el monto del gasto se divide en N; si no, se toma como el
+ * monto de cada cuota. La cuota 1 absorbe el redondeo para que la suma sea exacta.
+ */
+export async function convertExpenseToInstallments(
+  input: unknown
+): Promise<ActionResult<{ created: number; total: number }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = convertToInstallmentsSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const { id, installmentsCount: n, amountIsTotal } = parsed.data;
+
+  const [e] = await db
+    .select({
+      amount: expense.amount,
+      currency: expense.currency,
+      concept: expense.concept,
+      categoryId: expense.categoryId,
+      purchaseId: expense.purchaseId,
+      year: period.year,
+      month: period.month,
+    })
+    .from(expense)
+    .innerJoin(period, eq(expense.periodId, period.id))
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!e) return UNAUTHORIZED;
+  if (e.purchaseId) return fail('Este gasto ya es una compra en cuotas');
+  if (e.amount <= 0) return fail('El gasto no tiene un monto para dividir');
+
+  // Monto por cuota; la cuota 1 (el gasto actual) absorbe el resto del redondeo.
+  const round2 = (x: number) => Math.round(x * 100) / 100;
+  const perCuota = amountIsTotal ? round2(e.amount / n) : e.amount;
+  const firstAmount = amountIsTotal
+    ? round2(e.amount - perCuota * (n - 1))
+    : e.amount;
+
+  const [plan] = await db
+    .insert(purchase)
+    .values({
+      userId: session.userId,
+      categoryId: e.categoryId,
+      concept: e.concept,
+      currency: e.currency,
+      installmentAmount: perCuota,
+      installmentsCount: n,
+      startMonth: e.month,
+      startYear: e.year,
+    })
+    .returning({ id: purchase.id });
+
+  // El gasto existente pasa a ser la cuota 1/N.
+  await db
+    .update(expense)
+    .set({
+      concept: `${e.concept} (cuota 1/${n})`,
+      amount: firstAmount,
+      purchaseId: plan.id,
+      installmentNumber: 1,
+      installmentsCount: n,
+    })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  await syncExpenseGoalContribution(session.userId, id);
+
+  // Cuotas 2..N en los meses que existan (las futuras se crean al hacer el mes).
+  const periods = await db
+    .select({ id: period.id, year: period.year, month: period.month })
+    .from(period)
+    .where(eq(period.userId, session.userId));
+  const byKey = new Map(periods.map((p) => [`${p.year}-${p.month}`, p.id]));
+
+  let created = 1; // la cuota 1 ya existe
+  const touched = new Set<string>();
+  for (let i = 1; i < n; i++) {
+    const { month, year } = addMonths(e.month, e.year, i);
+    const periodId = byKey.get(`${year}-${month}`);
+    if (!periodId) continue;
+
+    const existing = await db
+      .select({ sortOrder: expense.sortOrder })
+      .from(expense)
+      .where(
+        and(eq(expense.periodId, periodId), eq(expense.categoryId, e.categoryId))
+      );
+    const nextOrder = existing.reduce((m, x) => Math.max(m, x.sortOrder), -1) + 1;
+
+    await db.insert(expense).values({
+      userId: session.userId,
+      periodId,
+      categoryId: e.categoryId,
+      concept: `${e.concept} (cuota ${i + 1}/${n})`,
+      amount: perCuota,
+      currency: e.currency,
+      status: 'pendiente',
+      purchaseId: plan.id,
+      installmentNumber: i + 1,
+      installmentsCount: n,
+      sortOrder: nextOrder,
+    });
+    created++;
+    touched.add(periodId);
+  }
+
+  for (const pid of touched) revalidate(pid);
+  revalidatePath('/meses');
+  revalidatePath('/');
+  return ok({ created, total: n });
 }
 
 export async function updateExpense(input: unknown): Promise<ActionResult> {
