@@ -137,7 +137,7 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
                   )
                 }
               >
-                <CopyPlus className="size-4" /> Duplicar al siguiente (montos en $0)
+                <CopyPlus className="size-4" /> Duplicar sin montos ($0)
               </DropdownMenuItem>
               {period.status === 'open' ? (
                 <DropdownMenuItem

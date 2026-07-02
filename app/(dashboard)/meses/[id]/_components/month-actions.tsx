@@ -89,7 +89,7 @@ export function MonthActions({
             )
           }
         >
-          <CopyPlus className="size-4" /> Duplicar al siguiente (montos en $0)
+          <CopyPlus className="size-4" /> Duplicar sin montos ($0)
         </DropdownMenuItem>
         {status === 'open' ? (
           <DropdownMenuItem
