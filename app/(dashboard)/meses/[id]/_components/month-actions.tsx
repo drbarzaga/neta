@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FileText,
   Copy,
+  CopyPlus,
   Lock,
   LockOpen,
   Trash2,
@@ -78,6 +79,17 @@ export function MonthActions({
           }
         >
           <Copy className="size-4" /> Duplicar al mes siguiente
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() =>
+            run(
+              () => duplicatePeriod(periodId, true),
+              'Mes duplicado con montos en $0',
+              (data) => data?.id && router.push(`/meses/${data.id}`)
+            )
+          }
+        >
+          <CopyPlus className="size-4" /> Duplicar al siguiente (montos en $0)
         </DropdownMenuItem>
         {status === 'open' ? (
           <DropdownMenuItem

@@ -7,6 +7,7 @@ import {
   MoreVertical,
   FolderOpen,
   Copy,
+  CopyPlus,
   Lock,
   Unlock,
   Trash2,
@@ -127,6 +128,16 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
                 }
               >
                 <Copy className="size-4" /> Duplicar al mes siguiente
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  act(
+                    () => duplicatePeriod(period.id, true),
+                    'Mes duplicado con montos en $0'
+                  )
+                }
+              >
+                <CopyPlus className="size-4" /> Duplicar al siguiente (montos en $0)
               </DropdownMenuItem>
               {period.status === 'open' ? (
                 <DropdownMenuItem

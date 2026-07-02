@@ -14,7 +14,8 @@ import { createPeriodSchema } from './schema';
 async function cloneExpenses(
   userId: string,
   sourcePeriodId: string,
-  targetPeriodId: string
+  targetPeriodId: string,
+  resetAmounts = false
 ) {
   const source = await db
     .select()
@@ -28,7 +29,7 @@ async function cloneExpenses(
       periodId: targetPeriodId,
       categoryId: e.categoryId,
       concept: e.concept,
-      amount: e.amount,
+      amount: resetAmounts ? 0 : e.amount,
       currency: e.currency,
       status: 'pendiente' as const,
       dueDate: null,
@@ -91,7 +92,7 @@ export async function createPeriod(
 
   const parsed = createPeriodSchema.safeParse(input);
   if (!parsed.success) return fail('Datos inválidos');
-  const { year, month, incomeTotal, cloneFromId } = parsed.data;
+  const { year, month, incomeTotal, cloneFromId, resetAmounts } = parsed.data;
 
   const [dup] = await db
     .select({ id: period.id })
@@ -128,7 +129,7 @@ export async function createPeriod(
       .select({ id: period.id })
       .from(period)
       .where(and(eq(period.id, cloneFromId), eq(period.userId, session.userId)));
-    if (src) await cloneExpenses(session.userId, cloneFromId, row.id);
+    if (src) await cloneExpenses(session.userId, cloneFromId, row.id, resetAmounts);
   } else {
     // Mes "en blanco": igual arrastra los gastos recurrentes del último mes.
     await addRecurringExpenses(session.userId, row.id);
@@ -140,7 +141,8 @@ export async function createPeriod(
 }
 
 export async function duplicatePeriod(
-  sourceId: string
+  sourceId: string,
+  resetAmounts = false
 ): Promise<ActionResult<{ id: string }>> {
   const session = await verifySession();
   if (!session) return UNAUTHORIZED;
@@ -155,8 +157,10 @@ export async function duplicatePeriod(
   return createPeriod({
     year,
     month,
-    incomeTotal: src.incomeTotal,
+    // Con montos en cero también se reinicia el ingreso.
+    incomeTotal: resetAmounts ? 0 : src.incomeTotal,
     cloneFromId: sourceId,
+    resetAmounts,
   });
 }
 
