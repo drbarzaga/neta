@@ -19,6 +19,7 @@ export const updateExpenseSchema = z.object({
   currency: currencyEnum.optional(),
   status: statusEnum.optional(),
   dueDate: z.string().nullable().optional(),
+  recurring: z.boolean().optional(),
 });
 
 export const periodHeaderSchema = z.object({

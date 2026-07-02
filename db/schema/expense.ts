@@ -6,6 +6,7 @@ import {
   numeric,
   date,
   timestamp,
+  boolean,
   pgEnum,
 } from 'drizzle-orm/pg-core';
 import { user } from './auth';
@@ -40,6 +41,8 @@ export const expense = pgTable('expense', {
   dueDate: date({ mode: 'string' }),
   // Meta vinculada (opcional): al marcarse "pagado" aporta a esa meta.
   goalId: uuid().references(() => goal.id, { onDelete: 'set null' }),
+  // Recurrente: se agrega solo a cada mes nuevo (copiado del último mes previo).
+  recurring: boolean().notNull().default(false),
   sortOrder: integer().notNull().default(0),
   createdAt: timestamp().notNull().defaultNow(),
 });

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, period, expense } from '@/db';
+import { db, eq, and, ne, desc, period, expense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { getLatestRate } from '@/lib/exchange-rate';
@@ -32,6 +32,52 @@ async function cloneExpenses(
       currency: e.currency,
       status: 'pendiente' as const,
       dueDate: null,
+      recurring: e.recurring,
+      sortOrder: e.sortOrder,
+    }))
+  );
+}
+
+/**
+ * Agrega al mes nuevo los gastos marcados como recurrentes tomándolos del mes
+ * más reciente del usuario (distinto del nuevo). Cada copia sigue siendo
+ * recurrente para propagarse al siguiente mes.
+ */
+async function addRecurringExpenses(
+  userId: string,
+  targetPeriodId: string
+) {
+  const [latest] = await db
+    .select({ id: period.id })
+    .from(period)
+    .where(and(eq(period.userId, userId), ne(period.id, targetPeriodId)))
+    .orderBy(desc(period.year), desc(period.month))
+    .limit(1);
+  if (!latest) return;
+
+  const recurring = await db
+    .select()
+    .from(expense)
+    .where(
+      and(
+        eq(expense.userId, userId),
+        eq(expense.periodId, latest.id),
+        eq(expense.recurring, true)
+      )
+    );
+  if (recurring.length === 0) return;
+
+  await db.insert(expense).values(
+    recurring.map((e) => ({
+      userId,
+      periodId: targetPeriodId,
+      categoryId: e.categoryId,
+      concept: e.concept,
+      amount: e.amount,
+      currency: e.currency,
+      status: 'pendiente' as const,
+      dueDate: null,
+      recurring: true,
       sortOrder: e.sortOrder,
     }))
   );
@@ -83,6 +129,9 @@ export async function createPeriod(
       .from(period)
       .where(and(eq(period.id, cloneFromId), eq(period.userId, session.userId)));
     if (src) await cloneExpenses(session.userId, cloneFromId, row.id);
+  } else {
+    // Mes "en blanco": igual arrastra los gastos recurrentes del último mes.
+    await addRecurringExpenses(session.userId, row.id);
   }
 
   revalidatePath('/meses');

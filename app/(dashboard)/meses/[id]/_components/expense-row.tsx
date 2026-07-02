@@ -11,6 +11,7 @@ import {
   GripVertical,
   Target,
   CalendarClock,
+  Repeat,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -151,6 +152,20 @@ export function ExpenseRow({
     });
   }
 
+  function toggleRecurring() {
+    const next = !expense.recurring;
+    startTransition(async () => {
+      const res = await updateExpense({ id: expense.id, recurring: next });
+      if (!res.ok) toast.error(res.error ?? 'Error al guardar');
+      else
+        toast.success(
+          next
+            ? 'Se agregará automáticamente cada mes'
+            : 'Ya no es recurrente'
+        );
+    });
+  }
+
   function moveToPeriod(toPeriodId: string, label: string) {
     startTransition(async () => {
       // Al posponer/mover se reinicia a "pendiente" (aún no se pagó en el nuevo mes).
@@ -204,6 +219,14 @@ export function ExpenseRow({
             onBlur={saveConcept}
             className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
           />
+          {expense.recurring && (
+            <span
+              title="Se agrega cada mes automáticamente"
+              className="text-muted-foreground shrink-0"
+            >
+              <Repeat className="size-3.5" aria-label="Gasto recurrente" />
+            </span>
+          )}
         </div>
       </TableCell>
       <TableCell className="w-32">
@@ -342,6 +365,10 @@ export function ExpenseRow({
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
+            <DropdownMenuItem onClick={toggleRecurring}>
+              <Repeat className="size-4" />
+              {expense.recurring ? 'Quitar de recurrentes' : 'Marcar como recurrente'}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSaveTemplate}>
               <Bookmark className="size-4" /> Guardar como plantilla
             </DropdownMenuItem>
