@@ -9,8 +9,10 @@ import {
   category,
   goal,
   goalContribution,
+  purchase,
 } from '@/db';
 import { periodTotals, formatMoney } from '@/lib/money';
+import { addMonths, periodLabel } from '@/lib/dates';
 
 const MAX_PERIODS = 12;
 
@@ -23,7 +25,7 @@ export async function buildFinancialContext(userId: string): Promise<{
   hasData: boolean;
   context: string;
 }> {
-  const [periods, cats, goals, contributions] = await Promise.all([
+  const [periods, cats, goals, contributions, purchases] = await Promise.all([
     db
       .select()
       .from(period)
@@ -48,6 +50,7 @@ export async function buildFinancialContext(userId: string): Promise<{
       })
       .from(goalContribution)
       .where(eq(goalContribution.userId, userId)),
+    db.select().from(purchase).where(eq(purchase.userId, userId)),
   ]);
 
   if (periods.length === 0) {
@@ -156,12 +159,59 @@ export async function buildFinancialContext(userId: string): Promise<{
       lines.push('Gastos:');
       for (const e of items) {
         const venc = e.dueDate ? ` vence ${e.dueDate}` : '';
+        const flags: string[] = [];
+        if (e.recurring) flags.push('recurrente');
+        if (e.installmentNumber && e.installmentsCount)
+          flags.push(`cuota ${e.installmentNumber}/${e.installmentsCount}`);
+        const tag = flags.length ? ` {${flags.join(', ')}}` : '';
         lines.push(
-          `- ${e.concept}: ${formatMoney(e.amount, e.currency, locale)} [${e.status}]${venc} (${catName.get(e.categoryId) ?? 'Sin categoría'})`
+          `- ${e.concept}: ${formatMoney(e.amount, e.currency, locale)} [${e.status}]${venc} (${catName.get(e.categoryId) ?? 'Sin categoría'})${tag}`
         );
       }
     }
     lines.push('');
+  }
+
+  // Resumen de gastos recurrentes (según el mes más reciente).
+  const latestPeriod = periods[0];
+  const latestItems = latestPeriod ? (byPeriod.get(latestPeriod.id) ?? []) : [];
+  const recurringConcepts = latestItems
+    .filter((e) => e.recurring)
+    .map((e) => e.concept);
+  if (recurringConcepts.length > 0) {
+    lines.push(
+      `Gastos recurrentes (se agregan cada mes): ${recurringConcepts.join(', ')}.`,
+      ''
+    );
+  }
+
+  // Compras en cuotas activas (con cuotas pendientes de pagar).
+  if (purchases.length > 0) {
+    const paidByPurchase = new Map<string, number>();
+    for (const e of allExpenses) {
+      if (e.purchaseId && e.status === 'pagado') {
+        paidByPurchase.set(e.purchaseId, (paidByPurchase.get(e.purchaseId) ?? 0) + 1);
+      }
+    }
+    const active = purchases
+      .map((pl) => {
+        const paid = paidByPurchase.get(pl.id) ?? 0;
+        const remaining = Math.max(0, pl.installmentsCount - paid);
+        const end = addMonths(pl.startMonth, pl.startYear, pl.installmentsCount - 1);
+        return { pl, paid, remaining, end };
+      })
+      .filter((x) => x.remaining > 0);
+
+    if (active.length > 0) {
+      lines.push('Compras en cuotas activas:');
+      for (const { pl, paid, remaining, end } of active) {
+        const m = (n: number) => formatMoney(n, pl.currency, 'es-UY');
+        lines.push(
+          `- ${pl.concept}: ${m(pl.installmentAmount)}/mes, ${paid} de ${pl.installmentsCount} cuotas pagadas, quedan ${remaining} (hasta ${periodLabel(end.month, end.year)})`
+        );
+      }
+      lines.push('');
+    }
   }
 
   return { hasData: true, context: lines.join('\n') };
@@ -249,6 +299,21 @@ export async function buildAdvisorInsights(
         upcoming.length === 1
           ? `Vence pronto: ${upcoming[0].concept} (${upcoming[0].dueDate}).`
           : `${upcoming.length} gastos vencen en los próximos 3 días.`,
+    });
+  }
+
+  // Compromiso mensual por compras en cuotas de este mes (cuotas sin pagar).
+  const pendingInstallments = items.filter(
+    (e) => e.installmentNumber && e.status !== 'pagado'
+  );
+  if (pendingInstallments.length > 0) {
+    const totalLocal = pendingInstallments.reduce(
+      (s, e) => s + (e.currency === 'USD' ? e.amount * latest.dollarRate : e.amount),
+      0
+    );
+    insights.push({
+      level: 'warn',
+      text: `Tienes ${pendingInstallments.length} cuota(s) por pagar este mes (${money(totalLocal)}).`,
     });
   }
 

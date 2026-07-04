@@ -58,7 +58,10 @@ type AdvisorAction =
   | { type: 'delete_expense'; concept: string }
   | { type: 'create_category'; name: string; icon?: string; color?: string }
   | { type: 'complete_goal'; goal: string }
-  | { type: 'update_goal'; goal: string; target?: number; targetDate?: string | null };
+  | { type: 'update_goal'; goal: string; target?: number; targetDate?: string | null }
+  | { type: 'set_recurring'; concept: string; recurring: boolean }
+  | { type: 'create_installment'; concept: string; category: string; installmentAmount: number; installments: number; currency?: string }
+  | { type: 'convert_to_installments'; concept: string; installments: number; amountIsTotal?: boolean };
 
 const MONTHS_ES = [
   'enero',
@@ -161,6 +164,17 @@ function actionLabel(a: AdvisorAction): string {
       if (a.targetDate) parts.push(`fecha ${a.targetDate}`);
       return `Actualizar meta «${a.goal}»${parts.length ? ` → ${parts.join(', ')}` : ''}`;
     }
+    case 'set_recurring':
+      return a.recurring
+        ? `Marcar como recurrente: ${a.concept}`
+        : `Quitar de recurrentes: ${a.concept}`;
+    case 'create_installment':
+      return `Compra en cuotas: ${a.concept} · ${a.installments} cuotas de ${a.installmentAmount} ${a.currency ?? ''} en ${a.category}`.replace(
+        / +/g,
+        ' '
+      );
+    case 'convert_to_installments':
+      return `Convertir en ${a.installments} cuotas: ${a.concept}`;
   }
 }
 

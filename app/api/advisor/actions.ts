@@ -23,6 +23,8 @@ import {
   updateExpense,
   deleteExpense,
   updatePeriodHeader,
+  createInstallmentPurchase,
+  convertExpenseToInstallments,
 } from '@/app/(dashboard)/meses/[id]/actions';
 import { createPeriod } from '@/app/(dashboard)/meses/actions';
 import { addCategory } from '@/app/(dashboard)/categorias/actions';
@@ -141,6 +143,25 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     goal: z.string().min(1),
     target: z.number().min(0).optional(),
     targetDate: z.string().nullable().optional(),
+  }),
+  z.object({
+    type: z.literal('set_recurring'),
+    concept: z.string().min(1),
+    recurring: z.boolean(),
+  }),
+  z.object({
+    type: z.literal('create_installment'),
+    concept: z.string().min(1),
+    category: z.string().min(1),
+    installmentAmount: z.number().min(0.01),
+    installments: z.number().int().min(2).max(120),
+    currency: z.string().optional(),
+  }),
+  z.object({
+    type: z.literal('convert_to_installments'),
+    concept: z.string().min(1),
+    installments: z.number().int().min(2).max(120),
+    amountIsTotal: z.boolean().optional(),
   }),
 ]);
 
@@ -318,6 +339,51 @@ export async function executeAdvisorAction(
       month: a.month,
       incomeTotal,
       cloneFromId,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'set_recurring') {
+    if (!latest) return { ok: false, error: 'No tienes un mes creado' };
+    const match = await findExpense(a.concept);
+    if (!match) return { ok: false, error: `No encontré el gasto "${a.concept}"` };
+    const res = await updateExpense({ id: match.id, recurring: a.recurring });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'create_installment') {
+    if (!latest) return { ok: false, error: 'No tienes un mes creado' };
+    const cats = await db
+      .select({ id: category.id, name: category.name })
+      .from(category)
+      .where(eq(category.userId, session.userId));
+    const cat = cats.find((c) => norm(c.name) === norm(a.category));
+    if (!cat) return { ok: false, error: `No encontré la categoría "${a.category}"` };
+    // La primera cuota arranca en el mes más reciente.
+    const [p] = await db
+      .select({ year: period.year, month: period.month })
+      .from(period)
+      .where(eq(period.id, latest.id));
+    const res = await createInstallmentPurchase({
+      concept: a.concept,
+      categoryId: cat.id,
+      currency: a.currency ?? latest.localCurrency,
+      installmentAmount: a.installmentAmount,
+      installmentsCount: a.installments,
+      startMonth: p!.month,
+      startYear: p!.year,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'convert_to_installments') {
+    if (!latest) return { ok: false, error: 'No tienes un mes creado' };
+    const match = await findExpense(a.concept);
+    if (!match) return { ok: false, error: `No encontré el gasto "${a.concept}"` };
+    const res = await convertExpenseToInstallments({
+      id: match.id,
+      installmentsCount: a.installments,
+      amountIsTotal: a.amountIsTotal ?? true,
     });
     return { ok: res.ok, error: res.error };
   }
