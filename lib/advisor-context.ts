@@ -10,6 +10,7 @@ import {
   goal,
   goalContribution,
   purchase,
+  savingsAccount,
 } from '@/db';
 import { periodTotals, formatMoney } from '@/lib/money';
 import { addMonths, periodLabel } from '@/lib/dates';
@@ -25,7 +26,7 @@ export async function buildFinancialContext(userId: string): Promise<{
   hasData: boolean;
   context: string;
 }> {
-  const [periods, cats, goals, contributions, purchases] = await Promise.all([
+  const [periods, cats, goals, contributions, purchases, savings] = await Promise.all([
     db
       .select()
       .from(period)
@@ -51,6 +52,7 @@ export async function buildFinancialContext(userId: string): Promise<{
       .from(goalContribution)
       .where(eq(goalContribution.userId, userId)),
     db.select().from(purchase).where(eq(purchase.userId, userId)),
+    db.select().from(savingsAccount).where(eq(savingsAccount.userId, userId)),
   ]);
 
   if (periods.length === 0) {
@@ -78,6 +80,25 @@ export async function buildFinancialContext(userId: string): Promise<{
       `Categorías del usuario (usa estos nombres exactos): ${cats
         .map((c) => c.name)
         .join(', ')}.`,
+      ''
+    );
+  }
+
+  if (savings.length > 0) {
+    // Total ahorrado convertido a moneda local con la cotización del mes reciente.
+    const rate = periods[0]?.dollarRate ?? 0;
+    const totalLocal = savings.reduce(
+      (s, a) => s + (a.currency === 'USD' ? a.balance * rate : a.balance),
+      0
+    );
+    const localCur = periods[0]?.localCurrency ?? 'UYU';
+    lines.push('Ahorros del usuario (apartados):');
+    for (const a of savings) {
+      lines.push(`- ${a.name}: ${formatMoney(a.balance, a.currency, 'es-UY')}`);
+    }
+    lines.push(
+      `Total ahorrado (aprox. en ${localCur}): ${formatMoney(totalLocal, localCur, 'es-UY')}.`,
+      'Nota: los ahorros son independientes de las metas; puedes sugerir mover ahorro hacia metas o comentar su evolución.',
       ''
     );
   }

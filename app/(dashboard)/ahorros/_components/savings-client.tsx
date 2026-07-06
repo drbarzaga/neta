@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import {
   Plus,
   PiggyBank,
@@ -10,6 +10,8 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Wallet,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -76,6 +78,14 @@ import {
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
+const HIDE_KEY = 'neta:hideSavings';
+const MASK = '••••••';
+
+/** Formatea un monto o lo enmascara si los saldos están ocultos. */
+function money(hidden: boolean, n: number, currency: string, locale: string): string {
+  return hidden ? MASK : formatMoney(n, currency, locale);
+}
+
 /** Etiqueta corta "Jul 26" a partir de "YYYY-MM". */
 function monthLabel(key: string): string {
   const [y, m] = key.split('-');
@@ -128,6 +138,24 @@ export function SavingsClient({
     account: SavingsAccount | null;
     kind: 'deposit' | 'withdraw';
   }>({ open: false, account: null, kind: 'deposit' });
+  const [hidden, setHidden] = useState(false);
+
+  // Preferencia de ocultar saldos (se lee tras montar para no romper hidratación).
+  useEffect(() => {
+    void (async () => {
+      if (localStorage.getItem(HIDE_KEY) === '1') setHidden(true);
+    })();
+  }, []);
+
+  function toggleHidden() {
+    setHidden((h) => {
+      const next = !h;
+      try {
+        localStorage.setItem(HIDE_KEY, next ? '1' : '0');
+      } catch {}
+      return next;
+    });
+  }
 
   const toLocal = (amount: number, currency: string) =>
     currency === 'USD' ? amount * rate : amount;
@@ -163,9 +191,20 @@ export function SavingsClient({
             Lleva el control de tu plata guardada y cómo evoluciona.
           </p>
         </div>
-        <Button onClick={() => setDialog({ open: true, account: null })}>
-          <Plus /> Nuevo apartado
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleHidden}
+            aria-label={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
+            title={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
+          >
+            {hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+          </Button>
+          <Button onClick={() => setDialog({ open: true, account: null })}>
+            <Plus /> Nuevo apartado
+          </Button>
+        </div>
       </div>
 
       {accounts.length === 0 ? (
@@ -198,11 +237,11 @@ export function SavingsClient({
                   <span className="text-muted-foreground text-sm">Total ahorrado</span>
                 </div>
                 <p className="text-3xl font-semibold tabular-nums">
-                  {formatMoney(totalLocal, localCurrency, locale)}
+                  {money(hidden, totalLocal, localCurrency, locale)}
                 </p>
                 {localCurrency !== 'USD' && (
                   <p className="text-muted-foreground text-sm tabular-nums">
-                    {formatMoney(totalUsd, 'USD', locale)} · {accounts.length} apartado(s)
+                    {money(hidden, totalUsd, 'USD', locale)} · {accounts.length} apartado(s)
                   </p>
                 )}
               </CardContent>
@@ -224,7 +263,7 @@ export function SavingsClient({
                           <ChartTooltipContent
                             formatter={(value) => (
                               <span className="font-medium tabular-nums">
-                                {formatMoney(Number(value), localCurrency, locale)}
+                                {money(hidden, Number(value), localCurrency, locale)}
                               </span>
                             )}
                           />
@@ -251,6 +290,7 @@ export function SavingsClient({
                 account={acc}
                 locale={locale}
                 rate={rate}
+                hidden={hidden}
                 onEdit={() => setDialog({ open: true, account: acc })}
                 onMovement={(kind) => setSheet({ open: true, account: acc, kind })}
               />
@@ -275,6 +315,7 @@ export function SavingsClient({
           initialKind={sheet.kind}
           movements={movementsByAccount.get(sheet.account.id) ?? []}
           locale={locale}
+          hidden={hidden}
           onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
         />
       )}
@@ -286,12 +327,14 @@ function AccountCard({
   account,
   locale,
   rate,
+  hidden,
   onEdit,
   onMovement,
 }: {
   account: SavingsAccount;
   locale: string;
   rate: number;
+  hidden: boolean;
   onEdit: () => void;
   onMovement: (kind: 'deposit' | 'withdraw') => void;
 }) {
@@ -347,11 +390,11 @@ function AccountCard({
       <CardContent className="flex flex-1 flex-col gap-3">
         <div>
           <p className="text-2xl font-semibold tabular-nums">
-            {formatMoney(account.balance, account.currency, locale)}
+            {money(hidden, account.balance, account.currency, locale)}
           </p>
           {altUsd !== null && (
             <p className="text-muted-foreground text-sm tabular-nums">
-              {formatMoney(altUsd, 'USD', locale)}
+              {money(hidden, altUsd, 'USD', locale)}
             </p>
           )}
         </div>
@@ -503,6 +546,7 @@ function MovementSheet({
   initialKind,
   movements,
   locale,
+  hidden,
   onOpenChange,
 }: {
   open: boolean;
@@ -510,6 +554,7 @@ function MovementSheet({
   initialKind: 'deposit' | 'withdraw';
   movements: SavingsMovement[];
   locale: string;
+  hidden: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const confirm = useConfirm();
@@ -567,7 +612,7 @@ function MovementSheet({
         <SheetHeader className="border-b">
           <SheetTitle>{account.name}</SheetTitle>
           <SheetDescription>
-            Saldo: {formatMoney(account.balance, account.currency, locale)}
+            Saldo: {money(hidden, account.balance, account.currency, locale)}
           </SheetDescription>
         </SheetHeader>
 
@@ -660,8 +705,7 @@ function MovementSheet({
                         positive ? 'text-emerald-600 dark:text-emerald-400' : ''
                       )}
                     >
-                      {positive ? '+' : '−'}
-                      {formatMoney(Math.abs(m.amount), account.currency, locale)}
+                      {hidden ? MASK : `${positive ? '+' : '−'}${formatMoney(Math.abs(m.amount), account.currency, locale)}`}
                     </span>
                     <Button
                       variant="ghost"

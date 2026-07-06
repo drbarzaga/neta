@@ -12,6 +12,7 @@ import {
   expense,
   goal,
   advisorMessage,
+  savingsAccount,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import {
@@ -34,6 +35,11 @@ import {
   updateGoal,
   toggleGoalCompleted,
 } from '@/app/(dashboard)/metas/actions';
+import {
+  createSavingsAccount,
+  addSavingsMovement,
+} from '@/app/(dashboard)/ahorros/actions';
+import { todayISO } from '@/lib/dates';
 
 export interface AdvisorActionResult {
   ok: boolean;
@@ -162,6 +168,18 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     concept: z.string().min(1),
     installments: z.number().int().min(2).max(120),
     amountIsTotal: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('create_saving_account'),
+    name: z.string().min(1),
+    currency: z.string().optional(),
+    initialBalance: z.number().min(0).optional(),
+  }),
+  z.object({
+    type: z.literal('add_saving'),
+    account: z.string().min(1),
+    amount: z.number().min(0.01),
+    kind: z.enum(['deposit', 'withdraw']).optional(),
   }),
 ]);
 
@@ -384,6 +402,31 @@ export async function executeAdvisorAction(
       id: match.id,
       installmentsCount: a.installments,
       amountIsTotal: a.amountIsTotal ?? true,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'create_saving_account') {
+    const res = await createSavingsAccount({
+      name: a.name,
+      currency: a.currency ?? latest?.localCurrency ?? 'UYU',
+      initialBalance: a.initialBalance ?? 0,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'add_saving') {
+    const accounts = await db
+      .select({ id: savingsAccount.id, name: savingsAccount.name })
+      .from(savingsAccount)
+      .where(eq(savingsAccount.userId, session.userId));
+    const acc = accounts.find((x) => norm(x.name) === norm(a.account));
+    if (!acc) return { ok: false, error: `No encontré el apartado "${a.account}"` };
+    const res = await addSavingsMovement({
+      accountId: acc.id,
+      kind: a.kind ?? 'deposit',
+      amount: a.amount,
+      date: todayISO(),
     });
     return { ok: res.ok, error: res.error };
   }

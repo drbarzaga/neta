@@ -61,7 +61,9 @@ type AdvisorAction =
   | { type: 'update_goal'; goal: string; target?: number; targetDate?: string | null }
   | { type: 'set_recurring'; concept: string; recurring: boolean }
   | { type: 'create_installment'; concept: string; category: string; installmentAmount: number; installments: number; currency?: string }
-  | { type: 'convert_to_installments'; concept: string; installments: number; amountIsTotal?: boolean };
+  | { type: 'convert_to_installments'; concept: string; installments: number; amountIsTotal?: boolean }
+  | { type: 'create_saving_account'; name: string; currency?: string; initialBalance?: number }
+  | { type: 'add_saving'; account: string; amount: number; kind?: 'deposit' | 'withdraw' };
 
 const MONTHS_ES = [
   'enero',
@@ -175,6 +177,12 @@ function actionLabel(a: AdvisorAction): string {
       );
     case 'convert_to_installments':
       return `Convertir en ${a.installments} cuotas: ${a.concept}`;
+    case 'create_saving_account':
+      return `Crear apartado de ahorro: ${a.name}${a.initialBalance ? ` · saldo inicial ${a.initialBalance} ${a.currency ?? ''}` : ''}`.trim();
+    case 'add_saving':
+      return a.kind === 'withdraw'
+        ? `Retirar ${a.amount} de «${a.account}»`
+        : `Depositar ${a.amount} en «${a.account}»`;
   }
 }
 
