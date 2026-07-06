@@ -11,3 +11,4 @@ export * from './goal-contribution';
 export * from './advisor-message';
 export * from './purchase';
 export * from './savings';
+export * from './savings-movement';

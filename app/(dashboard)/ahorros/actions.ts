@@ -147,10 +147,17 @@ export async function deleteSavingsMovement(
   if (!parsed.success) return fail('Datos inválidos');
 
   const [m] = await db
-    .select({ amount: savingsMovement.amount, accountId: savingsMovement.accountId })
+    .select({
+      amount: savingsMovement.amount,
+      accountId: savingsMovement.accountId,
+      expenseId: savingsMovement.expenseId,
+    })
     .from(savingsMovement)
     .where(and(eq(savingsMovement.id, parsed.data.id), eq(savingsMovement.userId, session.userId)));
   if (!m) return UNAUTHORIZED;
+  if (m.expenseId) {
+    return fail('Este movimiento viene de un gasto vinculado; edítalo desde el mes.');
+  }
 
   const [acc] = await db
     .select({ balance: savingsAccount.balance })

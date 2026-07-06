@@ -13,6 +13,8 @@ import {
   goal,
   goalContribution,
   purchase,
+  savingsAccount,
+  savingsMovement,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
@@ -30,6 +32,7 @@ import {
   moveExpenseToPeriodSchema,
   createInstallmentSchema,
   convertToInstallmentsSchema,
+  setExpenseSavingsSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -163,6 +166,116 @@ async function syncExpenseGoalContribution(userId: string, expenseId: string) {
       .update(goalContribution)
       .set({ goalId: targetGoalId, amount, note })
       .where(eq(goalContribution.id, existing.id));
+  }
+}
+
+/** Suma `delta` al saldo de un apartado de ahorro (sin bajar de 0). */
+async function adjustSavingsBalance(
+  userId: string,
+  accountId: string,
+  delta: number
+) {
+  if (delta === 0) return;
+  const [a] = await db
+    .select({ balance: savingsAccount.balance })
+    .from(savingsAccount)
+    .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, userId)));
+  if (!a) return;
+  await db
+    .update(savingsAccount)
+    .set({ balance: Math.max(0, a.balance + delta) })
+    .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, userId)));
+}
+
+/**
+ * Reconcilia el aporte automático de un gasto vinculado a un apartado de ahorro.
+ * Regla espejo a la de metas: existe un movimiento (con expenseId) si y solo si
+ * el gasto está vinculado a un apartado y pagado; su monto es el del gasto
+ * convertido a la moneda del apartado (cotización del mes).
+ */
+async function syncExpenseSavingsMovement(userId: string, expenseId: string) {
+  const [e] = await db
+    .select({
+      amount: expense.amount,
+      currency: expense.currency,
+      status: expense.status,
+      savingsAccountId: expense.savingsAccountId,
+      periodId: expense.periodId,
+      concept: expense.concept,
+    })
+    .from(expense)
+    .where(and(eq(expense.id, expenseId), eq(expense.userId, userId)));
+  if (!e) return;
+
+  const [existing] = await db
+    .select()
+    .from(savingsMovement)
+    .where(
+      and(
+        eq(savingsMovement.userId, userId),
+        eq(savingsMovement.expenseId, expenseId)
+      )
+    );
+
+  const targetAccountId = e.savingsAccountId;
+  const desired = targetAccountId !== null && e.status === 'pagado';
+
+  // No corresponde (desvinculado / no pagado): revierte y borra el movimiento.
+  const removeExisting = async () => {
+    if (existing) {
+      await adjustSavingsBalance(userId, existing.accountId, -existing.amount);
+      await db.delete(savingsMovement).where(eq(savingsMovement.id, existing.id));
+    }
+  };
+
+  if (!desired || !targetAccountId) {
+    await removeExisting();
+    return;
+  }
+
+  const [acc] = await db
+    .select({ currency: savingsAccount.currency })
+    .from(savingsAccount)
+    .where(and(eq(savingsAccount.id, targetAccountId), eq(savingsAccount.userId, userId)));
+  if (!acc) {
+    await removeExisting();
+    return;
+  }
+
+  const [p] = await db
+    .select({ rate: period.dollarRate })
+    .from(period)
+    .where(eq(period.id, e.periodId));
+  const amount = convertAmount(e.amount, e.currency, acc.currency, p?.rate ?? 0);
+  const note = `Gasto: ${e.concept}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (!existing) {
+    await db.insert(savingsMovement).values({
+      userId,
+      accountId: targetAccountId,
+      expenseId,
+      amount,
+      note,
+      date: today,
+    });
+    await adjustSavingsBalance(userId, targetAccountId, amount);
+    return;
+  }
+
+  if (existing.accountId === targetAccountId) {
+    await adjustSavingsBalance(userId, targetAccountId, amount - existing.amount);
+    await db
+      .update(savingsMovement)
+      .set({ amount, note })
+      .where(eq(savingsMovement.id, existing.id));
+  } else {
+    await adjustSavingsBalance(userId, existing.accountId, -existing.amount);
+    await adjustSavingsBalance(userId, targetAccountId, amount);
+    await db
+      .update(savingsMovement)
+      .set({ accountId: targetAccountId, amount, note })
+      .where(eq(savingsMovement.id, existing.id));
   }
 }
 
@@ -354,6 +467,7 @@ export async function moveExpenseToPeriod(
 
   // La cotización del mes destino puede diferir: reconcilia el aporte a la meta.
   await syncExpenseGoalContribution(session.userId, id);
+  await syncExpenseSavingsMovement(session.userId, id);
 
   revalidate(current.periodId);
   revalidate(toPeriodId);
@@ -539,6 +653,7 @@ export async function convertExpenseToInstallments(
     })
     .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
   await syncExpenseGoalContribution(session.userId, id);
+  await syncExpenseSavingsMovement(session.userId, id);
 
   // Cuotas 2..N en los meses que existan (las futuras se crean al hacer el mes).
   const periods = await db
@@ -606,6 +721,7 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
 
   // El monto/moneda/estado pudo cambiar: reconcilia el aporte a la meta vinculada.
   await syncExpenseGoalContribution(session.userId, id);
+  await syncExpenseSavingsMovement(session.userId, id);
 
   revalidate(current.periodId);
   return ok();
@@ -634,11 +750,54 @@ export async function setExpenseGoal(input: unknown): Promise<ActionResult> {
     if (!g) return fail('Meta no encontrada');
   }
 
+  // Meta y ahorro son destinos mutuamente excluyentes: al fijar meta, desvincula
+  // el apartado (y viceversa en setExpenseSavings).
   await db
     .update(expense)
-    .set({ goalId })
+    .set({ goalId, ...(goalId ? { savingsAccountId: null } : {}) })
     .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
 
+  await syncExpenseGoalContribution(session.userId, id);
+  await syncExpenseSavingsMovement(session.userId, id);
+
+  revalidate(current.periodId);
+  return ok();
+}
+
+/** Vincula (o desvincula con null) un gasto a un apartado de ahorro. */
+export async function setExpenseSavings(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setExpenseSavingsSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, savingsAccountId } = parsed.data;
+
+  const [current] = await db
+    .select({ periodId: expense.periodId })
+    .from(expense)
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!current) return UNAUTHORIZED;
+
+  if (savingsAccountId) {
+    const [a] = await db
+      .select({ id: savingsAccount.id })
+      .from(savingsAccount)
+      .where(
+        and(
+          eq(savingsAccount.id, savingsAccountId),
+          eq(savingsAccount.userId, session.userId)
+        )
+      );
+    if (!a) return fail('Apartado de ahorro no encontrado');
+  }
+
+  await db
+    .update(expense)
+    .set({ savingsAccountId, ...(savingsAccountId ? { goalId: null } : {}) })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+
+  await syncExpenseSavingsMovement(session.userId, id);
   await syncExpenseGoalContribution(session.userId, id);
 
   revalidate(current.periodId);
@@ -698,6 +857,20 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
     );
   if (contrib) {
     await adjustGoalSaved(session.userId, contrib.goalId, -contrib.amount);
+  }
+
+  // Ídem para el aporte automático a un apartado de ahorro.
+  const [mov] = await db
+    .select({ id: savingsMovement.id, accountId: savingsMovement.accountId, amount: savingsMovement.amount })
+    .from(savingsMovement)
+    .where(
+      and(
+        eq(savingsMovement.userId, session.userId),
+        eq(savingsMovement.expenseId, id)
+      )
+    );
+  if (mov) {
+    await adjustSavingsBalance(session.userId, mov.accountId, -mov.amount);
   }
 
   await db

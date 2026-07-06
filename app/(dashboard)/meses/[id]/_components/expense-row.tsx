@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Repeat,
   CreditCard,
+  PiggyBank,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -47,12 +48,13 @@ import { DatePicker } from '@/components/date-picker';
 import { ConvertToInstallmentsDialog } from './convert-to-installments-dialog';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
-import type { Expense, Goal } from '@/db';
+import type { Expense, Goal, SavingsAccount } from '@/db';
 import {
   updateExpense,
   deleteExpense,
   saveExpenseAsTemplate,
   setExpenseGoal,
+  setExpenseSavings,
   moveExpenseToPeriod,
   deletePurchase,
 } from '../actions';
@@ -76,6 +78,7 @@ export function ExpenseRow({
   localCurrency = 'UYU',
   locale = 'es-UY',
   goals = [],
+  savingsAccounts = [],
   otherPeriods = [],
 }: {
   expense: Expense;
@@ -84,6 +87,7 @@ export function ExpenseRow({
   localCurrency?: string;
   locale?: string;
   goals?: Goal[];
+  savingsAccounts?: SavingsAccount[];
   otherPeriods?: { id: string; label: string }[];
 }) {
   const [pending, startTransition] = useTransition();
@@ -156,6 +160,18 @@ export function ExpenseRow({
     });
   }
 
+  function linkSavings(savingsAccountId: string | null) {
+    if (savingsAccountId === (expense.savingsAccountId ?? null)) return;
+    startTransition(async () => {
+      const res = await setExpenseSavings({ id: expense.id, savingsAccountId });
+      if (!res.ok) toast.error(res.error ?? 'Error al vincular');
+      else
+        toast.success(
+          savingsAccountId ? 'Gasto vinculado al ahorro' : 'Gasto desvinculado'
+        );
+    });
+  }
+
   async function handleDeletePurchase() {
     if (!expense.purchaseId) return;
     const ok = await confirm({
@@ -203,6 +219,9 @@ export function ExpenseRow({
   const StatusIcon = STATUS_ICONS[expense.status];
   const linkedGoal = expense.goalId
     ? goals.find((g) => g.id === expense.goalId) ?? null
+    : null;
+  const linkedSavings = expense.savingsAccountId
+    ? savingsAccounts.find((a) => a.id === expense.savingsAccountId) ?? null
     : null;
 
   return (
@@ -330,6 +349,18 @@ export function ExpenseRow({
             <Target className="size-3 shrink-0" />
             <span className="truncate">{linkedGoal.title}</span>
           </span>
+        ) : linkedSavings ? (
+          <span
+            title={`Este gasto aporta al ahorro: ${linkedSavings.name}`}
+            className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: `${linkedSavings.color}1a`,
+              color: linkedSavings.color,
+            }}
+          >
+            <PiggyBank className="size-3 shrink-0" />
+            <span className="truncate">{linkedSavings.name}</span>
+          </span>
         ) : (
           <span className="text-muted-foreground/50 text-sm">—</span>
         )}
@@ -366,6 +397,31 @@ export function ExpenseRow({
                     {goals.map((g) => (
                       <DropdownMenuRadioItem key={g.id} value={g.id}>
                         {g.title}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <PiggyBank className="size-4" />
+                {linkedSavings ? 'Ahorro vinculado' : 'Aportar a ahorro'}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {savingsAccounts.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No tienes apartados de ahorro
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuRadioGroup
+                    value={expense.savingsAccountId ?? ''}
+                    onValueChange={(v) => linkSavings(v || null)}
+                  >
+                    <DropdownMenuRadioItem value="">Ninguno</DropdownMenuRadioItem>
+                    {savingsAccounts.map((a) => (
+                      <DropdownMenuRadioItem key={a.id} value={a.id}>
+                        {a.name}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>

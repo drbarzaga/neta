@@ -47,6 +47,12 @@ export const setExpenseGoalSchema = z.object({
   goalId: z.uuid().nullable(),
 });
 
+// Vincular (o desvincular con null) un gasto a un apartado de ahorro.
+export const setExpenseSavingsSchema = z.object({
+  id: z.uuid(),
+  savingsAccountId: z.uuid().nullable(),
+});
+
 // Mover un gasto a otra categoría (o reordenar dentro de la misma) y fijar el
 // orden de la categoría destino con la lista de ids.
 export const moveExpenseSchema = z.object({

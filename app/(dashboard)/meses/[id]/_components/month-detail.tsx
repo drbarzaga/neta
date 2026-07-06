@@ -55,7 +55,7 @@ import { CategoryIcon } from '@/components/category-icon';
 import { ProgressRing } from '@/components/progress-ring';
 import { periodTotals } from '@/lib/money';
 import { Money, Pct } from '@/components/money';
-import type { Category, Expense, Period, Goal } from '@/db';
+import type { Category, Expense, Period, Goal, SavingsAccount } from '@/db';
 import type { TemplateRow } from '../../../plantillas/queries';
 import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
@@ -82,6 +82,7 @@ export function MonthDetail({
   templates,
   goals,
   otherPeriods = [],
+  savingsAccounts = [],
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -91,6 +92,7 @@ export function MonthDetail({
   templates: TemplateRow[];
   goals: Goal[];
   otherPeriods?: { id: string; label: string }[];
+  savingsAccounts?: SavingsAccount[];
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -560,6 +562,7 @@ export function MonthDetail({
               toDisp={toDisp}
               localCurrency={localCurrency}
               goals={goals}
+              savingsAccounts={savingsAccounts}
               otherPeriods={otherPeriods}
               onAdd={() => handleAdd(cat.id)}
               addDisabled={pending}
@@ -580,6 +583,7 @@ function CategoryRows({
   localCurrency,
   locale,
   goals,
+  savingsAccounts,
   otherPeriods,
 }: {
   categoryId: string;
@@ -588,6 +592,7 @@ function CategoryRows({
   localCurrency: string;
   locale: string;
   goals: Goal[];
+  savingsAccounts: SavingsAccount[];
   otherPeriods: { id: string; label: string }[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: categoryId });
@@ -616,6 +621,7 @@ function CategoryRows({
               localCurrency={localCurrency}
               locale={locale}
               goals={goals}
+              savingsAccounts={savingsAccounts}
               otherPeriods={otherPeriods}
             />
           ))
@@ -637,6 +643,7 @@ function SortableSection({
   toDisp,
   localCurrency,
   goals,
+  savingsAccounts,
   otherPeriods,
   onAdd,
   addDisabled,
@@ -651,6 +658,7 @@ function SortableSection({
   toDisp: (n: number) => number;
   localCurrency: string;
   goals: Goal[];
+  savingsAccounts: SavingsAccount[];
   otherPeriods: { id: string; label: string }[];
   onAdd: () => void;
   addDisabled: boolean;
@@ -727,7 +735,7 @@ function SortableSection({
                   <TableHead className="w-28 px-4 text-right">USD aprox</TableHead>
                   <TableHead className="w-32 px-4">Estado</TableHead>
                   <TableHead className="w-36 px-4">Vencimiento</TableHead>
-                  <TableHead className="w-44 px-4">Meta</TableHead>
+                  <TableHead className="w-44 px-4">Aporta a</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
@@ -738,6 +746,7 @@ function SortableSection({
                 localCurrency={localCurrency}
                 locale={locale}
                 goals={goals}
+                savingsAccounts={savingsAccounts}
                 otherPeriods={otherPeriods}
               />
             </Table>

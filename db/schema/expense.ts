@@ -14,6 +14,7 @@ import { period } from './period';
 import { category } from './category';
 import { goal } from './goal';
 import { purchase } from './purchase';
+import { savingsAccount } from './savings';
 
 export const expenseStatus = pgEnum('expense_status', [
   'pendiente',
@@ -42,6 +43,10 @@ export const expense = pgTable('expense', {
   dueDate: date({ mode: 'string' }),
   // Meta vinculada (opcional): al marcarse "pagado" aporta a esa meta.
   goalId: uuid().references(() => goal.id, { onDelete: 'set null' }),
+  // Apartado de ahorro vinculado (opcional): al pagarse deposita en ese apartado.
+  savingsAccountId: uuid().references(() => savingsAccount.id, {
+    onDelete: 'set null',
+  }),
   // Recurrente: se agrega solo a cada mes nuevo (copiado del último mes previo).
   recurring: boolean().notNull().default(false),
   // Compra en cuotas (opcional): plan al que pertenece y número de cuota (X de N).
