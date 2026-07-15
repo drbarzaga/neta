@@ -8,6 +8,7 @@ import {
   Bookmark,
   UploadCloud,
   Settings,
+  ListTodo,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -24,6 +25,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Meses', href: '/meses', icon: CalendarDays },
   { title: 'Metas', href: '/metas', icon: Target, addedOn: '2026-06-30' },
   { title: 'Ahorros', href: '/ahorros', icon: PiggyBank, addedOn: '2026-07-06' },
+  { title: 'Todos', href: '/todos', icon: ListTodo, addedOn: '2026-07-15' },
   { title: 'Analítica', href: '/analitica', icon: BarChart3 },
   { title: 'Categorías', href: '/categorias', icon: Tags },
   { title: 'Plantillas', href: '/plantillas', icon: Bookmark },

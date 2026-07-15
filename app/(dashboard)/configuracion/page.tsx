@@ -47,6 +47,8 @@ export default async function ConfiguracionPage() {
           monthlySummaryEnabled: pref.monthlySummaryEnabled,
           budgetAlertEnabled: pref.budgetAlertEnabled,
           budgetAlertThresholdPct: pref.budgetAlertThresholdPct,
+          todoDueRemindersEnabled: pref.todoDueRemindersEnabled,
+          todoDueReminderDaysBefore: pref.todoDueReminderDaysBefore,
         }}
       />
     </div>

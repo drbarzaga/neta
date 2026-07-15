@@ -6,6 +6,8 @@ export const preferenceSchema = z.object({
   monthlySummaryEnabled: z.boolean(),
   budgetAlertEnabled: z.boolean(),
   budgetAlertThresholdPct: z.number().int().min(1).max(200),
+  todoDueRemindersEnabled: z.boolean(),
+  todoDueReminderDaysBefore: z.number().int().min(0).max(30),
 });
 
 export type PreferenceInput = z.infer<typeof preferenceSchema>;

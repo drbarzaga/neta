@@ -6,12 +6,14 @@ import {
   ne,
   gte,
   lte,
+  isNull,
   isNotNull,
   user,
   period,
   expense,
   category,
   emailPreference,
+  todo,
 } from '@/db';
 import { periodTotals, formatUSD, formatMoney } from '@/lib/money';
 import { todayISO } from '@/lib/dates';
@@ -19,6 +21,7 @@ import { sendEmail } from '@/lib/email';
 import { DueReminderEmail, type DueItem } from '@/emails/due-reminder';
 import { MonthlySummaryEmail } from '@/emails/monthly-summary';
 import { BudgetAlertEmail } from '@/emails/budget-alert';
+import { TodoDueReminderEmail, type TodoDueItem } from '@/emails/todo-due-reminder';
 
 function addDays(iso: string, days: number): string {
   const d = new Date(iso + 'T00:00:00');
@@ -82,6 +85,60 @@ export async function runDueReminders(): Promise<{ sent: number }> {
       to: p.email,
       subject: `Tienes ${items.length} gasto(s) por vencer`,
       react: DueReminderEmail({ name: p.name, items }),
+    });
+    sent++;
+  }
+
+  return { sent };
+}
+
+/** Avisos de tareas de Todos próximas a vencer, según las preferencias de cada usuario. */
+export async function runTodoDueReminders(): Promise<{ sent: number }> {
+  const prefs = await db
+    .select({
+      userId: emailPreference.userId,
+      days: emailPreference.todoDueReminderDaysBefore,
+      name: user.name,
+      email: user.email,
+    })
+    .from(emailPreference)
+    .innerJoin(user, eq(user.id, emailPreference.userId))
+    .where(eq(emailPreference.todoDueRemindersEnabled, true));
+
+  const today = todayISO();
+  let sent = 0;
+
+  for (const p of prefs) {
+    const until = addDays(today, p.days);
+    const rows = await db
+      .select({
+        title: todo.title,
+        dueDate: todo.dueDate,
+        year: todo.year,
+      })
+      .from(todo)
+      .where(
+        and(
+          eq(todo.userId, p.userId),
+          isNotNull(todo.dueDate),
+          gte(todo.dueDate, today),
+          lte(todo.dueDate, until),
+          isNull(todo.completedAt)
+        )
+      );
+
+    if (rows.length === 0) continue;
+
+    const items: TodoDueItem[] = rows.map((r) => ({
+      title: r.title,
+      dueDateLabel: r.dueDate ? formatDate(r.dueDate) : '',
+      year: r.year,
+    }));
+
+    await sendEmail({
+      to: p.email,
+      subject: `Tienes ${items.length} tarea(s) por vencer`,
+      react: TodoDueReminderEmail({ name: p.name, items }),
     });
     sent++;
   }

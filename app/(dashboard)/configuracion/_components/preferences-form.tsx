@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CalendarClock, Mail, TriangleAlert, type LucideIcon } from 'lucide-react';
+import {
+  CalendarClock,
+  Mail,
+  TriangleAlert,
+  ListTodo,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -93,6 +99,29 @@ export function PreferencesForm({ initial }: { initial: PreferenceInput }) {
               value={prefs.budgetAlertThresholdPct}
               onChange={(e) =>
                 set('budgetAlertThresholdPct', Number(e.target.value) || 0)
+              }
+            />
+          </div>
+        )}
+        <Separator />
+        <Toggle
+          icon={ListTodo}
+          label="Recordatorios de Todos"
+          description="Aviso cuando una tarea de tu tablero está por vencer."
+          checked={prefs.todoDueRemindersEnabled}
+          onCheckedChange={(v) => set('todoDueRemindersEnabled', v)}
+        />
+        {prefs.todoDueRemindersEnabled && (
+          <div className="ml-1 grid max-w-xs gap-1.5">
+            <Label htmlFor="todo-days">Días de anticipación</Label>
+            <Input
+              id="todo-days"
+              type="number"
+              min={0}
+              max={30}
+              value={prefs.todoDueReminderDaysBefore}
+              onChange={(e) =>
+                set('todoDueReminderDaysBefore', Number(e.target.value) || 0)
               }
             />
           </div>

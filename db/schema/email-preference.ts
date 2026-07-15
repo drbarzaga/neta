@@ -14,6 +14,8 @@ export const emailPreference = pgTable('email_preference', {
   budgetAlertEnabled: boolean().notNull().default(true),
   budgetAlertThresholdPct: integer().notNull().default(90),
   lastSummarySentFor: text(), // "2026-03"
+  todoDueRemindersEnabled: boolean().notNull().default(true),
+  todoDueReminderDaysBefore: integer().notNull().default(3),
 });
 
 export type EmailPreference = typeof emailPreference.$inferSelect;

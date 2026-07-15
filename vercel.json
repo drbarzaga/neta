@@ -3,6 +3,7 @@
   "crons": [
     { "path": "/api/cron/refresh-rate", "schedule": "0 11 * * *" },
     { "path": "/api/cron/due-reminders", "schedule": "0 12 * * *" },
+    { "path": "/api/cron/todo-due-reminders", "schedule": "30 12 * * *" },
     { "path": "/api/cron/budget-alert", "schedule": "0 13 * * *" },
     { "path": "/api/cron/monthly-summary", "schedule": "0 9 1 * *" }
   ]
