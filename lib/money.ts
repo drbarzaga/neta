@@ -82,31 +82,47 @@ export interface DestinationRate {
 }
 
 /**
- * Convierte un gasto de viaje a la moneda del viaje. Entiende tres monedas:
- * la del viaje (ya está, no convierte), USD (vía `rate`, moneda del viaje <->
- * USD) y la del país de destino si se pasa `dest` (vía `dest.rate`, esa
- * moneda <-> USD, encadenada por USD). Cualquier otra moneda no reconocida
- * se deja sin convertir (mejor un número aproximado que perder el dato).
- *
- * `rate`/`dest.rate` son cotizaciones "unidades por 1 USD" y solo tienen
- * sentido cuando esa moneda NO es USD. Si el viaje está denominado en USD (o
- * el país de destino usa USD), la conversión con esa moneda es 1:1 sin
- * importar lo que haya guardado en el campo de cotización.
+ * Convierte un importe entre las (hasta) tres monedas de un viaje: la del
+ * viaje (vía `rate`, unidades por 1 USD), USD, y la del país de destino si
+ * se pasa `dest` (vía `dest.rate`, unidades por 1 USD). Usa USD como puente.
+ * `rate`/`dest.rate` solo importan cuando esa moneda no es literalmente USD
+ * (si el viaje o el destino están denominados en USD, esa conversión es 1:1
+ * sin importar lo que haya guardado en el campo de cotización). Una moneda
+ * que no matchea ninguna de las tres se devuelve sin convertir.
  */
+export function convertTripAmount(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  tripCurrency: string,
+  rate: number,
+  dest?: DestinationRate | null
+): number {
+  if (fromCurrency === toCurrency) return amount;
+
+  const rateOf = (currency: string): number | null => {
+    if (currency === 'USD') return 1;
+    if (currency === tripCurrency) return rate;
+    if (dest && currency === dest.currency) return dest.rate;
+    return null;
+  };
+
+  const fromRate = rateOf(fromCurrency);
+  const toRate = rateOf(toCurrency);
+  if (fromRate === null || toRate === null || fromRate <= 0 || toRate <= 0) return amount;
+
+  const usd = amount / fromRate;
+  return usd * toRate;
+}
+
+/** Convierte un gasto de viaje a la moneda del viaje (ver `convertTripAmount`). */
 export function tripExpenseToTripCurrency(
   e: TripExpenseLike,
   tripCurrency: string,
   rate: number,
   dest?: DestinationRate | null
 ): number {
-  const effRate = tripCurrency === 'USD' ? 1 : rate;
-
-  if (dest && dest.currency !== tripCurrency && e.currency === dest.currency) {
-    const destEffRate = dest.currency === 'USD' ? 1 : dest.rate;
-    const usd = destEffRate > 0 ? e.amount / destEffRate : 0;
-    return tripCurrency === 'USD' ? usd : usd * effRate;
-  }
-  return toLocal(e, effRate);
+  return convertTripAmount(e.amount, e.currency, tripCurrency, tripCurrency, rate, dest);
 }
 
 /** Totales de un viaje a partir de sus gastos, su cotización y su presupuesto. */

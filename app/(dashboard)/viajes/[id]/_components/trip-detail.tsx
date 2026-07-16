@@ -51,6 +51,7 @@ import {
   formatMoney,
   tripTotals,
   tripExpenseToTripCurrency,
+  convertTripAmount,
   toUsd,
   toLocal,
   type DestinationRate,
@@ -339,8 +340,17 @@ function TripExpenseRow({
   const confirm = useConfirm();
   const linked = expense.expenseId !== null;
   const fmt = (n: number) => formatMoney(n, expense.currency, locale);
-  const converted = tripExpenseToTripCurrency(expense, tripCurrency, dollarRate, dest);
-  const showConverted = expense.currency !== tripCurrency;
+
+  // Equivalentes: en dólares (si el gasto no está ya en USD) y en la moneda
+  // del país de destino (si hay una definida y difiere de la nativa y de USD).
+  const usdEquivalent =
+    expense.currency !== 'USD'
+      ? convertTripAmount(expense.amount, expense.currency, 'USD', tripCurrency, dollarRate, dest)
+      : null;
+  const destEquivalent =
+    dest && dest.currency !== expense.currency && dest.currency !== 'USD'
+      ? convertTripAmount(expense.amount, expense.currency, dest.currency, tripCurrency, dollarRate, dest)
+      : null;
 
   function togglePaid(checked: boolean) {
     startTransition(async () => {
@@ -387,9 +397,14 @@ function TripExpenseRow({
       </div>
       <div className="text-right">
         <p className="text-sm font-medium tabular-nums">{fmt(expense.amount)}</p>
-        {showConverted && (
+        {usdEquivalent !== null && (
           <p className="text-muted-foreground text-xs tabular-nums">
-            ≈ {formatMoney(converted, tripCurrency, locale)}
+            ≈ {formatMoney(usdEquivalent, 'USD', locale)}
+          </p>
+        )}
+        {destEquivalent !== null && (
+          <p className="text-muted-foreground text-xs tabular-nums">
+            ≈ {formatMoney(destEquivalent, dest!.currency, locale)}
           </p>
         )}
       </div>
