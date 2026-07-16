@@ -68,10 +68,12 @@ export function TripsClient({
   trips,
   locale,
   localCurrency,
+  defaultDollarRate,
 }: {
   trips: TripWithTotals[];
   locale: string;
   localCurrency: string;
+  defaultDollarRate: number;
 }) {
   const [dialog, setDialog] = useState<{ open: boolean; trip: Trip | null }>({
     open: false,
@@ -130,6 +132,7 @@ export function TripsClient({
         open={dialog.open}
         trip={dialog.trip}
         localCurrency={localCurrency}
+        defaultDollarRate={defaultDollarRate}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
       />
     </div>
@@ -275,11 +278,13 @@ export function TripDialog({
   open,
   trip,
   localCurrency,
+  defaultDollarRate = 0,
   onOpenChange,
 }: {
   open: boolean;
   trip: Trip | null;
   localCurrency: string;
+  defaultDollarRate?: number;
   onOpenChange: (open: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
@@ -288,8 +293,10 @@ export function TripDialog({
   const [startDate, setStartDate] = useState(trip?.startDate ?? '');
   const [endDate, setEndDate] = useState(trip?.endDate ?? '');
   const [currency, setCurrency] = useState(trip?.currency ?? localCurrency);
+  // Al crear, precarga la cotización vigente (la del header); al editar, la que
+  // ya tenía guardada el viaje. En ambos casos el usuario puede cambiarla.
   const [dollarRate, setDollarRate] = useState(
-    trip && trip.dollarRate ? String(trip.dollarRate) : ''
+    trip && trip.dollarRate ? String(trip.dollarRate) : defaultDollarRate ? String(defaultDollarRate) : ''
   );
   const [budget, setBudget] = useState(trip && trip.budget ? String(trip.budget) : '');
   const [status, setStatus] = useState<Trip['status']>(trip?.status ?? 'planificando');
@@ -381,8 +388,8 @@ export function TripDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-3">
-            <div className="grid gap-1.5">
+          <div className="grid grid-cols-[1fr_1fr_auto] grid-rows-[auto_auto] gap-x-3 gap-y-1.5">
+            <div className="grid grid-rows-subgrid row-span-2">
               <Label htmlFor="trip-budget">Presupuesto (opcional)</Label>
               <Input
                 id="trip-budget"
@@ -393,7 +400,7 @@ export function TripDialog({
                 className="tabular-nums"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid grid-rows-subgrid row-span-2">
               <Label htmlFor="trip-rate">Cotización USD (opcional)</Label>
               <Input
                 id="trip-rate"
@@ -404,7 +411,7 @@ export function TripDialog({
                 className="tabular-nums"
               />
             </div>
-            <div className="grid gap-1.5">
+            <div className="grid grid-rows-subgrid row-span-2">
               <Label htmlFor="trip-currency">Moneda</Label>
               <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger id="trip-currency" className="w-24">
