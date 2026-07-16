@@ -14,6 +14,7 @@ import {
   Repeat,
   CreditCard,
   PiggyBank,
+  Plane,
   type LucideIcon,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -55,6 +56,7 @@ import {
   saveExpenseAsTemplate,
   setExpenseGoal,
   setExpenseSavings,
+  setExpenseTrip,
   moveExpenseToPeriod,
   deletePurchase,
 } from '../actions';
@@ -79,6 +81,7 @@ export function ExpenseRow({
   locale = 'es-UY',
   goals = [],
   savingsAccounts = [],
+  trips = [],
   otherPeriods = [],
 }: {
   expense: Expense;
@@ -88,6 +91,7 @@ export function ExpenseRow({
   locale?: string;
   goals?: Goal[];
   savingsAccounts?: SavingsAccount[];
+  trips?: { id: string; name: string; icon: string; color: string }[];
   otherPeriods?: { id: string; label: string }[];
 }) {
   const [pending, startTransition] = useTransition();
@@ -172,6 +176,15 @@ export function ExpenseRow({
     });
   }
 
+  function linkTrip(tripId: string | null) {
+    if (tripId === (expense.tripId ?? null)) return;
+    startTransition(async () => {
+      const res = await setExpenseTrip({ id: expense.id, tripId });
+      if (!res.ok) toast.error(res.error ?? 'Error al vincular');
+      else toast.success(tripId ? 'Gasto vinculado al viaje' : 'Gasto desvinculado');
+    });
+  }
+
   async function handleDeletePurchase() {
     if (!expense.purchaseId) return;
     const ok = await confirm({
@@ -222,6 +235,9 @@ export function ExpenseRow({
     : null;
   const linkedSavings = expense.savingsAccountId
     ? savingsAccounts.find((a) => a.id === expense.savingsAccountId) ?? null
+    : null;
+  const linkedTrip = expense.tripId
+    ? trips.find((t) => t.id === expense.tripId) ?? null
     : null;
 
   return (
@@ -337,30 +353,48 @@ export function ExpenseRow({
         />
       </TableCell>
       <TableCell className="w-44 px-4">
-        {linkedGoal ? (
-          <span
-            title={`Este gasto aporta a la meta: ${linkedGoal.title}`}
-            className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{
-              backgroundColor: `${linkedGoal.color}1a`,
-              color: linkedGoal.color,
-            }}
-          >
-            <Target className="size-3 shrink-0" />
-            <span className="truncate">{linkedGoal.title}</span>
-          </span>
-        ) : linkedSavings ? (
-          <span
-            title={`Este gasto aporta al ahorro: ${linkedSavings.name}`}
-            className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-            style={{
-              backgroundColor: `${linkedSavings.color}1a`,
-              color: linkedSavings.color,
-            }}
-          >
-            <PiggyBank className="size-3 shrink-0" />
-            <span className="truncate">{linkedSavings.name}</span>
-          </span>
+        {linkedGoal || linkedSavings || linkedTrip ? (
+          <div className="flex flex-wrap items-center gap-1">
+            {linkedGoal && (
+              <span
+                title={`Este gasto aporta a la meta: ${linkedGoal.title}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: `${linkedGoal.color}1a`,
+                  color: linkedGoal.color,
+                }}
+              >
+                <Target className="size-3 shrink-0" />
+                <span className="truncate">{linkedGoal.title}</span>
+              </span>
+            )}
+            {linkedSavings && (
+              <span
+                title={`Este gasto aporta al ahorro: ${linkedSavings.name}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: `${linkedSavings.color}1a`,
+                  color: linkedSavings.color,
+                }}
+              >
+                <PiggyBank className="size-3 shrink-0" />
+                <span className="truncate">{linkedSavings.name}</span>
+              </span>
+            )}
+            {linkedTrip && (
+              <span
+                title={`Este gasto pertenece al viaje: ${linkedTrip.name}`}
+                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                style={{
+                  backgroundColor: `${linkedTrip.color}1a`,
+                  color: linkedTrip.color,
+                }}
+              >
+                <Plane className="size-3 shrink-0" />
+                <span className="truncate">{linkedTrip.name}</span>
+              </span>
+            )}
+          </div>
         ) : (
           <span className="text-muted-foreground/50 text-sm">—</span>
         )}
@@ -422,6 +456,31 @@ export function ExpenseRow({
                     {savingsAccounts.map((a) => (
                       <DropdownMenuRadioItem key={a.id} value={a.id}>
                         {a.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Plane className="size-4" />
+                {linkedTrip ? 'Viaje vinculado' : 'Vincular a viaje'}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {trips.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No tienes viajes creados
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuRadioGroup
+                    value={expense.tripId ?? ''}
+                    onValueChange={(v) => linkTrip(v || null)}
+                  >
+                    <DropdownMenuRadioItem value="">Ninguno</DropdownMenuRadioItem>
+                    {trips.map((t) => (
+                      <DropdownMenuRadioItem key={t.id} value={t.id}>
+                        {t.name}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>

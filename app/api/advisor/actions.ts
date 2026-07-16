@@ -13,6 +13,8 @@ import {
   goal,
   advisorMessage,
   savingsAccount,
+  trip,
+  tripExpense,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import {
@@ -39,6 +41,14 @@ import {
   createSavingsAccount,
   addSavingsMovement,
 } from '@/app/(dashboard)/ahorros/actions';
+import {
+  createTrip,
+  updateTrip,
+  addTripExpense,
+  updateTripExpense,
+  toggleTripExpensePaid,
+  deleteTripExpense,
+} from '@/app/(dashboard)/viajes/actions';
 import { todayISO } from '@/lib/dates';
 
 export interface AdvisorActionResult {
@@ -181,6 +191,52 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     amount: z.number().min(0.01),
     kind: z.enum(['deposit', 'withdraw']).optional(),
   }),
+  z.object({
+    type: z.literal('create_trip'),
+    name: z.string().min(1),
+    destination: z.string().optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+    currency: z.string().optional(),
+    budget: z.number().min(0).optional(),
+  }),
+  z.object({
+    type: z.literal('update_trip'),
+    trip: z.string().min(1),
+    budget: z.number().min(0).optional(),
+    startDate: z.string().nullable().optional(),
+    endDate: z.string().nullable().optional(),
+    status: z.enum(['planificando', 'en_curso', 'completado']).optional(),
+  }),
+  z.object({
+    type: z.literal('add_trip_expense'),
+    trip: z.string().min(1),
+    category: z.string().min(1),
+    concept: z.string().min(1),
+    amount: z.number().min(0),
+    currency: z.string().optional(),
+    date: z.string().nullable().optional(),
+    paid: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('edit_trip_expense'),
+    trip: z.string().min(1),
+    concept: z.string().min(1),
+    amount: z.number().min(0).optional(),
+    currency: z.string().optional(),
+    date: z.string().nullable().optional(),
+    paid: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('mark_trip_expense_paid'),
+    trip: z.string().min(1),
+    concept: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('delete_trip_expense'),
+    trip: z.string().min(1),
+    concept: z.string().min(1),
+  }),
 ]);
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -231,6 +287,28 @@ export async function executeAdvisorAction(
       .from(goal)
       .where(eq(goal.userId, session!.userId));
     return goals.find((x) => norm(x.title) === norm(title)) ?? null;
+  }
+
+  // Resuelve un viaje por nombre.
+  async function findTrip(name: string) {
+    const trips = await db
+      .select({ id: trip.id, name: trip.name })
+      .from(trip)
+      .where(eq(trip.userId, session!.userId));
+    return trips.find((t) => norm(t.name) === norm(name)) ?? null;
+  }
+
+  // Resuelve un gasto de viaje por concepto dentro de un viaje (prioriza no pagado).
+  async function findTripExpense(tripId: string, concept: string) {
+    const items = await db
+      .select({ id: tripExpense.id, concept: tripExpense.concept, paid: tripExpense.paid })
+      .from(tripExpense)
+      .where(and(eq(tripExpense.userId, session!.userId), eq(tripExpense.tripId, tripId)));
+    return (
+      items.find((e) => norm(e.concept) === norm(concept) && !e.paid) ??
+      items.find((e) => norm(e.concept) === norm(concept)) ??
+      null
+    );
   }
 
   if (a.type === 'add_expense') {
@@ -428,6 +506,79 @@ export async function executeAdvisorAction(
       amount: a.amount,
       date: todayISO(),
     });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'create_trip') {
+    const res = await createTrip({
+      name: a.name,
+      destination: a.destination ?? null,
+      startDate: a.startDate ?? null,
+      endDate: a.endDate ?? null,
+      currency: a.currency ?? latest?.localCurrency ?? 'UYU',
+      budget: a.budget ?? 0,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'update_trip') {
+    const t = await findTrip(a.trip);
+    if (!t) return { ok: false, error: `No encontré el viaje "${a.trip}"` };
+    const res = await updateTrip({
+      id: t.id,
+      ...(a.budget !== undefined && { budget: a.budget }),
+      ...(a.startDate !== undefined && { startDate: a.startDate }),
+      ...(a.endDate !== undefined && { endDate: a.endDate }),
+      ...(a.status && { status: a.status }),
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'add_trip_expense') {
+    const t = await findTrip(a.trip);
+    if (!t) return { ok: false, error: `No encontré el viaje "${a.trip}"` };
+    const res = await addTripExpense({
+      tripId: t.id,
+      category: a.category,
+      concept: a.concept,
+      amount: a.amount,
+      currency: a.currency ?? latest?.localCurrency ?? 'UYU',
+      date: a.date ?? null,
+      paid: a.paid ?? false,
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'edit_trip_expense') {
+    const t = await findTrip(a.trip);
+    if (!t) return { ok: false, error: `No encontré el viaje "${a.trip}"` };
+    const match = await findTripExpense(t.id, a.concept);
+    if (!match) return { ok: false, error: `No encontré el gasto "${a.concept}" en ese viaje` };
+    const res = await updateTripExpense({
+      id: match.id,
+      ...(a.amount !== undefined && { amount: a.amount }),
+      ...(a.currency && { currency: a.currency }),
+      ...(a.date !== undefined && { date: a.date }),
+      ...(a.paid !== undefined && { paid: a.paid }),
+    });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'mark_trip_expense_paid') {
+    const t = await findTrip(a.trip);
+    if (!t) return { ok: false, error: `No encontré el viaje "${a.trip}"` };
+    const match = await findTripExpense(t.id, a.concept);
+    if (!match) return { ok: false, error: `No encontré el gasto "${a.concept}" en ese viaje` };
+    const res = await toggleTripExpensePaid({ id: match.id, paid: true });
+    return { ok: res.ok, error: res.error };
+  }
+
+  if (a.type === 'delete_trip_expense') {
+    const t = await findTrip(a.trip);
+    if (!t) return { ok: false, error: `No encontré el viaje "${a.trip}"` };
+    const match = await findTripExpense(t.id, a.concept);
+    if (!match) return { ok: false, error: `No encontré el gasto "${a.concept}" en ese viaje` };
+    const res = await deleteTripExpense({ id: match.id });
     return { ok: res.ok, error: res.error };
   }
 

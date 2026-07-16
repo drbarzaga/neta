@@ -11,6 +11,7 @@ import {
 import { getTemplatesWithCategory } from '../../plantillas/queries';
 import { getGoals } from '../../metas/queries';
 import { getSavingsAccounts } from '../../ahorros/queries';
+import { listTripsForLinking } from '../../viajes/queries';
 import { MonthDetail } from './_components/month-detail';
 
 export default async function MonthPage({
@@ -24,16 +25,25 @@ export default async function MonthPage({
   const period = await getPeriod(userId, id);
   if (!period) notFound();
 
-  const [categories, expenses, templates, goals, settings, otherPeriods, savingsAccounts] =
-    await Promise.all([
-      getCategories(userId),
-      getExpenses(userId, id),
-      getTemplatesWithCategory(userId),
-      getGoals(userId),
-      getOrCreateUserSettings(userId),
-      getOtherPeriods(userId, id),
-      getSavingsAccounts(userId),
-    ]);
+  const [
+    categories,
+    expenses,
+    templates,
+    goals,
+    settings,
+    otherPeriods,
+    savingsAccounts,
+    trips,
+  ] = await Promise.all([
+    getCategories(userId),
+    getExpenses(userId, id),
+    getTemplatesWithCategory(userId),
+    getGoals(userId),
+    getOrCreateUserSettings(userId),
+    getOtherPeriods(userId, id),
+    getSavingsAccounts(userId),
+    listTripsForLinking(userId),
+  ]);
   const locale = getCountry(settings.country).locale;
 
   return (
@@ -45,6 +55,7 @@ export default async function MonthPage({
       goals={goals.filter((g) => !g.completed)}
       otherPeriods={otherPeriods}
       savingsAccounts={savingsAccounts}
+      trips={trips}
       locale={locale}
       displayCurrency={settings.displayCurrency === 'usd' ? 'usd' : 'local'}
     />

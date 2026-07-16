@@ -148,6 +148,13 @@
       "when": 1784136035840,
       "tag": "0020_typical_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1784159860435,
+      "tag": "0021_fearless_thor",
+      "breakpoints": true
     }
   ]
 }

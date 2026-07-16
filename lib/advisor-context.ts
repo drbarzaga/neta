@@ -11,9 +11,12 @@ import {
   goalContribution,
   purchase,
   savingsAccount,
+  trip,
+  tripExpense,
 } from '@/db';
-import { periodTotals, formatMoney } from '@/lib/money';
+import { periodTotals, tripTotals, formatMoney } from '@/lib/money';
 import { addMonths, periodLabel } from '@/lib/dates';
+import { TRIP_STATUS_LABEL } from '@/app/(dashboard)/viajes/schema';
 
 const MAX_PERIODS = 12;
 
@@ -26,34 +29,41 @@ export async function buildFinancialContext(userId: string): Promise<{
   hasData: boolean;
   context: string;
 }> {
-  const [periods, cats, goals, contributions, purchases, savings] = await Promise.all([
-    db
-      .select()
-      .from(period)
-      .where(eq(period.userId, userId))
-      .orderBy(desc(period.year), desc(period.month))
-      .limit(MAX_PERIODS),
-    db
-      .select()
-      .from(category)
-      .where(eq(category.userId, userId))
-      .orderBy(asc(category.sortOrder)),
-    db
-      .select()
-      .from(goal)
-      .where(eq(goal.userId, userId))
-      .orderBy(asc(goal.sortOrder)),
-    db
-      .select({
-        goalId: goalContribution.goalId,
-        amount: goalContribution.amount,
-        createdAt: goalContribution.createdAt,
-      })
-      .from(goalContribution)
-      .where(eq(goalContribution.userId, userId)),
-    db.select().from(purchase).where(eq(purchase.userId, userId)),
-    db.select().from(savingsAccount).where(eq(savingsAccount.userId, userId)),
-  ]);
+  const [periods, cats, goals, contributions, purchases, savings, trips, tripExpenses] =
+    await Promise.all([
+      db
+        .select()
+        .from(period)
+        .where(eq(period.userId, userId))
+        .orderBy(desc(period.year), desc(period.month))
+        .limit(MAX_PERIODS),
+      db
+        .select()
+        .from(category)
+        .where(eq(category.userId, userId))
+        .orderBy(asc(category.sortOrder)),
+      db
+        .select()
+        .from(goal)
+        .where(eq(goal.userId, userId))
+        .orderBy(asc(goal.sortOrder)),
+      db
+        .select({
+          goalId: goalContribution.goalId,
+          amount: goalContribution.amount,
+          createdAt: goalContribution.createdAt,
+        })
+        .from(goalContribution)
+        .where(eq(goalContribution.userId, userId)),
+      db.select().from(purchase).where(eq(purchase.userId, userId)),
+      db.select().from(savingsAccount).where(eq(savingsAccount.userId, userId)),
+      db
+        .select()
+        .from(trip)
+        .where(eq(trip.userId, userId))
+        .orderBy(asc(trip.sortOrder)),
+      db.select().from(tripExpense).where(eq(tripExpense.userId, userId)),
+    ]);
 
   if (periods.length === 0) {
     return { hasData: false, context: 'El usuario todavía no creó ningún mes.' };
@@ -101,6 +111,43 @@ export async function buildFinancialContext(userId: string): Promise<{
       'Nota: los ahorros son independientes de las metas; puedes sugerir mover ahorro hacia metas o comentar su evolución.',
       ''
     );
+  }
+
+  if (trips.length > 0) {
+    const byTrip = new Map<string, typeof tripExpenses>();
+    for (const e of tripExpenses) {
+      if (!byTrip.has(e.tripId)) byTrip.set(e.tripId, []);
+      byTrip.get(e.tripId)!.push(e);
+    }
+
+    lines.push('Viajes del usuario:');
+    for (const t of trips) {
+      const items = byTrip.get(t.id) ?? [];
+      const totals = tripTotals(items, t.dollarRate, t.budget);
+      const money = (n: number) => formatMoney(n, t.currency, 'es-UY');
+      const parts: string[] = [
+        `pagado ${money(totals.paidLocal)}`,
+        `planeado ${money(totals.plannedLocal)}`,
+      ];
+      if (t.budget > 0) {
+        parts.push(`presupuesto ${money(t.budget)}`, `restante ${money(totals.remainingLocal)}`);
+      }
+      const dates =
+        t.startDate || t.endDate
+          ? ` (${t.startDate ?? '?'} a ${t.endDate ?? '?'})`
+          : '';
+      lines.push(
+        `- ${t.name}${t.destination ? ` a ${t.destination}` : ''}${dates} — ${TRIP_STATUS_LABEL[t.status]}: ${parts.join(', ')}`
+      );
+      if (items.length > 0) {
+        for (const e of items) {
+          lines.push(
+            `  · ${e.concept}: ${formatMoney(e.amount, e.currency, 'es-UY')} [${e.paid ? 'pagado' : 'planeado'}] (${e.category})`
+          );
+        }
+      }
+    }
+    lines.push('');
   }
 
   if (goals.length > 0) {

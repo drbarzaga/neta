@@ -15,6 +15,8 @@ import {
   purchase,
   savingsAccount,
   savingsMovement,
+  trip,
+  tripExpense,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
@@ -33,6 +35,7 @@ import {
   createInstallmentSchema,
   convertToInstallmentsSchema,
   setExpenseSavingsSchema,
+  setExpenseTripSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -277,6 +280,80 @@ async function syncExpenseSavingsMovement(userId: string, expenseId: string) {
       .set({ accountId: targetAccountId, amount, note })
       .where(eq(savingsMovement.id, existing.id));
   }
+}
+
+/**
+ * Reconcilia la fila espejo de un gasto vinculado a un viaje. A diferencia de
+ * metas/ahorros, acá no importa el estado: un viaje quiere ver tanto lo
+ * planeado como lo pagado, así que la fila existe siempre que `tripId` esté
+ * seteado (`paid` refleja `status === 'pagado'`). No hay saldo que ajustar:
+ * los totales del viaje se calculan al vuelo.
+ */
+async function syncExpenseTripExpense(userId: string, expenseId: string) {
+  const [e] = await db
+    .select({
+      concept: expense.concept,
+      amount: expense.amount,
+      currency: expense.currency,
+      status: expense.status,
+      dueDate: expense.dueDate,
+      tripId: expense.tripId,
+    })
+    .from(expense)
+    .where(and(eq(expense.id, expenseId), eq(expense.userId, userId)));
+  if (!e) return;
+
+  const [existing] = await db
+    .select({ id: tripExpense.id })
+    .from(tripExpense)
+    .where(and(eq(tripExpense.userId, userId), eq(tripExpense.expenseId, expenseId)));
+
+  const targetTripId = e.tripId;
+  const paid = e.status === 'pagado';
+
+  if (!targetTripId) {
+    if (existing) {
+      await db.delete(tripExpense).where(eq(tripExpense.id, existing.id));
+    }
+    return;
+  }
+
+  const [t] = await db
+    .select({ id: trip.id })
+    .from(trip)
+    .where(and(eq(trip.id, targetTripId), eq(trip.userId, userId)));
+  if (!t) {
+    if (existing) {
+      await db.delete(tripExpense).where(eq(tripExpense.id, existing.id));
+    }
+    return;
+  }
+
+  if (!existing) {
+    await db.insert(tripExpense).values({
+      userId,
+      tripId: targetTripId,
+      expenseId,
+      concept: e.concept,
+      amount: e.amount,
+      currency: e.currency,
+      date: e.dueDate,
+      paid,
+    });
+    return;
+  }
+
+  await db
+    .update(tripExpense)
+    .set({
+      tripId: targetTripId,
+      concept: e.concept,
+      amount: e.amount,
+      currency: e.currency,
+      date: e.dueDate,
+      paid,
+    })
+    .where(eq(tripExpense.id, existing.id));
 }
 
 export async function addExpense(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -722,6 +799,7 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
   // El monto/moneda/estado pudo cambiar: reconcilia el aporte a la meta vinculada.
   await syncExpenseGoalContribution(session.userId, id);
   await syncExpenseSavingsMovement(session.userId, id);
+  await syncExpenseTripExpense(session.userId, id);
 
   revalidate(current.periodId);
   return ok();
@@ -799,6 +877,44 @@ export async function setExpenseSavings(input: unknown): Promise<ActionResult> {
 
   await syncExpenseSavingsMovement(session.userId, id);
   await syncExpenseGoalContribution(session.userId, id);
+
+  revalidate(current.periodId);
+  return ok();
+}
+
+/**
+ * Vincula (o desvincula con null) un gasto a un viaje. A diferencia de
+ * meta/ahorro, es una etiqueta de pertenencia (no un destino de dinero), así
+ * que no toca goalId/savingsAccountId.
+ */
+export async function setExpenseTrip(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setExpenseTripSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, tripId } = parsed.data;
+
+  const [current] = await db
+    .select({ periodId: expense.periodId })
+    .from(expense)
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!current) return UNAUTHORIZED;
+
+  if (tripId) {
+    const [t] = await db
+      .select({ id: trip.id })
+      .from(trip)
+      .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
+    if (!t) return fail('Viaje no encontrado');
+  }
+
+  await db
+    .update(expense)
+    .set({ tripId })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+
+  await syncExpenseTripExpense(session.userId, id);
 
   revalidate(current.periodId);
   return ok();

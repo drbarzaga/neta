@@ -61,6 +61,48 @@ export function periodTotals(
   };
 }
 
+export interface TripTotals {
+  budgetLocal: number;
+  plannedLocal: number; // gastos no pagados aún (estimados)
+  paidLocal: number; // gastos ya pagados
+  totalLocal: number; // planned + paid
+  remainingLocal: number; // budget - totalLocal (solo tiene sentido si budget > 0)
+  byCategory: Record<string, number>; // en moneda del viaje
+}
+
+interface TripExpenseLike extends MoneyLike {
+  category: string;
+  paid: boolean;
+}
+
+/** Totales de un viaje a partir de sus gastos, su cotización y su presupuesto. */
+export function tripTotals(
+  expenses: TripExpenseLike[],
+  rate: number,
+  budget: number
+): TripTotals {
+  let plannedLocal = 0;
+  let paidLocal = 0;
+  const byCategory: Record<string, number> = {};
+
+  for (const e of expenses) {
+    const local = toLocal(e, rate);
+    if (e.paid) paidLocal += local;
+    else plannedLocal += local;
+    byCategory[e.category] = (byCategory[e.category] ?? 0) + local;
+  }
+
+  const totalLocal = plannedLocal + paidLocal;
+  return {
+    budgetLocal: budget,
+    plannedLocal,
+    paidLocal,
+    totalLocal,
+    remainingLocal: budget - totalLocal,
+    byCategory,
+  };
+}
+
 const fmtCache = new Map<string, Intl.NumberFormat>();
 
 function getFormatter(currency: string, locale: string): Intl.NumberFormat {

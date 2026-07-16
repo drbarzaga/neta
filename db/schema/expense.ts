@@ -15,6 +15,7 @@ import { category } from './category';
 import { goal } from './goal';
 import { purchase } from './purchase';
 import { savingsAccount } from './savings';
+import { trip } from './trip';
 
 export const expenseStatus = pgEnum('expense_status', [
   'pendiente',
@@ -47,6 +48,9 @@ export const expense = pgTable('expense', {
   savingsAccountId: uuid().references(() => savingsAccount.id, {
     onDelete: 'set null',
   }),
+  // Viaje vinculado (opcional): es una etiqueta de pertenencia, no un destino
+  // de dinero, así que convive con goalId/savingsAccountId sin excluirlos.
+  tripId: uuid().references(() => trip.id, { onDelete: 'set null' }),
   // Recurrente: se agrega solo a cada mes nuevo (copiado del último mes previo).
   recurring: boolean().notNull().default(false),
   // Compra en cuotas (opcional): plan al que pertenece y número de cuota (X de N).

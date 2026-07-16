@@ -83,6 +83,7 @@ export function MonthDetail({
   goals,
   otherPeriods = [],
   savingsAccounts = [],
+  trips = [],
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -93,6 +94,7 @@ export function MonthDetail({
   goals: Goal[];
   otherPeriods?: { id: string; label: string }[];
   savingsAccounts?: SavingsAccount[];
+  trips?: { id: string; name: string; icon: string; color: string }[];
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -563,6 +565,7 @@ export function MonthDetail({
               localCurrency={localCurrency}
               goals={goals}
               savingsAccounts={savingsAccounts}
+              trips={trips}
               otherPeriods={otherPeriods}
               onAdd={() => handleAdd(cat.id)}
               addDisabled={pending}
@@ -584,6 +587,7 @@ function CategoryRows({
   locale,
   goals,
   savingsAccounts,
+  trips,
   otherPeriods,
 }: {
   categoryId: string;
@@ -593,6 +597,7 @@ function CategoryRows({
   locale: string;
   goals: Goal[];
   savingsAccounts: SavingsAccount[];
+  trips: { id: string; name: string; icon: string; color: string }[];
   otherPeriods: { id: string; label: string }[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: categoryId });
@@ -622,6 +627,7 @@ function CategoryRows({
               locale={locale}
               goals={goals}
               savingsAccounts={savingsAccounts}
+              trips={trips}
               otherPeriods={otherPeriods}
             />
           ))
@@ -644,6 +650,7 @@ function SortableSection({
   localCurrency,
   goals,
   savingsAccounts,
+  trips,
   otherPeriods,
   onAdd,
   addDisabled,
@@ -659,6 +666,7 @@ function SortableSection({
   localCurrency: string;
   goals: Goal[];
   savingsAccounts: SavingsAccount[];
+  trips: { id: string; name: string; icon: string; color: string }[];
   otherPeriods: { id: string; label: string }[];
   onAdd: () => void;
   addDisabled: boolean;
@@ -747,6 +755,7 @@ function SortableSection({
                 locale={locale}
                 goals={goals}
                 savingsAccounts={savingsAccounts}
+                trips={trips}
                 otherPeriods={otherPeriods}
               />
             </Table>
