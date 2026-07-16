@@ -272,13 +272,17 @@ export interface TripSuggestion {
 }
 
 const TRIP_SUGGESTIONS_PROMPT_PREFIX =
-  'Sos un guía de viajes local. Sugerí entre 5 y 8 lugares, actividades o comidas imperdibles y bien conocidas para el siguiente destino.';
+  'Sos un guía de viajes local. Armá una lista de 7 u 8 sugerencias imperdibles y bien conocidas para el siguiente destino, MEZCLANDO categorías a propósito (no te concentres solo en atracciones turísticas).';
 const TRIP_SUGGESTIONS_PROMPT_SUFFIX = [
-  'Para cada una: un título corto (2-6 palabras), una descripción de una sola línea, una categoría',
-  '(elegí la que mejor calce entre: Alojamiento, Transporte, Comida, Actividades, Compras, Otro),',
-  'y si podés estimar de forma razonable un costo aproximado en USD por persona, un número positivo;',
-  'si no tenés una base real para estimarlo, usá null en vez de inventar una cifra.',
-  'No repitas categorías de forma forzada: usa la que corresponda a cada ítem.',
+  'Repartí las sugerencias así, siempre que el destino lo permita:',
+  '- Al menos 3 de categoría Comida, cubriendo distintos momentos: una opción de almuerzo, una de cena, y una comida',
+  '  típica/callejera, postre o café/bar reconocido del lugar (no repitas el mismo tipo de comida dos veces).',
+  '- El resto, una mezcla de Actividades (lugares para visitar, planes, shows), y si corresponde Transporte,',
+  '  Compras o Alojamiento.',
+  'Para cada una: un título corto (2-6 palabras), una descripción de una sola línea, la categoría',
+  '(Alojamiento, Transporte, Comida, Actividades, Compras u Otro), y si podés estimar de forma razonable',
+  'un costo aproximado en USD por persona, un número positivo; si no tenés una base real para estimarlo,',
+  'usá null en vez de inventar una cifra.',
 ].join(' ');
 
 function isTripSuggestion(v: unknown): v is TripSuggestion {
