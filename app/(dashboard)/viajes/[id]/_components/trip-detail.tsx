@@ -47,7 +47,14 @@ import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
 import { cn } from '@/lib/utils';
-import { formatMoney, tripTotals, tripExpenseToTripCurrency, toUsd, toLocal } from '@/lib/money';
+import {
+  formatMoney,
+  tripTotals,
+  tripExpenseToTripCurrency,
+  toUsd,
+  toLocal,
+  type DestinationRate,
+} from '@/lib/money';
 import { todayISO } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import type { Trip, TripExpense } from '@/db';
@@ -278,6 +285,9 @@ export function TripDetail({
                           key={e.id}
                           expense={e}
                           locale={locale}
+                          tripCurrency={trip.currency}
+                          dollarRate={trip.dollarRate}
+                          dest={dest}
                           onEdit={() => setExpenseDialog({ open: true, expense: e })}
                         />
                       ))}
@@ -313,16 +323,24 @@ export function TripDetail({
 function TripExpenseRow({
   expense,
   locale,
+  tripCurrency,
+  dollarRate,
+  dest,
   onEdit,
 }: {
   expense: TripExpense;
   locale: string;
+  tripCurrency: string;
+  dollarRate: number;
+  dest?: DestinationRate | null;
   onEdit: () => void;
 }) {
   const [pending, startTransition] = useTransition();
   const confirm = useConfirm();
   const linked = expense.expenseId !== null;
   const fmt = (n: number) => formatMoney(n, expense.currency, locale);
+  const converted = tripExpenseToTripCurrency(expense, tripCurrency, dollarRate, dest);
+  const showConverted = expense.currency !== tripCurrency;
 
   function togglePaid(checked: boolean) {
     startTransition(async () => {
@@ -367,7 +385,14 @@ function TripExpenseRow({
           )}
         </p>
       </div>
-      <span className="text-sm font-medium tabular-nums">{fmt(expense.amount)}</span>
+      <div className="text-right">
+        <p className="text-sm font-medium tabular-nums">{fmt(expense.amount)}</p>
+        {showConverted && (
+          <p className="text-muted-foreground text-xs tabular-nums">
+            ≈ {formatMoney(converted, tripCurrency, locale)}
+          </p>
+        )}
+      </div>
       {!linked && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
