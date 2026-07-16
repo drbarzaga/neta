@@ -47,7 +47,7 @@ import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
 import { cn } from '@/lib/utils';
-import { formatMoney, tripTotals, toUsd, toLocal } from '@/lib/money';
+import { formatMoney, tripTotals, tripExpenseToTripCurrency, toUsd, toLocal } from '@/lib/money';
 import { todayISO } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import type { Trip, TripExpense } from '@/db';
@@ -100,15 +100,20 @@ export function TripDetail({
   }>({ open: false, expense: null });
 
   const fmt = (n: number) => formatMoney(n, trip.currency, locale);
-  const totals = tripTotals(expenses, trip.dollarRate, trip.budget);
   const hasBudget = trip.budget > 0;
 
   // Desglose en la moneda del país de destino (vía dolarapi): convierte
   // monto-en-moneda-del-viaje -> USD (con la cotización del viaje) -> moneda
-  // destino (con la cotización de ese país).
+  // destino (con la cotización de ese país). Se reutiliza para totalizar
+  // gastos que el usuario haya cargado directamente en esa moneda.
   const destinationCountryInfo = trip.destinationCountry
     ? getCountry(trip.destinationCountry)
     : null;
+  const dest =
+    destinationCountryInfo && destinationRate
+      ? { currency: destinationCountryInfo.currency, rate: destinationRate }
+      : null;
+  const totals = tripTotals(expenses, trip.dollarRate, trip.budget, dest);
   const showDestinationBreakdown =
     !!destinationCountryInfo &&
     !!destinationRate &&
@@ -256,7 +261,7 @@ export function TripDetail({
               {categories.map((cat) => {
                 const items = byCategory.get(cat)!;
                 const subtotal = items.reduce(
-                  (s, e) => s + (e.currency === 'USD' ? e.amount * trip.dollarRate : e.amount),
+                  (s, e) => s + tripExpenseToTripCurrency(e, trip.dollarRate, dest),
                   0
                 );
                 return (
@@ -297,6 +302,7 @@ export function TripDetail({
         open={expenseDialog.open}
         tripId={trip.id}
         tripCurrency={trip.currency}
+        destinationCurrency={dest?.currency ?? null}
         expense={expenseDialog.expense}
         onOpenChange={(o) => setExpenseDialog((d) => ({ ...d, open: o }))}
       />
@@ -394,12 +400,14 @@ function TripExpenseDialog({
   open,
   tripId,
   tripCurrency,
+  destinationCurrency,
   expense,
   onOpenChange,
 }: {
   open: boolean;
   tripId: string;
   tripCurrency: string;
+  destinationCurrency?: string | null;
   expense: TripExpense | null;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -407,7 +415,11 @@ function TripExpenseDialog({
   const [category, setCategory] = useState(expense?.category ?? 'Otro');
   const [concept, setConcept] = useState(expense?.concept ?? '');
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
-  const [currency, setCurrency] = useState(expense?.currency ?? tripCurrency);
+  // Al cargar un gasto nuevo, si el viaje tiene país de destino se asume que
+  // se paga en efectivo ahí (moneda local); al editar, se respeta la que tenía.
+  const [currency, setCurrency] = useState(
+    expense?.currency ?? destinationCurrency ?? tripCurrency
+  );
   const [date, setDate] = useState(expense?.date ?? todayISO());
   const [paid, setPaid] = useState(expense?.paid ?? false);
 
@@ -502,6 +514,11 @@ function TripExpenseDialog({
                 <SelectContent>
                   <SelectItem value={tripCurrency}>{tripCurrency}</SelectItem>
                   {tripCurrency !== 'USD' && <SelectItem value="USD">USD</SelectItem>}
+                  {destinationCurrency &&
+                    destinationCurrency !== tripCurrency &&
+                    destinationCurrency !== 'USD' && (
+                      <SelectItem value={destinationCurrency}>{destinationCurrency}</SelectItem>
+                    )}
                 </SelectContent>
               </Select>
             </div>

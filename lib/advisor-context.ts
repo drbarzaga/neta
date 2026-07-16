@@ -134,7 +134,14 @@ export async function buildFinancialContext(userId: string): Promise<{
     lines.push('Viajes del usuario:');
     for (const t of trips) {
       const items = byTrip.get(t.id) ?? [];
-      const totals = tripTotals(items, t.dollarRate, t.budget);
+
+      // Cotización del país de destino (si se definió), para totalizar
+      // correctamente gastos cargados en esa moneda y armar el desglose.
+      const destCountry = t.destinationCountry ? getCountry(t.destinationCountry) : null;
+      const destRate = t.destinationCountry ? destRates.get(t.destinationCountry) : undefined;
+      const dest = destCountry && destRate ? { currency: destCountry.currency, rate: destRate } : null;
+
+      const totals = tripTotals(items, t.dollarRate, t.budget, dest);
       const money = (n: number) => formatMoney(n, t.currency, 'es-UY');
       const parts: string[] = [
         `pagado ${money(totals.paidLocal)}`,
@@ -152,14 +159,12 @@ export async function buildFinancialContext(userId: string): Promise<{
       );
 
       // Desglose en la moneda del país de destino (si se definió y difiere de la del viaje).
-      const destCountry = t.destinationCountry ? getCountry(t.destinationCountry) : null;
-      const destRate = t.destinationCountry ? destRates.get(t.destinationCountry) : undefined;
-      if (destCountry && destRate && destCountry.currency !== t.currency) {
+      if (dest && dest.currency !== t.currency) {
         const toDest = (n: number) =>
-          toLocal({ amount: toUsd({ amount: n, currency: t.currency }, t.dollarRate), currency: 'USD' }, destRate);
-        const moneyDest = (n: number) => formatMoney(toDest(n), destCountry.currency, destCountry.locale);
+          toLocal({ amount: toUsd({ amount: n, currency: t.currency }, t.dollarRate), currency: 'USD' }, dest.rate);
+        const moneyDest = (n: number) => formatMoney(toDest(n), dest.currency, destCountry!.locale);
         lines.push(
-          `  En ${destCountry.currency} (moneda de ${destCountry.name}): pagado ${moneyDest(totals.paidLocal)}, planeado ${moneyDest(totals.plannedLocal)}${t.budget > 0 ? `, presupuesto ${moneyDest(t.budget)}, restante ${moneyDest(totals.remainingLocal)}` : ''}.`
+          `  En ${dest.currency} (moneda de ${destCountry!.name}): pagado ${moneyDest(totals.paidLocal)}, planeado ${moneyDest(totals.plannedLocal)}${t.budget > 0 ? `, presupuesto ${moneyDest(t.budget)}, restante ${moneyDest(totals.remainingLocal)}` : ''}.`
         );
       }
 

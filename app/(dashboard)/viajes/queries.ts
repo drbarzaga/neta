@@ -9,7 +9,9 @@ import {
   type Trip,
   type TripExpense,
 } from '@/db';
-import { tripTotals, type TripTotals } from '@/lib/money';
+import { tripTotals, type TripTotals, type DestinationRate } from '@/lib/money';
+import { getCountry } from '@/lib/countries';
+import { getLatestRate } from '@/lib/exchange-rate';
 
 export interface TripWithTotals extends Trip {
   totals: TripTotals;
@@ -32,10 +34,21 @@ export async function getTrips(userId: string): Promise<TripWithTotals[]> {
     byTrip.get(e.tripId)!.push(e);
   }
 
-  return trips.map((t) => ({
-    ...t,
-    totals: tripTotals(byTrip.get(t.id) ?? [], t.dollarRate, t.budget),
-  }));
+  // Cotización de cada país de destino en juego (una consulta por país, no por viaje).
+  const countryCodes = [...new Set(trips.map((t) => t.destinationCountry).filter((c): c is string => !!c))];
+  const rateByCountry = new Map(
+    await Promise.all(countryCodes.map(async (c) => [c, await getLatestRate(c)] as const))
+  );
+
+  return trips.map((t) => {
+    const dest: DestinationRate | null = t.destinationCountry
+      ? { currency: getCountry(t.destinationCountry).currency, rate: rateByCountry.get(t.destinationCountry) ?? 0 }
+      : null;
+    return {
+      ...t,
+      totals: tripTotals(byTrip.get(t.id) ?? [], t.dollarRate, t.budget, dest),
+    };
+  });
 }
 
 /** Un viaje del usuario, o null si no existe / no le pertenece. */

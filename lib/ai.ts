@@ -146,7 +146,7 @@ function buildSystem(context: string): string {
     '  • add_saving {account, amount, kind?} — registra un movimiento en un apartado de ahorro (kind: deposit por defecto, o withdraw).',
     '  • create_trip {name, destination?, destinationCountry?, startDate?, endDate?, currency?, budget?} — crea un viaje (fechas en formato AAAA-MM-DD). destinationCountry es el código ISO de 2 letras (ej. AR, UY, CL, BR, MX, BO, CO, VE) y habilita el desglose en la moneda de ese país.',
     '  • update_trip {trip, destinationCountry?, budget?, startDate?, endDate?, status?} — cambia país de destino, presupuesto, fechas o estado (planificando|en_curso|completado) de un viaje existente.',
-    '  • add_trip_expense {trip, category, concept, amount, currency?, date?, paid?} — agrega un gasto (planeado o pagado) a un viaje. category es texto libre (ej. Alojamiento, Transporte, Comida, Actividades, Compras, Otro).',
+    '  • add_trip_expense {trip, category, concept, amount, currency?, date?, paid?} — agrega un gasto (planeado o pagado) a un viaje. category es texto libre (ej. Alojamiento, Transporte, Comida, Actividades, Compras, Otro). currency puede ser la del viaje, USD, o la moneda del país de destino (los totales se convierten solos entre las tres).',
     '  • edit_trip_expense {trip, concept, amount?, currency?, date?, paid?} — edita un gasto propio de un viaje (no uno vinculado a un gasto del mes).',
     '  • mark_trip_expense_paid {trip, concept} — marca como pagado un gasto de un viaje.',
     '  • delete_trip_expense {trip, concept} — elimina un gasto propio de un viaje.',

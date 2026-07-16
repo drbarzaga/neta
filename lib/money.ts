@@ -75,18 +75,44 @@ interface TripExpenseLike extends MoneyLike {
   paid: boolean;
 }
 
+/** Cotización (moneda -> USD) de la moneda del país de destino de un viaje. */
+export interface DestinationRate {
+  currency: string;
+  rate: number;
+}
+
+/**
+ * Convierte un gasto de viaje a la moneda del viaje. Entiende tres monedas:
+ * la del viaje (ya está, no convierte), USD (vía `rate`, moneda del viaje <->
+ * USD) y la del país de destino si se pasa `dest` (vía `dest.rate`, esa
+ * moneda <-> USD, encadenada por USD). Cualquier otra moneda no reconocida
+ * se deja sin convertir (mejor un número aproximado que perder el dato).
+ */
+export function tripExpenseToTripCurrency(
+  e: TripExpenseLike,
+  rate: number,
+  dest?: DestinationRate | null
+): number {
+  if (dest && e.currency === dest.currency && dest.rate > 0) {
+    const usd = e.amount / dest.rate;
+    return toLocal({ amount: usd, currency: 'USD' }, rate);
+  }
+  return toLocal(e, rate);
+}
+
 /** Totales de un viaje a partir de sus gastos, su cotización y su presupuesto. */
 export function tripTotals(
   expenses: TripExpenseLike[],
   rate: number,
-  budget: number
+  budget: number,
+  dest?: DestinationRate | null
 ): TripTotals {
   let plannedLocal = 0;
   let paidLocal = 0;
   const byCategory: Record<string, number> = {};
 
   for (const e of expenses) {
-    const local = toLocal(e, rate);
+    const local = tripExpenseToTripCurrency(e, rate, dest);
     if (e.paid) paidLocal += local;
     else plannedLocal += local;
     byCategory[e.category] = (byCategory[e.category] ?? 0) + local;
