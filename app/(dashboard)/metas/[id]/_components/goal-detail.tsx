@@ -345,7 +345,7 @@ export function GoalDetail({
       {/* Proyección */}
       {showProjection && (
         <Card>
-          <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+          <CardHeader className="flex items-center justify-between gap-2 space-y-0">
             <CardTitle className="flex items-center gap-2 text-base">
               <TrendingUp className="text-primary size-4" /> Proyección
             </CardTitle>

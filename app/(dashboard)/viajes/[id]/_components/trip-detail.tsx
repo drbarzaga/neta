@@ -198,7 +198,7 @@ export function TripDetail({
 
       {/* Gastos */}
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
+        <CardHeader className="flex items-center justify-between gap-2 space-y-0">
           <CardTitle className="text-base">Gastos</CardTitle>
           <Button
             size="sm"

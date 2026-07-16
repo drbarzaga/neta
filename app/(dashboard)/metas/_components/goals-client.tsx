@@ -224,7 +224,7 @@ function GoalCard({
 
   return (
     <Card className={cn('flex flex-col', pending && 'opacity-60')}>
-      <CardHeader className="flex-row items-start justify-between gap-2 space-y-0">
+      <CardHeader className="flex items-start justify-between gap-2 space-y-0">
         <Link
           href={`/metas/${goal.id}`}
           className="group flex min-w-0 items-center gap-2.5"
