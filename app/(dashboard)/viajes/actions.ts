@@ -5,6 +5,9 @@ import { db, eq, and, trip, tripExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { resolveDestinationImage } from '@/lib/destination-image';
+import { generateTripSuggestions, serverApiKey, type TripSuggestion } from '@/lib/ai';
+import { getUserAiConfig } from '../configuracion/queries';
+import { getCountry } from '@/lib/countries';
 import {
   createTripSchema,
   updateTripSchema,
@@ -233,4 +236,42 @@ export async function deleteTripExpense(input: unknown): Promise<ActionResult> {
 
   revalidate(current.tripId);
   return ok();
+}
+
+/** Sugerencias de itinerario con IA (lugares/actividades/comidas) para el destino del viaje. */
+export async function getTripSuggestions(
+  tripId: string
+): Promise<ActionResult<TripSuggestion[]>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const [t] = await db
+    .select({ destination: trip.destination, destinationCountry: trip.destinationCountry })
+    .from(trip)
+    .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
+  if (!t) return UNAUTHORIZED;
+  if (!t.destination) return fail('Define primero un destino para el viaje.');
+
+  const userAi = await getUserAiConfig(session.userId);
+  const apiKey = userAi.key ?? serverApiKey;
+  if (!apiKey) {
+    return fail(
+      'Configura tu API key (Anthropic u OpenRouter) en Configuración para usar esta función.'
+    );
+  }
+
+  try {
+    const suggestions = await generateTripSuggestions({
+      apiKey,
+      model: userAi.model,
+      destination: t.destination,
+      destinationCountryName: t.destinationCountry ? getCountry(t.destinationCountry).name : null,
+    });
+    if (suggestions.length === 0) {
+      return fail('No se pudieron generar sugerencias. Intenta de nuevo.');
+    }
+    return ok(suggestions);
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'No se pudieron generar sugerencias.');
+  }
 }

@@ -263,3 +263,152 @@ export function streamAdvice(args: {
   }
   return anthropicStream(args.apiKey, system, args.messages);
 }
+
+export interface TripSuggestion {
+  title: string;
+  description: string;
+  category: string;
+  estimatedUsd: number | null;
+}
+
+const TRIP_SUGGESTIONS_PROMPT_PREFIX =
+  'Sos un guía de viajes local. Sugerí entre 5 y 8 lugares, actividades o comidas imperdibles y bien conocidas para el siguiente destino.';
+const TRIP_SUGGESTIONS_PROMPT_SUFFIX = [
+  'Para cada una: un título corto (2-6 palabras), una descripción de una sola línea, una categoría',
+  '(elegí la que mejor calce entre: Alojamiento, Transporte, Comida, Actividades, Compras, Otro),',
+  'y si podés estimar de forma razonable un costo aproximado en USD por persona, un número positivo;',
+  'si no tenés una base real para estimarlo, usá null en vez de inventar una cifra.',
+  'No repitas categorías de forma forzada: usa la que corresponda a cada ítem.',
+].join(' ');
+
+function isTripSuggestion(v: unknown): v is TripSuggestion {
+  if (!v || typeof v !== 'object') return false;
+  const s = v as Record<string, unknown>;
+  return (
+    typeof s.title === 'string' &&
+    typeof s.description === 'string' &&
+    typeof s.category === 'string' &&
+    (s.estimatedUsd === null || typeof s.estimatedUsd === 'number')
+  );
+}
+
+function parseTripSuggestions(value: unknown): TripSuggestion[] {
+  if (!value || typeof value !== 'object') return [];
+  const suggestions = (value as { suggestions?: unknown }).suggestions;
+  if (!Array.isArray(suggestions)) return [];
+  return suggestions.filter(isTripSuggestion).slice(0, 8);
+}
+
+async function anthropicTripSuggestions(
+  apiKey: string,
+  destinationLine: string
+): Promise<TripSuggestion[]> {
+  const client = new Anthropic({ apiKey });
+  const res = await client.messages.create({
+    model: ANTHROPIC_MODEL,
+    max_tokens: 1500,
+    tools: [
+      {
+        name: 'trip_suggestions',
+        description: 'Lista de sugerencias para armar el itinerario del viaje.',
+        input_schema: {
+          type: 'object',
+          properties: {
+            suggestions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  description: { type: 'string' },
+                  category: { type: 'string' },
+                  estimatedUsd: { type: ['number', 'null'] },
+                },
+                required: ['title', 'description', 'category', 'estimatedUsd'],
+              },
+            },
+          },
+          required: ['suggestions'],
+        },
+      },
+    ],
+    tool_choice: { type: 'tool', name: 'trip_suggestions' },
+    messages: [
+      {
+        role: 'user',
+        content: `${TRIP_SUGGESTIONS_PROMPT_PREFIX}\n\nDestino: ${destinationLine}\n\n${TRIP_SUGGESTIONS_PROMPT_SUFFIX}`,
+      },
+    ],
+  });
+
+  const toolUse = res.content.find((b) => b.type === 'tool_use');
+  if (!toolUse || toolUse.type !== 'tool_use') return [];
+  return parseTripSuggestions(toolUse.input);
+}
+
+async function openRouterTripSuggestions(
+  apiKey: string,
+  model: string,
+  destinationLine: string
+): Promise<TripSuggestion[]> {
+  const prompt = [
+    `${TRIP_SUGGESTIONS_PROMPT_PREFIX}\n\nDestino: ${destinationLine}\n\n${TRIP_SUGGESTIONS_PROMPT_SUFFIX}`,
+    '',
+    'Respondé ÚNICAMENTE con JSON válido (sin texto antes ni después, sin bloques de código markdown),',
+    'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123}]}',
+  ].join('\n');
+
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'X-Title': 'Neta',
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: 1500,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    throw new Error(
+      `OpenRouter respondió ${res.status}${detail ? `: ${detail.slice(0, 200)}` : ''}`
+    );
+  }
+  const json = await res.json();
+  const text: string = json.choices?.[0]?.message?.content ?? '';
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) return [];
+  try {
+    return parseTripSuggestions(JSON.parse(match[0]));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Genera sugerencias de itinerario (lugares/actividades/comidas) para el
+ * destino de un viaje, con costo aproximado en USD cuando sea razonable
+ * estimarlo. Elige proveedor según la key, igual que `streamAdvice`.
+ */
+export async function generateTripSuggestions(args: {
+  apiKey: string;
+  model?: string | null;
+  destination: string;
+  destinationCountryName?: string | null;
+}): Promise<TripSuggestion[]> {
+  const destinationLine = args.destinationCountryName
+    ? `${args.destination} (${args.destinationCountryName})`
+    : args.destination;
+
+  if (providerForKey(args.apiKey) === 'openrouter') {
+    return openRouterTripSuggestions(
+      args.apiKey,
+      args.model?.trim() || DEFAULT_OPENROUTER_MODEL,
+      destinationLine
+    );
+  }
+  return anthropicTripSuggestions(args.apiKey, destinationLine);
+}

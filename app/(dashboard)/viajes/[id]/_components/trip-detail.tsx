@@ -12,6 +12,9 @@ import {
   MapPin,
   CalendarDays,
   Link2,
+  Sparkles,
+  Check,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,8 +69,10 @@ import {
   updateTripExpense,
   toggleTripExpensePaid,
   deleteTripExpense,
+  getTripSuggestions,
 } from '../../actions';
 import { TRIP_EXPENSE_CATEGORIES, TRIP_STATUS_LABEL } from '../../schema';
+import type { TripSuggestion } from '@/lib/ai';
 
 function formatDate(iso: string, locale: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(locale, {
@@ -301,6 +306,13 @@ export function TripDetail({
         </CardContent>
       </Card>
 
+      {/* Sugerencias con IA */}
+      <TripSuggestionsCard
+        tripId={trip.id}
+        hasDestination={!!trip.destination}
+        locale={locale}
+      />
+
       <TripDialog
         key={trip.id + String(editing)}
         open={editing}
@@ -318,6 +330,131 @@ export function TripDetail({
         onOpenChange={(o) => setExpenseDialog((d) => ({ ...d, open: o }))}
       />
     </div>
+  );
+}
+
+function TripSuggestionsCard({
+  tripId,
+  hasDestination,
+  locale,
+}: {
+  tripId: string;
+  hasDestination: boolean;
+  locale: string;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [suggestions, setSuggestions] = useState<TripSuggestion[] | null>(null);
+  const [addedTitles, setAddedTitles] = useState<Set<string>>(new Set());
+  const [addingTitle, setAddingTitle] = useState<string | null>(null);
+
+  function generate() {
+    startTransition(async () => {
+      const res = await getTripSuggestions(tripId);
+      if (!res.ok || !res.data) {
+        toast.error(res.error ?? 'No se pudieron generar sugerencias');
+        return;
+      }
+      setSuggestions(res.data);
+      setAddedTitles(new Set());
+    });
+  }
+
+  function addSuggestion(s: TripSuggestion) {
+    setAddingTitle(s.title);
+    startTransition(async () => {
+      const res = await addTripExpense({
+        tripId,
+        category: s.category || 'Otro',
+        concept: s.title,
+        amount: s.estimatedUsd ?? 0,
+        currency: 'USD',
+        paid: false,
+        note: s.description,
+      });
+      setAddingTitle(null);
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo agregar');
+        return;
+      }
+      setAddedTitles((prev) => new Set(prev).add(s.title));
+      toast.success('Agregado como gasto planeado');
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex items-center justify-between gap-2 space-y-0">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Sparkles className="text-primary size-4" /> Sugerencias con IA
+        </CardTitle>
+        <Button size="sm" variant="outline" onClick={generate} disabled={pending || !hasDestination}>
+          {pending && !addingTitle ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Sparkles className="size-4" />
+          )}
+          {suggestions ? 'Generar otras' : 'Generar sugerencias'}
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {!hasDestination ? (
+          <p className="text-muted-foreground text-sm">
+            Define un destino en el viaje para pedirle ideas a la IA.
+          </p>
+        ) : suggestions === null ? (
+          <p className="text-muted-foreground text-sm">
+            Pídele a la IA lugares, actividades y comidas imperdibles del destino, con costo
+            aproximado en dólares. Podés agregar las que quieras como gasto planeado.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {suggestions.map((s) => {
+              const added = addedTitles.has(s.title);
+              return (
+                <li
+                  key={s.title}
+                  className="flex items-start justify-between gap-3 border-b pb-3 last:border-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{s.title}</p>
+                    <p className="text-muted-foreground text-xs">{s.description}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge variant="outline" className="rounded-full">
+                        {s.category}
+                      </Badge>
+                      {s.estimatedUsd !== null && (
+                        <span className="text-muted-foreground text-xs tabular-nums">
+                          ~{formatMoney(s.estimatedUsd, 'USD', locale)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={added ? 'ghost' : 'secondary'}
+                    disabled={added || pending}
+                    onClick={() => addSuggestion(s)}
+                    className="shrink-0"
+                  >
+                    {added ? (
+                      <>
+                        <Check className="size-4" /> Agregado
+                      </>
+                    ) : addingTitle === s.title ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="size-4" /> Agregar
+                      </>
+                    )}
+                  </Button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
