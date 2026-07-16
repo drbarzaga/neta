@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { requireSession } from '@/lib/auth-server';
 import { getCountry } from '@/lib/countries';
+import { getLatestRate } from '@/lib/exchange-rate';
 import { getOrCreateUserSettings } from '../../configuracion/queries';
 import { getTrip, getTripExpenses } from '../queries';
 import { TripDetail } from './_components/trip-detail';
@@ -19,9 +20,10 @@ export default async function TripDetailPage({
   const trip = await getTrip(userId, id);
   if (!trip) notFound();
 
-  const [expenses, settings] = await Promise.all([
+  const [expenses, settings, destinationRate] = await Promise.all([
     getTripExpenses(userId, id),
     getOrCreateUserSettings(userId),
+    trip.destinationCountry ? getLatestRate(trip.destinationCountry) : null,
   ]);
   const country = getCountry(settings.country);
 
@@ -31,6 +33,7 @@ export default async function TripDetailPage({
       expenses={expenses}
       locale={country.locale}
       localCurrency={country.currency}
+      destinationRate={destinationRate}
     />
   );
 }

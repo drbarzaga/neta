@@ -14,8 +14,10 @@ import {
   trip,
   tripExpense,
 } from '@/db';
-import { periodTotals, tripTotals, formatMoney } from '@/lib/money';
+import { periodTotals, tripTotals, toUsd, toLocal, formatMoney } from '@/lib/money';
 import { addMonths, periodLabel } from '@/lib/dates';
+import { getCountry } from '@/lib/countries';
+import { getLatestRate } from '@/lib/exchange-rate';
 import { TRIP_STATUS_LABEL } from '@/app/(dashboard)/viajes/schema';
 
 const MAX_PERIODS = 12;
@@ -120,6 +122,15 @@ export async function buildFinancialContext(userId: string): Promise<{
       byTrip.get(e.tripId)!.push(e);
     }
 
+    // Cotización del país de cada destino (vía dolarapi), para el desglose en
+    // moneda local del lugar. Se trae una sola vez por país.
+    const destCountries = [...new Set(trips.map((t) => t.destinationCountry).filter((c): c is string => !!c))];
+    const destRates = new Map(
+      await Promise.all(
+        destCountries.map(async (c) => [c, await getLatestRate(c)] as const)
+      )
+    );
+
     lines.push('Viajes del usuario:');
     for (const t of trips) {
       const items = byTrip.get(t.id) ?? [];
@@ -139,6 +150,19 @@ export async function buildFinancialContext(userId: string): Promise<{
       lines.push(
         `- ${t.name}${t.destination ? ` a ${t.destination}` : ''}${dates} — ${TRIP_STATUS_LABEL[t.status]}: ${parts.join(', ')}`
       );
+
+      // Desglose en la moneda del país de destino (si se definió y difiere de la del viaje).
+      const destCountry = t.destinationCountry ? getCountry(t.destinationCountry) : null;
+      const destRate = t.destinationCountry ? destRates.get(t.destinationCountry) : undefined;
+      if (destCountry && destRate && destCountry.currency !== t.currency) {
+        const toDest = (n: number) =>
+          toLocal({ amount: toUsd({ amount: n, currency: t.currency }, t.dollarRate), currency: 'USD' }, destRate);
+        const moneyDest = (n: number) => formatMoney(toDest(n), destCountry.currency, destCountry.locale);
+        lines.push(
+          `  En ${destCountry.currency} (moneda de ${destCountry.name}): pagado ${moneyDest(totals.paidLocal)}, planeado ${moneyDest(totals.plannedLocal)}${t.budget > 0 ? `, presupuesto ${moneyDest(t.budget)}, restante ${moneyDest(totals.remainingLocal)}` : ''}.`
+        );
+      }
+
       if (items.length > 0) {
         for (const e of items) {
           lines.push(

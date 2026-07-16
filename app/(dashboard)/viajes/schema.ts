@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { COUNTRIES } from '@/lib/countries';
 
 const currencyEnum = z.string().trim().toUpperCase().min(3).max(3);
 const dateField = z
@@ -6,6 +7,9 @@ const dateField = z
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida')
   .nullable()
   .optional();
+
+const countryCodes = Object.keys(COUNTRIES) as [string, ...string[]];
+const countryField = z.enum(countryCodes).nullable().optional();
 
 // Sugerencias de categoría para gastos de viaje (texto libre, no una tabla).
 export const TRIP_EXPENSE_CATEGORIES = [
@@ -28,6 +32,7 @@ export const TRIP_STATUS_LABEL: Record<z.infer<typeof tripStatusEnum>, string> =
 export const createTripSchema = z.object({
   name: z.string().trim().min(1, 'Ponle un nombre al viaje').max(120),
   destination: z.string().trim().max(120).nullable().optional(),
+  destinationCountry: countryField,
   startDate: dateField,
   endDate: dateField,
   currency: currencyEnum.default('UYU'),
@@ -41,6 +46,7 @@ export const updateTripSchema = z.object({
   id: z.uuid(),
   name: z.string().trim().min(1).max(120).optional(),
   destination: z.string().trim().max(120).nullable().optional(),
+  destinationCountry: countryField,
   startDate: dateField,
   endDate: dateField,
   currency: currencyEnum.optional(),

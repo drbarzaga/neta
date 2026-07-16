@@ -28,6 +28,9 @@ export const trip = pgTable('trip', {
   // Foto circular del destino (URL pública), resuelta best-effort desde
   // Wikipedia al crear/editar el viaje. Null si no se encontró o falló.
   destinationImageUrl: text(),
+  // País del destino (clave de lib/countries.ts), opcional. Habilita mostrar
+  // el desglose de gastos en la moneda local de ese país (vía dolarapi).
+  destinationCountry: text(),
   startDate: date({ mode: 'string' }),
   endDate: date({ mode: 'string' }),
   currency: text().notNull().default('UYU'), // ISO-4217 (moneda local o USD)

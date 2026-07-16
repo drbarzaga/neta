@@ -63,7 +63,47 @@ type AdvisorAction =
   | { type: 'create_installment'; concept: string; category: string; installmentAmount: number; installments: number; currency?: string }
   | { type: 'convert_to_installments'; concept: string; installments: number; amountIsTotal?: boolean }
   | { type: 'create_saving_account'; name: string; currency?: string; initialBalance?: number }
-  | { type: 'add_saving'; account: string; amount: number; kind?: 'deposit' | 'withdraw' };
+  | { type: 'add_saving'; account: string; amount: number; kind?: 'deposit' | 'withdraw' }
+  | {
+      type: 'create_trip';
+      name: string;
+      destination?: string;
+      destinationCountry?: string;
+      startDate?: string | null;
+      endDate?: string | null;
+      currency?: string;
+      budget?: number;
+    }
+  | {
+      type: 'update_trip';
+      trip: string;
+      destinationCountry?: string;
+      budget?: number;
+      startDate?: string | null;
+      endDate?: string | null;
+      status?: 'planificando' | 'en_curso' | 'completado';
+    }
+  | {
+      type: 'add_trip_expense';
+      trip: string;
+      category: string;
+      concept: string;
+      amount: number;
+      currency?: string;
+      date?: string | null;
+      paid?: boolean;
+    }
+  | {
+      type: 'edit_trip_expense';
+      trip: string;
+      concept: string;
+      amount?: number;
+      currency?: string;
+      date?: string | null;
+      paid?: boolean;
+    }
+  | { type: 'mark_trip_expense_paid'; trip: string; concept: string }
+  | { type: 'delete_trip_expense'; trip: string; concept: string };
 
 const MONTHS_ES = [
   'enero',
@@ -183,6 +223,33 @@ function actionLabel(a: AdvisorAction): string {
       return a.kind === 'withdraw'
         ? `Retirar ${a.amount} de «${a.account}»`
         : `Depositar ${a.amount} en «${a.account}»`;
+    case 'create_trip':
+      return `Crear viaje: ${a.name}${a.destination ? ` a ${a.destination}` : ''}${a.budget ? ` · presupuesto ${a.budget} ${a.currency ?? ''}`.trim() : ''}`;
+    case 'update_trip': {
+      const parts: string[] = [];
+      if (a.budget !== undefined) parts.push(`presupuesto ${a.budget}`);
+      if (a.startDate !== undefined) parts.push(`inicio ${a.startDate}`);
+      if (a.endDate !== undefined) parts.push(`fin ${a.endDate}`);
+      if (a.status) parts.push(a.status);
+      return `Actualizar viaje «${a.trip}»${parts.length ? ` → ${parts.join(', ')}` : ''}`;
+    }
+    case 'add_trip_expense':
+      return `Agregar gasto al viaje «${a.trip}»: ${a.concept} · ${a.amount} ${a.currency ?? ''} en ${a.category}`.replace(
+        / +/g,
+        ' '
+      );
+    case 'edit_trip_expense': {
+      const parts: string[] = [];
+      if (a.amount !== undefined) parts.push(`monto ${a.amount}`);
+      if (a.currency) parts.push(a.currency);
+      if (a.date) parts.push(`fecha ${a.date}`);
+      if (a.paid !== undefined) parts.push(a.paid ? 'pagado' : 'planeado');
+      return `Editar gasto de «${a.trip}»: ${a.concept}${parts.length ? ` → ${parts.join(', ')}` : ''}`;
+    }
+    case 'mark_trip_expense_paid':
+      return `Marcar como pagado en «${a.trip}»: ${a.concept}`;
+    case 'delete_trip_expense':
+      return `Eliminar gasto de «${a.trip}»: ${a.concept}`;
   }
 }
 
@@ -223,11 +290,20 @@ const CATEGORIES_SUGGESTIONS = [
   '¿Qué categoría creció más entre meses?',
 ];
 
+const TRIPS_SUGGESTIONS = [
+  '¿Qué no me puedo perder en el destino de mi viaje?',
+  'Arma un itinerario para mi viaje',
+  '¿Cuánto llevo gastado en mi viaje?',
+  '¿Cuánto es eso en la moneda del destino?',
+  '¿Me alcanza el presupuesto del viaje?',
+];
+
 /** Sugerencias contextuales según la página donde está abierto el asesor. */
 function pageSuggestions(pathname: string): string[] {
   if (/^\/meses(\/|$)/.test(pathname)) return MONTH_SUGGESTIONS;
   if (pathname.startsWith('/metas')) return GOALS_SUGGESTIONS;
   if (pathname.startsWith('/categorias')) return CATEGORIES_SUGGESTIONS;
+  if (pathname.startsWith('/viajes')) return TRIPS_SUGGESTIONS;
   return GENERAL_SUGGESTIONS;
 }
 

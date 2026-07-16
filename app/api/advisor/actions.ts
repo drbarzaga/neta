@@ -195,6 +195,11 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     type: z.literal('create_trip'),
     name: z.string().min(1),
     destination: z.string().optional(),
+    destinationCountry: z
+      .string()
+      .length(2)
+      .transform((s) => s.toUpperCase())
+      .optional(),
     startDate: z.string().nullable().optional(),
     endDate: z.string().nullable().optional(),
     currency: z.string().optional(),
@@ -203,6 +208,11 @@ const advisorActionSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('update_trip'),
     trip: z.string().min(1),
+    destinationCountry: z
+      .string()
+      .length(2)
+      .transform((s) => s.toUpperCase())
+      .optional(),
     budget: z.number().min(0).optional(),
     startDate: z.string().nullable().optional(),
     endDate: z.string().nullable().optional(),
@@ -513,6 +523,7 @@ export async function executeAdvisorAction(
     const res = await createTrip({
       name: a.name,
       destination: a.destination ?? null,
+      destinationCountry: a.destinationCountry ?? null,
       startDate: a.startDate ?? null,
       endDate: a.endDate ?? null,
       currency: a.currency ?? latest?.localCurrency ?? 'UYU',
@@ -527,6 +538,7 @@ export async function executeAdvisorAction(
     const res = await updateTrip({
       id: t.id,
       ...(a.budget !== undefined && { budget: a.budget }),
+      ...(a.destinationCountry !== undefined && { destinationCountry: a.destinationCountry }),
       ...(a.startDate !== undefined && { startDate: a.startDate }),
       ...(a.endDate !== undefined && { endDate: a.endDate }),
       ...(a.status && { status: a.status }),

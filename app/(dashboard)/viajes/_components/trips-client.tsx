@@ -46,6 +46,7 @@ import { IconPicker } from '@/components/icon-picker';
 import { CategoryIcon } from '@/components/category-icon';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
+import { listCountries } from '@/lib/countries';
 import { createTrip, updateTrip, deleteTrip } from '../actions';
 import { TRIP_STATUS_LABEL } from '../schema';
 import type { TripWithTotals } from '../queries';
@@ -295,6 +296,9 @@ export function TripDialog({
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(trip?.name ?? '');
   const [destination, setDestination] = useState(trip?.destination ?? '');
+  const [destinationCountry, setDestinationCountry] = useState(
+    trip?.destinationCountry ?? ''
+  );
   const [startDate, setStartDate] = useState(trip?.startDate ?? '');
   const [endDate, setEndDate] = useState(trip?.endDate ?? '');
   const [currency, setCurrency] = useState(trip?.currency ?? localCurrency);
@@ -318,6 +322,7 @@ export function TripDialog({
     const payload = {
       name: name.trim(),
       destination: destination.trim() || null,
+      destinationCountry: destinationCountry || null,
       startDate: startDate || null,
       endDate: endDate || null,
       currency,
@@ -364,15 +369,39 @@ export function TripDialog({
             />
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="trip-destination">Destino (opcional)</Label>
-            <Input
-              id="trip-destination"
-              value={destination}
-              placeholder="Ej. Bariloche, Argentina"
-              onChange={(e) => setDestination(e.target.value)}
-            />
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="trip-destination">Destino (opcional)</Label>
+              <Input
+                id="trip-destination"
+                value={destination}
+                placeholder="Ej. Bariloche, Argentina"
+                onChange={(e) => setDestination(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="trip-destination-country">País (opcional)</Label>
+              <Select
+                value={destinationCountry || 'none'}
+                onValueChange={(v) => setDestinationCountry(v === 'none' ? '' : v)}
+              >
+                <SelectTrigger id="trip-destination-country" className="w-40">
+                  <SelectValue placeholder="Sin definir" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin definir</SelectItem>
+                  {listCountries().map((c) => (
+                    <SelectItem key={c.code} value={c.code}>
+                      <span className="mr-1">{c.flag}</span> {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <p className="text-muted-foreground -mt-2 text-xs">
+            El país habilita ver el desglose de gastos en su moneda local (vía dolarapi).
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">

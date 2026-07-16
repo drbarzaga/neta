@@ -48,6 +48,7 @@ export async function createTrip(input: unknown): Promise<ActionResult<{ id: str
       name: data.name,
       destination: data.destination ?? null,
       destinationImageUrl,
+      destinationCountry: data.destinationCountry ?? null,
       startDate: data.startDate ?? null,
       endDate: data.endDate ?? null,
       currency: data.currency,

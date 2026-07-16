@@ -47,8 +47,9 @@ import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
 import { cn } from '@/lib/utils';
-import { formatMoney, tripTotals } from '@/lib/money';
+import { formatMoney, tripTotals, toUsd, toLocal } from '@/lib/money';
 import { todayISO } from '@/lib/dates';
+import { getCountry } from '@/lib/countries';
 import type { Trip, TripExpense } from '@/db';
 import { TripDialog } from '../../_components/trips-client';
 import {
@@ -82,11 +83,13 @@ export function TripDetail({
   expenses,
   locale,
   localCurrency,
+  destinationRate,
 }: {
   trip: Trip;
   expenses: TripExpense[];
   locale: string;
   localCurrency: string;
+  destinationRate?: number | null;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -99,6 +102,25 @@ export function TripDetail({
   const fmt = (n: number) => formatMoney(n, trip.currency, locale);
   const totals = tripTotals(expenses, trip.dollarRate, trip.budget);
   const hasBudget = trip.budget > 0;
+
+  // Desglose en la moneda del país de destino (vía dolarapi): convierte
+  // monto-en-moneda-del-viaje -> USD (con la cotización del viaje) -> moneda
+  // destino (con la cotización de ese país).
+  const destinationCountryInfo = trip.destinationCountry
+    ? getCountry(trip.destinationCountry)
+    : null;
+  const showDestinationBreakdown =
+    !!destinationCountryInfo &&
+    !!destinationRate &&
+    destinationCountryInfo.currency !== trip.currency;
+  const toDest = (n: number) => {
+    const usd = toUsd({ amount: n, currency: trip.currency }, trip.dollarRate);
+    return toLocal({ amount: usd, currency: 'USD' }, destinationRate ?? 0);
+  };
+  const fmtDest = (n: number) =>
+    destinationCountryInfo
+      ? formatMoney(toDest(n), destinationCountryInfo.currency, destinationCountryInfo.locale)
+      : '';
 
   const byCategory = new Map<string, TripExpense[]>();
   for (const e of expenses) {
@@ -194,6 +216,23 @@ export function TripDetail({
             }
           />
         </CardContent>
+        {showDestinationBreakdown && (
+          <CardContent className="border-t pt-4">
+            <p className="text-muted-foreground mb-2 text-xs">
+              Equivalente en {destinationCountryInfo!.flag} {destinationCountryInfo!.currency}{' '}
+              (cotización del día, vía dolarapi):
+            </p>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-2 sm:grid-cols-4">
+              {hasBudget && <Stat label="Presupuesto" value={fmtDest(trip.budget)} />}
+              <Stat label="Pagado" value={fmtDest(totals.paidLocal)} />
+              <Stat label="Planeado" value={fmtDest(totals.plannedLocal)} />
+              <Stat
+                label={hasBudget ? 'Restante' : 'Total'}
+                value={hasBudget ? fmtDest(totals.remainingLocal) : fmtDest(totals.totalLocal)}
+              />
+            </div>
+          </CardContent>
+        )}
       </Card>
 
       {/* Gastos */}
