@@ -46,9 +46,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
+import { TripItinerary } from './trip-itinerary';
 import { cn } from '@/lib/utils';
 import {
   formatMoney,
@@ -270,38 +272,51 @@ export function TripDetail({
               Sin gastos registrados todavía.
             </p>
           ) : (
-            <div className="divide-border divide-y">
-              {categories.map((cat) => {
-                const items = byCategory.get(cat)!;
-                const subtotal = items.reduce(
-                  (s, e) => s + tripExpenseToTripCurrency(e, trip.currency, trip.dollarRate, dest),
-                  0
-                );
-                return (
-                  <div key={cat} className="px-6 py-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <h3 className="text-sm font-medium">{cat}</h3>
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {fmt(subtotal)}
-                      </span>
-                    </div>
-                    <ul className="flex flex-col gap-2">
-                      {items.map((e) => (
-                        <TripExpenseRow
-                          key={e.id}
-                          expense={e}
-                          locale={locale}
-                          tripCurrency={trip.currency}
-                          dollarRate={trip.dollarRate}
-                          dest={dest}
-                          onEdit={() => setExpenseDialog({ open: true, expense: e })}
-                        />
-                      ))}
-                    </ul>
-                  </div>
-                );
-              })}
-            </div>
+            <Tabs defaultValue="categoria">
+              <div className="px-6">
+                <TabsList>
+                  <TabsTrigger value="categoria">Por categoría</TabsTrigger>
+                  <TabsTrigger value="itinerario">Itinerario</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="categoria">
+                <div className="divide-border divide-y">
+                  {categories.map((cat) => {
+                    const items = byCategory.get(cat)!;
+                    const subtotal = items.reduce(
+                      (s, e) => s + tripExpenseToTripCurrency(e, trip.currency, trip.dollarRate, dest),
+                      0
+                    );
+                    return (
+                      <div key={cat} className="px-6 py-3">
+                        <div className="mb-2 flex items-center justify-between">
+                          <h3 className="text-sm font-medium">{cat}</h3>
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {fmt(subtotal)}
+                          </span>
+                        </div>
+                        <ul className="flex flex-col gap-2">
+                          {items.map((e) => (
+                            <TripExpenseRow
+                              key={e.id}
+                              expense={e}
+                              locale={locale}
+                              tripCurrency={trip.currency}
+                              dollarRate={trip.dollarRate}
+                              dest={dest}
+                              onEdit={() => setExpenseDialog({ open: true, expense: e })}
+                            />
+                          ))}
+                        </ul>
+                      </div>
+                    );
+                  })}
+                </div>
+              </TabsContent>
+              <TabsContent value="itinerario" className="px-6 pb-4">
+                <TripItinerary trip={trip} expenses={expenses} locale={locale} />
+              </TabsContent>
+            </Tabs>
           )}
         </CardContent>
       </Card>

@@ -42,3 +42,15 @@ export function monthDiff(
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
+
+/** Lista de fechas ISO (YYYY-MM-DD) entre `start` y `end`, ambas incluidas. */
+export function daysBetween(start: string, end: string): string[] {
+  const days: string[] = [];
+  const cur = new Date(`${start}T00:00:00`);
+  const last = new Date(`${end}T00:00:00`);
+  while (cur.getTime() <= last.getTime()) {
+    days.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}

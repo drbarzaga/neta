@@ -88,5 +88,17 @@ export const toggleTripExpensePaidSchema = z.object({
   paid: z.boolean(),
 });
 
+// Mueve un gasto de viaje a un día del itinerario (o a "sin día" con null) y
+// fija el orden dentro de ese día con la lista de ids (drag & drop).
+export const moveTripExpenseDaySchema = z.object({
+  id: z.uuid(),
+  tripId: z.uuid(),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida')
+    .nullable(),
+  orderedIds: z.array(z.uuid()).min(1),
+});
+
 export type CreateTripInput = z.infer<typeof createTripSchema>;
 export type UpdateTripInput = z.infer<typeof updateTripSchema>;

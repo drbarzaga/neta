@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, trip, tripExpense } from '@/db';
+import { db, eq, and, isNull, trip, tripExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { resolveDestinationImage } from '@/lib/destination-image';
@@ -15,6 +15,7 @@ import {
   updateTripExpenseSchema,
   deleteTripExpenseSchema,
   toggleTripExpensePaidSchema,
+  moveTripExpenseDaySchema,
 } from './schema';
 
 function revalidate(id?: string) {
@@ -212,6 +213,62 @@ export async function toggleTripExpensePaid(input: unknown): Promise<ActionResul
     .where(and(eq(tripExpense.id, id), eq(tripExpense.userId, session.userId)));
 
   revalidate(current.tripId);
+  return ok();
+}
+
+/**
+ * Mueve un gasto de viaje a un día del itinerario (drag & drop). `date: null`
+ * lo manda a "sin día asignado". Además fija el orden dentro del día destino
+ * según `orderedIds`. Solo aplica a filas independientes (sin gasto del mes
+ * vinculado, que no se pueden reprogramar desde acá).
+ */
+export async function moveTripExpenseDay(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = moveTripExpenseDaySchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, tripId, date, orderedIds } = parsed.data;
+
+  const [current] = await db
+    .select({ expenseId: tripExpense.expenseId })
+    .from(tripExpense)
+    .where(and(eq(tripExpense.id, id), eq(tripExpense.userId, session.userId), eq(tripExpense.tripId, tripId)));
+  if (!current) return UNAUTHORIZED;
+  if (current.expenseId) {
+    return fail('Este gasto viene de un gasto vinculado; edítalo desde el mes.');
+  }
+
+  const moved = await db
+    .update(tripExpense)
+    .set({ date })
+    .where(and(eq(tripExpense.id, id), eq(tripExpense.userId, session.userId)))
+    .returning({ id: tripExpense.id });
+  if (moved.length === 0) return UNAUTHORIZED;
+
+  // Reordena el día destino según orderedIds (solo ids que ya están ahí).
+  const owned = await db
+    .select({ id: tripExpense.id })
+    .from(tripExpense)
+    .where(
+      and(
+        eq(tripExpense.userId, session.userId),
+        eq(tripExpense.tripId, tripId),
+        date === null ? isNull(tripExpense.date) : eq(tripExpense.date, date)
+      )
+    );
+  const valid = new Set(owned.map((e) => e.id));
+
+  let order = 0;
+  for (const eid of orderedIds) {
+    if (!valid.has(eid)) continue;
+    await db
+      .update(tripExpense)
+      .set({ sortOrder: order++ })
+      .where(and(eq(tripExpense.id, eid), eq(tripExpense.userId, session.userId)));
+  }
+
+  revalidate(tripId);
   return ok();
 }
 
