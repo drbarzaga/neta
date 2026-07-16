@@ -272,17 +272,27 @@ export interface TripSuggestion {
 }
 
 const TRIP_SUGGESTIONS_PROMPT_PREFIX =
-  'Sos un guía de viajes local. Armá una lista de 7 u 8 sugerencias imperdibles y bien conocidas para el siguiente destino, MEZCLANDO categorías a propósito (no te concentres solo en atracciones turísticas).';
+  'Sos un guía de viajes local con mucho conocimiento de calle. Armá una lista de 7 u 8 sugerencias imperdibles y bien conocidas para el siguiente destino, MEZCLANDO categorías a propósito (no te concentres solo en atracciones turísticas).';
 const TRIP_SUGGESTIONS_PROMPT_SUFFIX = [
+  'MUY IMPORTANTE — especificidad: siempre que el destino tenga lugares emblemáticos y reconocidos por nombre propio',
+  '(restaurantes, bares, cafés, heladerías, tiendas, milongas, etc.), NOMBRALOS específicamente en vez de describir',
+  'la categoría en genérico. Preferí "Pizza en Güerrín" o "Asado en Don Julio" antes que "una buena pizzería" o',
+  '"un buen asado en una parrilla tradicional". Si de verdad no conocés un lugar puntual y famoso para algo, ahí sí',
+  'describí la experiencia en genérico, pero es la excepción, no la regla: priorizá los clásicos que un local',
+  'recomendaría de memoria, los que "sí o sí hay que hacer" en ese destino.',
+  '',
   'Repartí las sugerencias así, siempre que el destino lo permita:',
   '- Al menos 3 de categoría Comida, cubriendo distintos momentos: una opción de almuerzo, una de cena, y una comida',
   '  típica/callejera, postre o café/bar reconocido del lugar (no repitas el mismo tipo de comida dos veces).',
-  '- El resto, una mezcla de Actividades (lugares para visitar, planes, shows), y si corresponde Transporte,',
-  '  Compras o Alojamiento.',
-  'Para cada una: un título corto (2-6 palabras), una descripción de una sola línea, la categoría',
-  '(Alojamiento, Transporte, Comida, Actividades, Compras u Otro), y si podés estimar de forma razonable',
-  'un costo aproximado en USD por persona, un número positivo; si no tenés una base real para estimarlo,',
-  'usá null en vez de inventar una cifra.',
+  '  Nombrá el local específico cuando exista uno icónico para eso (ver arriba).',
+  '- El resto, una mezcla de Actividades (lugares para visitar, planes, shows) — también con nombre propio cuando',
+  '  corresponda (un barrio, monumento o espectáculo puntual, no "recorré el centro histórico" en genérico) —,',
+  '  y si corresponde Transporte, Compras o Alojamiento.',
+  '',
+  'Para cada una: un título corto (2-6 palabras) que incluya el nombre propio cuando aplique, una descripción de',
+  'una sola línea, la categoría (Alojamiento, Transporte, Comida, Actividades, Compras u Otro), y si podés estimar',
+  'de forma razonable un costo aproximado en USD por persona, un número positivo; si no tenés una base real para',
+  'estimarlo, usá null en vez de inventar una cifra.',
 ].join(' ');
 
 function isTripSuggestion(v: unknown): v is TripSuggestion {
