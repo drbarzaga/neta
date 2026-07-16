@@ -24,7 +24,7 @@ import { moveTripExpenseDay } from '../../actions';
 
 const NONE = 'none';
 
-function formatDayHeader(iso: string, locale: string) {
+export function formatDayHeader(iso: string, locale: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString(locale, {
     weekday: 'short',
     day: '2-digit',

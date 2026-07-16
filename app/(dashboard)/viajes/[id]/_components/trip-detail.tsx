@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -50,7 +50,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
-import { TripItinerary } from './trip-itinerary';
+import { TripItinerary, formatDayHeader } from './trip-itinerary';
 import { cn } from '@/lib/utils';
 import {
   formatMoney,
@@ -61,7 +61,7 @@ import {
   toLocal,
   type DestinationRate,
 } from '@/lib/money';
-import { todayISO } from '@/lib/dates';
+import { todayISO, daysBetween } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import type { Trip, TripExpense } from '@/db';
 import { TripDialog } from '../../_components/trips-client';
@@ -322,11 +322,7 @@ export function TripDetail({
       </Card>
 
       {/* Sugerencias con IA */}
-      <TripSuggestionsCard
-        tripId={trip.id}
-        hasDestination={!!trip.destination}
-        locale={locale}
-      />
+      <TripSuggestionsCard trip={trip} locale={locale} />
 
       <TripDialog
         key={trip.id + String(editing)}
@@ -348,25 +344,26 @@ export function TripDetail({
   );
 }
 
-function TripSuggestionsCard({
-  tripId,
-  hasDestination,
-  locale,
-}: {
-  tripId: string;
-  hasDestination: boolean;
-  locale: string;
-}) {
+function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
   const [pending, startTransition] = useTransition();
   const [suggestions, setSuggestions] = useState<TripSuggestion[] | null>(null);
   const [addedTitles, setAddedTitles] = useState<Set<string>>(new Set());
   const [addingTitle, setAddingTitle] = useState<string | null>(null);
+  const [addingAll, setAddingAll] = useState(false);
   // Todo lo mostrado hasta ahora en esta sesión, para que "Generar otras" no repita.
   const [shownTitles, setShownTitles] = useState<string[]>([]);
 
+  const hasDestination = !!trip.destination;
+  const days = useMemo(
+    () => (trip.startDate && trip.endDate ? daysBetween(trip.startDate, trip.endDate) : []),
+    [trip.startDate, trip.endDate]
+  );
+  const dateForDay = (day: number | null) =>
+    day !== null && days[day - 1] ? days[day - 1] : null;
+
   function generate() {
     startTransition(async () => {
-      const res = await getTripSuggestions(tripId, shownTitles);
+      const res = await getTripSuggestions(trip.id, shownTitles);
       if (!res.ok || !res.data) {
         toast.error(res.error ?? 'No se pudieron generar sugerencias');
         return;
@@ -381,12 +378,13 @@ function TripSuggestionsCard({
     setAddingTitle(s.title);
     startTransition(async () => {
       const res = await addTripExpense({
-        tripId,
+        tripId: trip.id,
         category: s.category || 'Otro',
         concept: s.title,
         amount: s.estimatedUsd ?? 0,
         currency: 'USD',
         paid: false,
+        date: dateForDay(s.day),
         note: s.description,
       });
       setAddingTitle(null);
@@ -395,9 +393,70 @@ function TripSuggestionsCard({
         return;
       }
       setAddedTitles((prev) => new Set(prev).add(s.title));
-      toast.success('Agregado como gasto planeado');
+      toast.success('Agregado al itinerario');
     });
   }
+
+  function addAll() {
+    if (!suggestions) return;
+    const toAdd = suggestions.filter((s) => !addedTitles.has(s.title));
+    if (toAdd.length === 0) return;
+    setAddingAll(true);
+    startTransition(async () => {
+      const results = await Promise.all(
+        toAdd.map((s) =>
+          addTripExpense({
+            tripId: trip.id,
+            category: s.category || 'Otro',
+            concept: s.title,
+            amount: s.estimatedUsd ?? 0,
+            currency: 'USD',
+            paid: false,
+            date: dateForDay(s.day),
+            note: s.description,
+          })
+        )
+      );
+      setAddingAll(false);
+      const okTitles = toAdd.filter((_, i) => results[i].ok).map((s) => s.title);
+      const failCount = results.length - okTitles.length;
+      if (okTitles.length > 0) {
+        setAddedTitles((prev) => new Set([...prev, ...okTitles]));
+        toast.success(`${okTitles.length} agregada(s) al itinerario`);
+      }
+      if (failCount > 0) toast.error(`${failCount} no se pudieron agregar`);
+    });
+  }
+
+  // Agrupa por día (cuando el viaje tiene fechas) para mostrar el itinerario
+  // propuesto tal como lo organizó la IA; sin fechas, queda una lista simple.
+  const groups = useMemo(() => {
+    if (!suggestions) return [];
+    if (days.length === 0) return [{ key: 'all', label: null, items: suggestions }];
+    const byDay = new Map<number | null, TripSuggestion[]>();
+    for (const s of suggestions) {
+      const key = s.day !== null && dateForDay(s.day) ? s.day : null;
+      if (!byDay.has(key)) byDay.set(key, []);
+      byDay.get(key)!.push(s);
+    }
+    const dayKeys = [...byDay.keys()]
+      .filter((k): k is number => k !== null)
+      .sort((a, b) => a - b);
+    const result = dayKeys.map((day) => ({
+      key: String(day),
+      label: `Día ${day} — ${formatDayHeader(dateForDay(day)!, locale)}`,
+      items: byDay.get(day)!,
+    }));
+    if (byDay.has(null)) {
+      result.push({ key: 'none', label: 'Sin día asignado', items: byDay.get(null)! });
+    }
+    return result;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestions, days, locale]);
+
+  const pendingCount = suggestions
+    ? suggestions.filter((s) => !addedTitles.has(s.title)).length
+    : 0;
 
   return (
     <Card>
@@ -405,14 +464,22 @@ function TripSuggestionsCard({
         <CardTitle className="flex items-center gap-2 text-base">
           <Sparkles className="text-primary size-4" /> Sugerencias con IA
         </CardTitle>
-        <Button size="sm" variant="outline" onClick={generate} disabled={pending || !hasDestination}>
-          {pending && !addingTitle ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Sparkles className="size-4" />
+        <div className="flex items-center gap-2">
+          {suggestions && pendingCount > 0 && (
+            <Button size="sm" variant="secondary" onClick={addAll} disabled={pending}>
+              {addingAll ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              Agregar todo ({pendingCount})
+            </Button>
           )}
-          {suggestions ? 'Generar otras' : 'Generar sugerencias'}
-        </Button>
+          <Button size="sm" variant="outline" onClick={generate} disabled={pending || !hasDestination}>
+            {pending && !addingTitle && !addingAll ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Sparkles className="size-4" />
+            )}
+            {suggestions ? 'Generar otras' : 'Generar sugerencias'}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {!hasDestination ? (
@@ -422,54 +489,68 @@ function TripSuggestionsCard({
         ) : suggestions === null ? (
           <p className="text-muted-foreground text-sm">
             Pídele a la IA lugares, actividades y comidas imperdibles del destino, con costo
-            aproximado en dólares. Podés agregar las que quieras como gasto planeado.
+            aproximado en dólares.{' '}
+            {days.length > 0
+              ? 'Como el viaje tiene fechas, arma un itinerario día por día que podés agregar entero o de a una.'
+              : 'Definí las fechas del viaje para que la IA también te arme un itinerario día por día.'}
           </p>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {suggestions.map((s) => {
-              const added = addedTitles.has(s.title);
-              return (
-                <li
-                  key={s.title}
-                  className="flex items-start justify-between gap-3 border-b pb-3 last:border-0 last:pb-0"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{s.title}</p>
-                    <p className="text-muted-foreground text-xs">{s.description}</p>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Badge variant="outline" className="rounded-full">
-                        {s.category}
-                      </Badge>
-                      {s.estimatedUsd !== null && (
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          ~{formatMoney(s.estimatedUsd, 'USD', locale)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={added ? 'ghost' : 'secondary'}
-                    disabled={added || pending}
-                    onClick={() => addSuggestion(s)}
-                    className="shrink-0"
-                  >
-                    {added ? (
-                      <>
-                        <Check className="size-4" /> Agregado
-                      </>
-                    ) : addingTitle === s.title ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Plus className="size-4" /> Agregar
-                      </>
-                    )}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="flex flex-col gap-4">
+            {groups.map((group) => (
+              <div key={group.key}>
+                {group.label && (
+                  <h3 className="text-muted-foreground mb-2 text-xs font-semibold tracking-wide uppercase">
+                    {group.label}
+                  </h3>
+                )}
+                <ul className="flex flex-col gap-3">
+                  {group.items.map((s) => {
+                    const added = addedTitles.has(s.title);
+                    return (
+                      <li
+                        key={s.title}
+                        className="flex items-start justify-between gap-3 border-b pb-3 last:border-0 last:pb-0"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{s.title}</p>
+                          <p className="text-muted-foreground text-xs">{s.description}</p>
+                          <div className="mt-1 flex items-center gap-2">
+                            <Badge variant="outline" className="rounded-full">
+                              {s.category}
+                            </Badge>
+                            {s.estimatedUsd !== null && (
+                              <span className="text-muted-foreground text-xs tabular-nums">
+                                ~{formatMoney(s.estimatedUsd, 'USD', locale)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant={added ? 'ghost' : 'secondary'}
+                          disabled={added || pending}
+                          onClick={() => addSuggestion(s)}
+                          className="shrink-0"
+                        >
+                          {added ? (
+                            <>
+                              <Check className="size-4" /> Agregado
+                            </>
+                          ) : addingTitle === s.title ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Plus className="size-4" /> Agregar
+                            </>
+                          )}
+                        </Button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         )}
       </CardContent>
     </Card>

@@ -8,6 +8,7 @@ import { resolveDestinationImage } from '@/lib/destination-image';
 import { generateTripSuggestions, serverApiKey, type TripSuggestion } from '@/lib/ai';
 import { getUserAiConfig } from '../configuracion/queries';
 import { getCountry } from '@/lib/countries';
+import { daysBetween } from '@/lib/dates';
 import {
   createTripSchema,
   updateTripSchema,
@@ -309,11 +310,18 @@ export async function getTripSuggestions(
   if (!session) return UNAUTHORIZED;
 
   const [t] = await db
-    .select({ destination: trip.destination, destinationCountry: trip.destinationCountry })
+    .select({
+      destination: trip.destination,
+      destinationCountry: trip.destinationCountry,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+    })
     .from(trip)
     .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
   if (!t) return UNAUTHORIZED;
   if (!t.destination) return fail('Define primero un destino para el viaje.');
+
+  const days = t.startDate && t.endDate ? daysBetween(t.startDate, t.endDate).length : 0;
 
   const existing = await db
     .select({ concept: tripExpense.concept })
@@ -337,17 +345,24 @@ export async function getTripSuggestions(
       destination: t.destination,
       destinationCountryName: t.destinationCountry ? getCountry(t.destinationCountry).name : null,
       exclude,
+      days,
     });
     // Red de seguridad por si el modelo repite algo pese a la instrucción,
-    // ya sea contra lo excluido o duplicado dentro de la misma respuesta.
+    // ya sea contra lo excluido o duplicado dentro de la misma respuesta, o
+    // asigna un día fuera de rango.
     const excludeNorm = new Set(exclude.map((s) => s.trim().toLowerCase()));
     const seen = new Set<string>();
-    const filtered = suggestions.filter((s) => {
-      const key = s.title.trim().toLowerCase();
-      if (excludeNorm.has(key) || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const filtered = suggestions
+      .filter((s) => {
+        const key = s.title.trim().toLowerCase();
+        if (excludeNorm.has(key) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((s) => ({
+        ...s,
+        day: s.day !== null && days > 0 && s.day >= 1 && s.day <= days ? s.day : null,
+      }));
     if (filtered.length === 0) {
       return fail('No se pudieron generar sugerencias nuevas. Intenta de nuevo.');
     }

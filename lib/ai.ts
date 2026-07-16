@@ -269,6 +269,7 @@ export interface TripSuggestion {
   description: string;
   category: string;
   estimatedUsd: number | null;
+  day: number | null;
 }
 
 const TRIP_SUGGESTIONS_PROMPT_PREFIX =
@@ -295,6 +296,19 @@ const TRIP_SUGGESTIONS_PROMPT_SUFFIX = [
   'estimarlo, usá null en vez de inventar una cifra.',
 ].join(' ');
 
+function tripSuggestionsDayInstructions(days: number): string {
+  if (days <= 0) {
+    return 'No conocés las fechas del viaje todavía, así que dejá "day" en null para todas.';
+  }
+  return [
+    `El viaje dura ${days} día(s) (día 1 al ${days}). Asigná cada sugerencia a un día con "day" (entero de 1 a ${days}),`,
+    'armando un itinerario coherente: agrupá por cercanía/lógica (lo que tenga sentido visitar el mismo día junto),',
+    'repartí bien la carga entre los días (no amontones todo en el día 1 ni dejes días vacíos), y evitá cruzar en un',
+    'mismo día dos comidas del mismo momento (ej. dos cenas). Si de verdad una sugerencia no depende del día',
+    '(ej. una compra que se puede hacer cualquier día), usá null.',
+  ].join(' ');
+}
+
 function isTripSuggestion(v: unknown): v is TripSuggestion {
   if (!v || typeof v !== 'object') return false;
   const s = v as Record<string, unknown>;
@@ -302,7 +316,8 @@ function isTripSuggestion(v: unknown): v is TripSuggestion {
     typeof s.title === 'string' &&
     typeof s.description === 'string' &&
     typeof s.category === 'string' &&
-    (s.estimatedUsd === null || typeof s.estimatedUsd === 'number')
+    (s.estimatedUsd === null || typeof s.estimatedUsd === 'number') &&
+    (s.day === null || s.day === undefined || typeof s.day === 'number')
   );
 }
 
@@ -310,10 +325,17 @@ function parseTripSuggestions(value: unknown): TripSuggestion[] {
   if (!value || typeof value !== 'object') return [];
   const suggestions = (value as { suggestions?: unknown }).suggestions;
   if (!Array.isArray(suggestions)) return [];
-  return suggestions.filter(isTripSuggestion).slice(0, 8);
+  return suggestions
+    .filter(isTripSuggestion)
+    .map((s) => ({ ...s, day: s.day ?? null }))
+    .slice(0, 8);
 }
 
-function buildTripSuggestionsPrompt(destinationLine: string, exclude: string[]): string {
+function buildTripSuggestionsPrompt(
+  destinationLine: string,
+  exclude: string[],
+  days: number
+): string {
   const parts = [TRIP_SUGGESTIONS_PROMPT_PREFIX, '', `Destino: ${destinationLine}`];
   if (exclude.length > 0) {
     parts.push(
@@ -322,14 +344,15 @@ function buildTripSuggestionsPrompt(destinationLine: string, exclude: string[]):
       'Dame alternativas distintas a esas.'
     );
   }
-  parts.push('', TRIP_SUGGESTIONS_PROMPT_SUFFIX);
+  parts.push('', TRIP_SUGGESTIONS_PROMPT_SUFFIX, '', tripSuggestionsDayInstructions(days));
   return parts.join('\n');
 }
 
 async function anthropicTripSuggestions(
   apiKey: string,
   destinationLine: string,
-  exclude: string[]
+  exclude: string[],
+  days: number
 ): Promise<TripSuggestion[]> {
   const client = new Anthropic({ apiKey });
   const res = await client.messages.create({
@@ -351,8 +374,9 @@ async function anthropicTripSuggestions(
                   description: { type: 'string' },
                   category: { type: 'string' },
                   estimatedUsd: { type: ['number', 'null'] },
+                  day: { type: ['integer', 'null'] },
                 },
-                required: ['title', 'description', 'category', 'estimatedUsd'],
+                required: ['title', 'description', 'category', 'estimatedUsd', 'day'],
               },
             },
           },
@@ -364,7 +388,7 @@ async function anthropicTripSuggestions(
     messages: [
       {
         role: 'user',
-        content: buildTripSuggestionsPrompt(destinationLine, exclude),
+        content: buildTripSuggestionsPrompt(destinationLine, exclude, days),
       },
     ],
   });
@@ -378,13 +402,15 @@ async function openRouterTripSuggestions(
   apiKey: string,
   model: string,
   destinationLine: string,
-  exclude: string[]
+  exclude: string[],
+  days: number
 ): Promise<TripSuggestion[]> {
   const prompt = [
-    buildTripSuggestionsPrompt(destinationLine, exclude),
+    buildTripSuggestionsPrompt(destinationLine, exclude, days),
     '',
     'Respondé ÚNICAMENTE con JSON válido (sin texto antes ni después, sin bloques de código markdown),',
-    'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123}]}',
+    'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123,"day":1}]}',
+    '(day es un entero o null).',
   ].join('\n');
 
   const res = await fetch(OPENROUTER_URL, {
@@ -428,19 +454,23 @@ export async function generateTripSuggestions(args: {
   destination: string;
   destinationCountryName?: string | null;
   exclude?: string[];
+  /** Duración del viaje en días, si se conoce (fechas definidas). 0 = desconocida. */
+  days?: number;
 }): Promise<TripSuggestion[]> {
   const destinationLine = args.destinationCountryName
     ? `${args.destination} (${args.destinationCountryName})`
     : args.destination;
   const exclude = args.exclude ?? [];
+  const days = args.days ?? 0;
 
   if (providerForKey(args.apiKey) === 'openrouter') {
     return openRouterTripSuggestions(
       args.apiKey,
       args.model?.trim() || DEFAULT_OPENROUTER_MODEL,
       destinationLine,
-      exclude
+      exclude,
+      days
     );
   }
-  return anthropicTripSuggestions(args.apiKey, destinationLine, exclude);
+  return anthropicTripSuggestions(args.apiKey, destinationLine, exclude, days);
 }
