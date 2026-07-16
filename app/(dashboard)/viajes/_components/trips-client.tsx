@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -180,12 +181,16 @@ function TripCard({
           href={`/viajes/${trip.id}`}
           className="group flex min-w-0 items-center gap-2.5"
         >
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: `${trip.color}22`, color: trip.color }}
-          >
-            <CategoryIcon name={trip.icon} className="size-5" />
-          </span>
+          <Avatar className="size-9 shrink-0">
+            {trip.destinationImageUrl && (
+              <AvatarImage src={trip.destinationImageUrl} alt={trip.destination ?? trip.name} />
+            )}
+            <AvatarFallback
+              style={{ backgroundColor: `${trip.color}22`, color: trip.color }}
+            >
+              <CategoryIcon name={trip.icon} className="size-5" />
+            </AvatarFallback>
+          </Avatar>
           <CardTitle className="truncate text-base group-hover:underline">
             {trip.name}
           </CardTitle>

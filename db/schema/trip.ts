@@ -25,6 +25,9 @@ export const trip = pgTable('trip', {
     .references(() => user.id, { onDelete: 'cascade' }),
   name: text().notNull(),
   destination: text(),
+  // Foto circular del destino (URL pública), resuelta best-effort desde
+  // Wikipedia al crear/editar el viaje. Null si no se encontró o falló.
+  destinationImageUrl: text(),
   startDate: date({ mode: 'string' }),
   endDate: date({ mode: 'string' }),
   currency: text().notNull().default('UYU'), // ISO-4217 (moneda local o USD)

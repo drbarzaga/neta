@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { db, eq, and, trip, tripExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
+import { resolveDestinationImage } from '@/lib/destination-image';
 import {
   createTripSchema,
   updateTripSchema,
@@ -35,12 +36,18 @@ export async function createTrip(input: unknown): Promise<ActionResult<{ id: str
     .where(eq(trip.userId, session.userId));
   const nextOrder = existing.reduce((m, t) => Math.max(m, t.sortOrder), -1) + 1;
 
+  // Foto del destino: mejor esfuerzo (Wikipedia), no bloquea si falla.
+  const destinationImageUrl = data.destination
+    ? await resolveDestinationImage(data.destination)
+    : null;
+
   const [t] = await db
     .insert(trip)
     .values({
       userId: session.userId,
       name: data.name,
       destination: data.destination ?? null,
+      destinationImageUrl,
       startDate: data.startDate ?? null,
       endDate: data.endDate ?? null,
       currency: data.currency,
@@ -66,9 +73,27 @@ export async function updateTrip(input: unknown): Promise<ActionResult> {
   }
   const { id, ...fields } = parsed.data;
 
+  // Si cambió el destino, re-resuelve su foto (mejor esfuerzo); si no, la deja.
+  let destinationImageUrl: string | null | undefined;
+  if (fields.destination !== undefined) {
+    const [current] = await db
+      .select({ destination: trip.destination })
+      .from(trip)
+      .where(and(eq(trip.id, id), eq(trip.userId, session.userId)));
+    if (!current) return UNAUTHORIZED;
+    if (fields.destination !== current.destination) {
+      destinationImageUrl = fields.destination
+        ? await resolveDestinationImage(fields.destination)
+        : null;
+    }
+  }
+
   const result = await db
     .update(trip)
-    .set(fields)
+    .set({
+      ...fields,
+      ...(destinationImageUrl !== undefined && { destinationImageUrl }),
+    })
     .where(and(eq(trip.id, id), eq(trip.userId, session.userId)))
     .returning({ id: trip.id });
   if (result.length === 0) return UNAUTHORIZED;

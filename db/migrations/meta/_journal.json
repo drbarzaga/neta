@@ -155,6 +155,13 @@
       "when": 1784159860435,
       "tag": "0021_fearless_thor",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1784162018706,
+      "tag": "0022_real_otto_octavius",
+      "breakpoints": true
     }
   ]
 }

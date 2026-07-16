@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -132,12 +133,16 @@ export function TripDetail({
             <ArrowLeft className="size-5" />
           </Link>
         </Button>
-        <span
-          className="flex size-10 shrink-0 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${trip.color}22`, color: trip.color }}
-        >
-          <CategoryIcon name={trip.icon} className="size-5" />
-        </span>
+        <Avatar className="size-10 shrink-0">
+          {trip.destinationImageUrl && (
+            <AvatarImage src={trip.destinationImageUrl} alt={trip.destination ?? trip.name} />
+          )}
+          <AvatarFallback
+            style={{ backgroundColor: `${trip.color}22`, color: trip.color }}
+          >
+            <CategoryIcon name={trip.icon} className="size-5" />
+          </AvatarFallback>
+        </Avatar>
         <div className="min-w-0 flex-1">
           <h1 className="truncate text-2xl font-semibold tracking-tight">{trip.name}</h1>
           <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
