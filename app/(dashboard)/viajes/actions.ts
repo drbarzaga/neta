@@ -238,9 +238,15 @@ export async function deleteTripExpense(input: unknown): Promise<ActionResult> {
   return ok();
 }
 
-/** Sugerencias de itinerario con IA (lugares/actividades/comidas) para el destino del viaje. */
+/**
+ * Sugerencias de itinerario con IA (lugares/actividades/comidas) para el
+ * destino del viaje. `excludeTitles` son sugerencias ya mostradas en esta
+ * sesión (para "Generar otras"); se suman a los gastos que ya tiene el viaje
+ * para que la IA no repita nada de lo que el usuario ya ve.
+ */
 export async function getTripSuggestions(
-  tripId: string
+  tripId: string,
+  excludeTitles: string[] = []
 ): Promise<ActionResult<TripSuggestion[]>> {
   const session = await verifySession();
   if (!session) return UNAUTHORIZED;
@@ -251,6 +257,13 @@ export async function getTripSuggestions(
     .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
   if (!t) return UNAUTHORIZED;
   if (!t.destination) return fail('Define primero un destino para el viaje.');
+
+  const existing = await db
+    .select({ concept: tripExpense.concept })
+    .from(tripExpense)
+    .where(and(eq(tripExpense.userId, session.userId), eq(tripExpense.tripId, tripId)));
+
+  const exclude = [...new Set([...existing.map((e) => e.concept), ...excludeTitles])];
 
   const userAi = await getUserAiConfig(session.userId);
   const apiKey = userAi.key ?? serverApiKey;
@@ -266,11 +279,22 @@ export async function getTripSuggestions(
       model: userAi.model,
       destination: t.destination,
       destinationCountryName: t.destinationCountry ? getCountry(t.destinationCountry).name : null,
+      exclude,
     });
-    if (suggestions.length === 0) {
-      return fail('No se pudieron generar sugerencias. Intenta de nuevo.');
+    // Red de seguridad por si el modelo repite algo pese a la instrucción,
+    // ya sea contra lo excluido o duplicado dentro de la misma respuesta.
+    const excludeNorm = new Set(exclude.map((s) => s.trim().toLowerCase()));
+    const seen = new Set<string>();
+    const filtered = suggestions.filter((s) => {
+      const key = s.title.trim().toLowerCase();
+      if (excludeNorm.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (filtered.length === 0) {
+      return fail('No se pudieron generar sugerencias nuevas. Intenta de nuevo.');
     }
-    return ok(suggestions);
+    return ok(filtered);
   } catch (err) {
     return fail(err instanceof Error ? err.message : 'No se pudieron generar sugerencias.');
   }

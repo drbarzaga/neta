@@ -299,9 +299,23 @@ function parseTripSuggestions(value: unknown): TripSuggestion[] {
   return suggestions.filter(isTripSuggestion).slice(0, 8);
 }
 
+function buildTripSuggestionsPrompt(destinationLine: string, exclude: string[]): string {
+  const parts = [TRIP_SUGGESTIONS_PROMPT_PREFIX, '', `Destino: ${destinationLine}`];
+  if (exclude.length > 0) {
+    parts.push(
+      '',
+      `El viaje ya tiene o ya se sugirieron estos ítems, NO los repitas ni sugieras variantes casi iguales: ${exclude.join(', ')}.`,
+      'Dame alternativas distintas a esas.'
+    );
+  }
+  parts.push('', TRIP_SUGGESTIONS_PROMPT_SUFFIX);
+  return parts.join('\n');
+}
+
 async function anthropicTripSuggestions(
   apiKey: string,
-  destinationLine: string
+  destinationLine: string,
+  exclude: string[]
 ): Promise<TripSuggestion[]> {
   const client = new Anthropic({ apiKey });
   const res = await client.messages.create({
@@ -336,7 +350,7 @@ async function anthropicTripSuggestions(
     messages: [
       {
         role: 'user',
-        content: `${TRIP_SUGGESTIONS_PROMPT_PREFIX}\n\nDestino: ${destinationLine}\n\n${TRIP_SUGGESTIONS_PROMPT_SUFFIX}`,
+        content: buildTripSuggestionsPrompt(destinationLine, exclude),
       },
     ],
   });
@@ -349,10 +363,11 @@ async function anthropicTripSuggestions(
 async function openRouterTripSuggestions(
   apiKey: string,
   model: string,
-  destinationLine: string
+  destinationLine: string,
+  exclude: string[]
 ): Promise<TripSuggestion[]> {
   const prompt = [
-    `${TRIP_SUGGESTIONS_PROMPT_PREFIX}\n\nDestino: ${destinationLine}\n\n${TRIP_SUGGESTIONS_PROMPT_SUFFIX}`,
+    buildTripSuggestionsPrompt(destinationLine, exclude),
     '',
     'Respondé ÚNICAMENTE con JSON válido (sin texto antes ni después, sin bloques de código markdown),',
     'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123}]}',
@@ -398,17 +413,20 @@ export async function generateTripSuggestions(args: {
   model?: string | null;
   destination: string;
   destinationCountryName?: string | null;
+  exclude?: string[];
 }): Promise<TripSuggestion[]> {
   const destinationLine = args.destinationCountryName
     ? `${args.destination} (${args.destinationCountryName})`
     : args.destination;
+  const exclude = args.exclude ?? [];
 
   if (providerForKey(args.apiKey) === 'openrouter') {
     return openRouterTripSuggestions(
       args.apiKey,
       args.model?.trim() || DEFAULT_OPENROUTER_MODEL,
-      destinationLine
+      destinationLine,
+      exclude
     );
   }
-  return anthropicTripSuggestions(args.apiKey, destinationLine);
+  return anthropicTripSuggestions(args.apiKey, destinationLine, exclude);
 }

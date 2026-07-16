@@ -346,16 +346,19 @@ function TripSuggestionsCard({
   const [suggestions, setSuggestions] = useState<TripSuggestion[] | null>(null);
   const [addedTitles, setAddedTitles] = useState<Set<string>>(new Set());
   const [addingTitle, setAddingTitle] = useState<string | null>(null);
+  // Todo lo mostrado hasta ahora en esta sesión, para que "Generar otras" no repita.
+  const [shownTitles, setShownTitles] = useState<string[]>([]);
 
   function generate() {
     startTransition(async () => {
-      const res = await getTripSuggestions(tripId);
+      const res = await getTripSuggestions(tripId, shownTitles);
       if (!res.ok || !res.data) {
         toast.error(res.error ?? 'No se pudieron generar sugerencias');
         return;
       }
       setSuggestions(res.data);
       setAddedTitles(new Set());
+      setShownTitles((prev) => [...prev, ...res.data!.map((s) => s.title)]);
     });
   }
 
