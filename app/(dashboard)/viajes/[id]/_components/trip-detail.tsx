@@ -113,7 +113,7 @@ export function TripDetail({
     destinationCountryInfo && destinationRate
       ? { currency: destinationCountryInfo.currency, rate: destinationRate }
       : null;
-  const totals = tripTotals(expenses, trip.dollarRate, trip.budget, dest);
+  const totals = tripTotals(expenses, trip.currency, trip.dollarRate, trip.budget, dest);
   const showDestinationBreakdown =
     !!destinationCountryInfo &&
     !!destinationRate &&
@@ -261,7 +261,7 @@ export function TripDetail({
               {categories.map((cat) => {
                 const items = byCategory.get(cat)!;
                 const subtotal = items.reduce(
-                  (s, e) => s + tripExpenseToTripCurrency(e, trip.dollarRate, dest),
+                  (s, e) => s + tripExpenseToTripCurrency(e, trip.currency, trip.dollarRate, dest),
                   0
                 );
                 return (

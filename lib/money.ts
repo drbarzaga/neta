@@ -87,22 +87,32 @@ export interface DestinationRate {
  * USD) y la del país de destino si se pasa `dest` (vía `dest.rate`, esa
  * moneda <-> USD, encadenada por USD). Cualquier otra moneda no reconocida
  * se deja sin convertir (mejor un número aproximado que perder el dato).
+ *
+ * `rate`/`dest.rate` son cotizaciones "unidades por 1 USD" y solo tienen
+ * sentido cuando esa moneda NO es USD. Si el viaje está denominado en USD (o
+ * el país de destino usa USD), la conversión con esa moneda es 1:1 sin
+ * importar lo que haya guardado en el campo de cotización.
  */
 export function tripExpenseToTripCurrency(
   e: TripExpenseLike,
+  tripCurrency: string,
   rate: number,
   dest?: DestinationRate | null
 ): number {
-  if (dest && e.currency === dest.currency && dest.rate > 0) {
-    const usd = e.amount / dest.rate;
-    return toLocal({ amount: usd, currency: 'USD' }, rate);
+  const effRate = tripCurrency === 'USD' ? 1 : rate;
+
+  if (dest && dest.currency !== tripCurrency && e.currency === dest.currency) {
+    const destEffRate = dest.currency === 'USD' ? 1 : dest.rate;
+    const usd = destEffRate > 0 ? e.amount / destEffRate : 0;
+    return tripCurrency === 'USD' ? usd : usd * effRate;
   }
-  return toLocal(e, rate);
+  return toLocal(e, effRate);
 }
 
 /** Totales de un viaje a partir de sus gastos, su cotización y su presupuesto. */
 export function tripTotals(
   expenses: TripExpenseLike[],
+  tripCurrency: string,
   rate: number,
   budget: number,
   dest?: DestinationRate | null
@@ -112,7 +122,7 @@ export function tripTotals(
   const byCategory: Record<string, number> = {};
 
   for (const e of expenses) {
-    const local = tripExpenseToTripCurrency(e, rate, dest);
+    const local = tripExpenseToTripCurrency(e, tripCurrency, rate, dest);
     if (e.paid) paidLocal += local;
     else plannedLocal += local;
     byCategory[e.category] = (byCategory[e.category] ?? 0) + local;

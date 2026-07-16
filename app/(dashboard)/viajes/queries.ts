@@ -46,7 +46,7 @@ export async function getTrips(userId: string): Promise<TripWithTotals[]> {
       : null;
     return {
       ...t,
-      totals: tripTotals(byTrip.get(t.id) ?? [], t.dollarRate, t.budget, dest),
+      totals: tripTotals(byTrip.get(t.id) ?? [], t.currency, t.dollarRate, t.budget, dest),
     };
   });
 }

@@ -141,7 +141,7 @@ export async function buildFinancialContext(userId: string): Promise<{
       const destRate = t.destinationCountry ? destRates.get(t.destinationCountry) : undefined;
       const dest = destCountry && destRate ? { currency: destCountry.currency, rate: destRate } : null;
 
-      const totals = tripTotals(items, t.dollarRate, t.budget, dest);
+      const totals = tripTotals(items, t.currency, t.dollarRate, t.budget, dest);
       const money = (n: number) => formatMoney(n, t.currency, 'es-UY');
       const parts: string[] = [
         `pagado ${money(totals.paidLocal)}`,
