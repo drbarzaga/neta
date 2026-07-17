@@ -22,6 +22,7 @@ export const tripExpense = pgTable('trip_expense', {
     .default(0),
   currency: text().notNull().default('UYU'), // ISO-4217 (moneda local o USD)
   date: date({ mode: 'string' }),
+  time: text(), // hora sugerida "HH:MM" (opcional), para ordenar/mostrar dentro del día
   paid: boolean().notNull().default(false), // false = planeado/estimado, true = ya pagado
   note: text(),
   sortOrder: integer().notNull().default(0),

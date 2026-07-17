@@ -71,6 +71,7 @@ type AdvisorAction =
       destinationCountry?: string;
       startDate?: string | null;
       endDate?: string | null;
+      travelers?: number;
       currency?: string;
       budget?: number;
     }
@@ -81,6 +82,7 @@ type AdvisorAction =
       budget?: number;
       startDate?: string | null;
       endDate?: string | null;
+      travelers?: number;
       status?: 'planificando' | 'en_curso' | 'completado';
     }
   | {

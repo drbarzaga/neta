@@ -202,6 +202,7 @@ const advisorActionSchema = z.discriminatedUnion('type', [
       .optional(),
     startDate: z.string().nullable().optional(),
     endDate: z.string().nullable().optional(),
+    travelers: z.number().int().min(1).max(50).optional(),
     currency: z.string().optional(),
     budget: z.number().min(0).optional(),
   }),
@@ -216,6 +217,7 @@ const advisorActionSchema = z.discriminatedUnion('type', [
     budget: z.number().min(0).optional(),
     startDate: z.string().nullable().optional(),
     endDate: z.string().nullable().optional(),
+    travelers: z.number().int().min(1).max(50).optional(),
     status: z.enum(['planificando', 'en_curso', 'completado']).optional(),
   }),
   z.object({
@@ -526,6 +528,7 @@ export async function executeAdvisorAction(
       destinationCountry: a.destinationCountry ?? null,
       startDate: a.startDate ?? null,
       endDate: a.endDate ?? null,
+      ...(a.travelers !== undefined && { travelers: a.travelers }),
       currency: a.currency ?? latest?.localCurrency ?? 'UYU',
       budget: a.budget ?? 0,
     });
@@ -541,6 +544,7 @@ export async function executeAdvisorAction(
       ...(a.destinationCountry !== undefined && { destinationCountry: a.destinationCountry }),
       ...(a.startDate !== undefined && { startDate: a.startDate }),
       ...(a.endDate !== undefined && { endDate: a.endDate }),
+      ...(a.travelers !== undefined && { travelers: a.travelers }),
       ...(a.status && { status: a.status }),
     });
     return { ok: res.ok, error: res.error };

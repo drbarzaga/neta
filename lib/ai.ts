@@ -144,8 +144,8 @@ function buildSystem(context: string): string {
     '  • convert_to_installments {concept, installments, amountIsTotal?} — convierte un gasto existente del mes más reciente en compra en cuotas. amountIsTotal=true divide su monto en N cuotas; false lo toma como el monto de cada cuota.',
     '  • create_saving_account {name, currency?, initialBalance?} — crea un apartado de ahorro.',
     '  • add_saving {account, amount, kind?} — registra un movimiento en un apartado de ahorro (kind: deposit por defecto, o withdraw).',
-    '  • create_trip {name, destination?, destinationCountry?, startDate?, endDate?, currency?, budget?} — crea un viaje (fechas en formato AAAA-MM-DD). destinationCountry es el código ISO de 2 letras (ej. AR, UY, CL, BR, MX, BO, CO, VE) y habilita el desglose en la moneda de ese país.',
-    '  • update_trip {trip, destinationCountry?, budget?, startDate?, endDate?, status?} — cambia país de destino, presupuesto, fechas o estado (planificando|en_curso|completado) de un viaje existente.',
+    '  • create_trip {name, destination?, destinationCountry?, startDate?, endDate?, travelers?, currency?, budget?} — crea un viaje (fechas en formato AAAA-MM-DD). destinationCountry es el código ISO de 2 letras (ej. AR, UY, CL, BR, MX, BO, CO, VE) y habilita el desglose en la moneda de ese país. travelers es la cantidad de viajeros (default 1).',
+    '  • update_trip {trip, destinationCountry?, budget?, startDate?, endDate?, travelers?, status?} — cambia país de destino, presupuesto, fechas, cantidad de viajeros o estado (planificando|en_curso|completado) de un viaje existente.',
     '  • add_trip_expense {trip, category, concept, amount, currency?, date?, paid?} — agrega un gasto (planeado o pagado) a un viaje. category es texto libre (ej. Alojamiento, Transporte, Comida, Actividades, Compras, Otro). currency puede ser la del viaje, USD, o la moneda del país de destino (los totales se convierten solos entre las tres).',
     '  • edit_trip_expense {trip, concept, amount?, currency?, date?, paid?} — edita un gasto propio de un viaje (no uno vinculado a un gasto del mes).',
     '  • mark_trip_expense_paid {trip, concept} — marca como pagado un gasto de un viaje.',
@@ -268,8 +268,17 @@ export interface TripSuggestion {
   title: string;
   description: string;
   category: string;
+  /** Costo TOTAL aproximado en USD para todo el grupo (no por persona). */
   estimatedUsd: number | null;
   day: number | null;
+  /** Hora sugerida "HH:MM" (24hs), o null si no aplica / no hay día asignado. */
+  time: string | null;
+}
+
+export interface TripSuggestionsResult {
+  suggestions: TripSuggestion[];
+  /** Tema/título corto por día (día -> título), solo cuando se conocen las fechas. */
+  dayThemes: Record<number, string>;
 }
 
 const TRIP_SUGGESTIONS_PROMPT_PREFIX =
@@ -291,21 +300,33 @@ const TRIP_SUGGESTIONS_PROMPT_SUFFIX = [
   '  y si corresponde Transporte, Compras o Alojamiento.',
   '',
   'Para cada una: un título corto (2-6 palabras) que incluya el nombre propio cuando aplique, una descripción de',
-  'una sola línea, la categoría (Alojamiento, Transporte, Comida, Actividades, Compras u Otro), y si podés estimar',
-  'de forma razonable un costo aproximado en USD por persona, un número positivo; si no tenés una base real para',
-  'estimarlo, usá null en vez de inventar una cifra.',
+  'una sola línea, la categoría (Alojamiento, Transporte, Comida, Actividades, Compras u Otro).',
 ].join(' ');
+
+function tripSuggestionsCostInstructions(travelers: number): string {
+  const n = travelers > 0 ? travelers : 1;
+  return n === 1
+    ? 'Si podés estimar de forma razonable un costo aproximado en USD, un número positivo; si no tenés una base real para estimarlo, usá null en vez de inventar una cifra.'
+    : `El viaje es para ${n} personas. Si podés estimar un costo, dalo como el TOTAL para las ${n} personas juntas (no por persona) — ej. una cena para ${n} es el precio de ${n} platos, no de uno. Un número positivo, o null si no tenés base real para estimarlo.`;
+}
 
 function tripSuggestionsDayInstructions(days: number): string {
   if (days <= 0) {
-    return 'No conocés las fechas del viaje todavía, así que dejá "day" en null para todas.';
+    return 'No conocés las fechas del viaje todavía, así que dejá "day" y "time" en null para todas.';
   }
   return [
     `El viaje dura ${days} día(s) (día 1 al ${days}). Asigná cada sugerencia a un día con "day" (entero de 1 a ${days}),`,
     'armando un itinerario coherente: agrupá por cercanía/lógica (lo que tenga sentido visitar el mismo día junto),',
     'repartí bien la carga entre los días (no amontones todo en el día 1 ni dejes días vacíos), y evitá cruzar en un',
     'mismo día dos comidas del mismo momento (ej. dos cenas). Si de verdad una sugerencia no depende del día',
-    '(ej. una compra que se puede hacer cualquier día), usá null.',
+    '(ej. una compra que se puede hacer cualquier día), usá day null.',
+    'Además, para cada sugerencia CON día asignado, proponé una hora aproximada en "time" (formato HH:MM, 24hs) que',
+    'tenga sentido en la secuencia del día (mañana/mediodía/tarde/noche), sin superponer horarios dentro del mismo día.',
+    'Si day es null, time también debe ser null.',
+    '',
+    'También devolvé "dayThemes": una lista [{day, title}] con un título corto (3-6 palabras) por cada día que tenga',
+    'al menos una sugerencia asignada, resumiendo el tema/zona del día (ej. "Microcentro + Obelisco de noche",',
+    '"San Telmo y Caminito"). Un título por día, no por sugerencia.',
   ].join(' ');
 }
 
@@ -317,24 +338,45 @@ function isTripSuggestion(v: unknown): v is TripSuggestion {
     typeof s.description === 'string' &&
     typeof s.category === 'string' &&
     (s.estimatedUsd === null || typeof s.estimatedUsd === 'number') &&
-    (s.day === null || s.day === undefined || typeof s.day === 'number')
+    (s.day === null || s.day === undefined || typeof s.day === 'number') &&
+    (s.time === null || s.time === undefined || typeof s.time === 'string')
   );
 }
 
-function parseTripSuggestions(value: unknown): TripSuggestion[] {
-  if (!value || typeof value !== 'object') return [];
-  const suggestions = (value as { suggestions?: unknown }).suggestions;
-  if (!Array.isArray(suggestions)) return [];
-  return suggestions
-    .filter(isTripSuggestion)
-    .map((s) => ({ ...s, day: s.day ?? null }))
-    .slice(0, 8);
+function parseTripSuggestionsResult(value: unknown): TripSuggestionsResult {
+  if (!value || typeof value !== 'object') return { suggestions: [], dayThemes: {} };
+  const raw = value as { suggestions?: unknown; dayThemes?: unknown };
+
+  const suggestions = Array.isArray(raw.suggestions)
+    ? raw.suggestions
+        .filter(isTripSuggestion)
+        .map((s) => ({ ...s, day: s.day ?? null, time: s.day ? (s.time ?? null) : null }))
+        .slice(0, 8)
+    : [];
+
+  const dayThemes: Record<number, string> = {};
+  if (Array.isArray(raw.dayThemes)) {
+    for (const item of raw.dayThemes) {
+      if (
+        item &&
+        typeof item === 'object' &&
+        typeof (item as Record<string, unknown>).day === 'number' &&
+        typeof (item as Record<string, unknown>).title === 'string'
+      ) {
+        const { day, title } = item as { day: number; title: string };
+        if (title.trim()) dayThemes[day] = title.trim();
+      }
+    }
+  }
+
+  return { suggestions, dayThemes };
 }
 
 function buildTripSuggestionsPrompt(
   destinationLine: string,
   exclude: string[],
-  days: number
+  days: number,
+  travelers: number
 ): string {
   const parts = [TRIP_SUGGESTIONS_PROMPT_PREFIX, '', `Destino: ${destinationLine}`];
   if (exclude.length > 0) {
@@ -344,7 +386,14 @@ function buildTripSuggestionsPrompt(
       'Dame alternativas distintas a esas.'
     );
   }
-  parts.push('', TRIP_SUGGESTIONS_PROMPT_SUFFIX, '', tripSuggestionsDayInstructions(days));
+  parts.push(
+    '',
+    TRIP_SUGGESTIONS_PROMPT_SUFFIX,
+    '',
+    tripSuggestionsCostInstructions(travelers),
+    '',
+    tripSuggestionsDayInstructions(days)
+  );
   return parts.join('\n');
 }
 
@@ -352,8 +401,9 @@ async function anthropicTripSuggestions(
   apiKey: string,
   destinationLine: string,
   exclude: string[],
-  days: number
-): Promise<TripSuggestion[]> {
+  days: number,
+  travelers: number
+): Promise<TripSuggestionsResult> {
   const client = new Anthropic({ apiKey });
   const res = await client.messages.create({
     model: ANTHROPIC_MODEL,
@@ -375,12 +425,24 @@ async function anthropicTripSuggestions(
                   category: { type: 'string' },
                   estimatedUsd: { type: ['number', 'null'] },
                   day: { type: ['integer', 'null'] },
+                  time: { type: ['string', 'null'] },
                 },
-                required: ['title', 'description', 'category', 'estimatedUsd', 'day'],
+                required: ['title', 'description', 'category', 'estimatedUsd', 'day', 'time'],
+              },
+            },
+            dayThemes: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  day: { type: 'integer' },
+                  title: { type: 'string' },
+                },
+                required: ['day', 'title'],
               },
             },
           },
-          required: ['suggestions'],
+          required: ['suggestions', 'dayThemes'],
         },
       },
     ],
@@ -388,14 +450,14 @@ async function anthropicTripSuggestions(
     messages: [
       {
         role: 'user',
-        content: buildTripSuggestionsPrompt(destinationLine, exclude, days),
+        content: buildTripSuggestionsPrompt(destinationLine, exclude, days, travelers),
       },
     ],
   });
 
   const toolUse = res.content.find((b) => b.type === 'tool_use');
-  if (!toolUse || toolUse.type !== 'tool_use') return [];
-  return parseTripSuggestions(toolUse.input);
+  if (!toolUse || toolUse.type !== 'tool_use') return { suggestions: [], dayThemes: {} };
+  return parseTripSuggestionsResult(toolUse.input);
 }
 
 async function openRouterTripSuggestions(
@@ -403,14 +465,16 @@ async function openRouterTripSuggestions(
   model: string,
   destinationLine: string,
   exclude: string[],
-  days: number
-): Promise<TripSuggestion[]> {
+  days: number,
+  travelers: number
+): Promise<TripSuggestionsResult> {
   const prompt = [
-    buildTripSuggestionsPrompt(destinationLine, exclude, days),
+    buildTripSuggestionsPrompt(destinationLine, exclude, days, travelers),
     '',
     'Respondé ÚNICAMENTE con JSON válido (sin texto antes ni después, sin bloques de código markdown),',
-    'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123,"day":1}]}',
-    '(day es un entero o null).',
+    'con esta forma exacta: {"suggestions":[{"title":"...","description":"...","category":"...","estimatedUsd":123,"day":1,"time":"14:30"}],',
+    '"dayThemes":[{"day":1,"title":"..."}]}',
+    '(day es un entero o null, time es "HH:MM" o null).',
   ].join('\n');
 
   const res = await fetch(OPENROUTER_URL, {
@@ -435,11 +499,11 @@ async function openRouterTripSuggestions(
   const json = await res.json();
   const text: string = json.choices?.[0]?.message?.content ?? '';
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return [];
+  if (!match) return { suggestions: [], dayThemes: {} };
   try {
-    return parseTripSuggestions(JSON.parse(match[0]));
+    return parseTripSuggestionsResult(JSON.parse(match[0]));
   } catch {
-    return [];
+    return { suggestions: [], dayThemes: {} };
   }
 }
 
@@ -456,12 +520,15 @@ export async function generateTripSuggestions(args: {
   exclude?: string[];
   /** Duración del viaje en días, si se conoce (fechas definidas). 0 = desconocida. */
   days?: number;
-}): Promise<TripSuggestion[]> {
+  /** Cantidad de viajeros, para que los costos estimados sean el total del grupo. */
+  travelers?: number;
+}): Promise<TripSuggestionsResult> {
   const destinationLine = args.destinationCountryName
     ? `${args.destination} (${args.destinationCountryName})`
     : args.destination;
   const exclude = args.exclude ?? [];
   const days = args.days ?? 0;
+  const travelers = args.travelers ?? 1;
 
   if (providerForKey(args.apiKey) === 'openrouter') {
     return openRouterTripSuggestions(
@@ -469,8 +536,9 @@ export async function generateTripSuggestions(args: {
       args.model?.trim() || DEFAULT_OPENROUTER_MODEL,
       destinationLine,
       exclude,
-      days
+      days,
+      travelers
     );
   }
-  return anthropicTripSuggestions(args.apiKey, destinationLine, exclude, days);
+  return anthropicTripSuggestions(args.apiKey, destinationLine, exclude, days, travelers);
 }

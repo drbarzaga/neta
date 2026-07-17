@@ -10,6 +10,11 @@ const dateField = z
 
 const countryCodes = Object.keys(COUNTRIES) as [string, ...string[]];
 const countryField = z.enum(countryCodes).nullable().optional();
+const timeField = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Hora inválida (HH:MM)')
+  .nullable()
+  .optional();
 
 // Sugerencias de categoría para gastos de viaje (texto libre, no una tabla).
 export const TRIP_EXPENSE_CATEGORIES = [
@@ -35,6 +40,7 @@ export const createTripSchema = z.object({
   destinationCountry: countryField,
   startDate: dateField,
   endDate: dateField,
+  travelers: z.number().int().min(1).max(50).default(1),
   currency: currencyEnum.default('UYU'),
   dollarRate: z.number().min(0).default(0),
   budget: z.number().min(0).default(0),
@@ -49,6 +55,7 @@ export const updateTripSchema = z.object({
   destinationCountry: countryField,
   startDate: dateField,
   endDate: dateField,
+  travelers: z.number().int().min(1).max(50).optional(),
   currency: currencyEnum.optional(),
   dollarRate: z.number().min(0).optional(),
   budget: z.number().min(0).optional(),
@@ -64,6 +71,7 @@ export const addTripExpenseSchema = z.object({
   amount: z.number().min(0).default(0),
   currency: currencyEnum.default('UYU'),
   date: dateField,
+  time: timeField,
   paid: z.boolean().default(false),
   note: z.string().trim().max(280).nullable().optional(),
 });
@@ -75,8 +83,16 @@ export const updateTripExpenseSchema = z.object({
   amount: z.number().min(0).optional(),
   currency: currencyEnum.optional(),
   date: dateField,
+  time: timeField,
   paid: z.boolean().optional(),
   note: z.string().trim().max(280).nullable().optional(),
+});
+
+// Título/tema opcional de un día puntual del itinerario.
+export const setTripDayTitleSchema = z.object({
+  tripId: z.uuid(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Fecha inválida'),
+  title: z.string().trim().max(80).nullable(),
 });
 
 export const deleteTripExpenseSchema = z.object({

@@ -301,6 +301,7 @@ export function TripDialog({
   );
   const [startDate, setStartDate] = useState(trip?.startDate ?? '');
   const [endDate, setEndDate] = useState(trip?.endDate ?? '');
+  const [travelers, setTravelers] = useState(String(trip?.travelers ?? 1));
   const [currency, setCurrency] = useState(trip?.currency ?? localCurrency);
   // Al crear, precarga la cotización vigente (la del header); al editar, la que
   // ya tenía guardada el viaje. En ambos casos el usuario puede cambiarla.
@@ -325,14 +326,19 @@ export function TripDialog({
       destinationCountry: destinationCountry || null,
       startDate: startDate || null,
       endDate: endDate || null,
+      travelers: travelers === '' ? 1 : Number(travelers),
       currency,
       dollarRate: dollarRate === '' ? 0 : Number(dollarRate),
       budget: budget === '' ? 0 : Number(budget),
       icon,
       color,
     };
-    if (Number.isNaN(payload.dollarRate) || Number.isNaN(payload.budget)) {
+    if (Number.isNaN(payload.dollarRate) || Number.isNaN(payload.budget) || Number.isNaN(payload.travelers)) {
       toast.error('Los montos deben ser números');
+      return;
+    }
+    if (payload.travelers < 1) {
+      toast.error('Tiene que haber al menos 1 viajero');
       return;
     }
     startTransition(async () => {
@@ -420,6 +426,18 @@ export function TripDialog({
                 className="w-full"
               />
             </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="trip-travelers">Viajeros</Label>
+            <Input
+              id="trip-travelers"
+              inputMode="numeric"
+              value={travelers}
+              placeholder="1"
+              onChange={(e) => setTravelers(e.target.value)}
+              className="w-24 tabular-nums"
+            />
           </div>
 
           <div className="grid grid-cols-[1fr_1fr_auto] grid-rows-[auto_auto] gap-x-3 gap-y-1.5">

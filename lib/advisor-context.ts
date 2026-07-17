@@ -154,8 +154,9 @@ export async function buildFinancialContext(userId: string): Promise<{
         t.startDate || t.endDate
           ? ` (${t.startDate ?? '?'} a ${t.endDate ?? '?'})`
           : '';
+      const travelers = t.travelers > 1 ? ` — ${t.travelers} viajeros` : '';
       lines.push(
-        `- ${t.name}${t.destination ? ` a ${t.destination}` : ''}${dates} — ${TRIP_STATUS_LABEL[t.status]}: ${parts.join(', ')}`
+        `- ${t.name}${t.destination ? ` a ${t.destination}` : ''}${dates}${travelers} — ${TRIP_STATUS_LABEL[t.status]}: ${parts.join(', ')}`
       );
 
       // Desglose en la moneda del país de destino (si se definió y difiere de la del viaje).

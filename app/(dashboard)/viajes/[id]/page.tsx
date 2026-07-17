@@ -4,7 +4,7 @@ import { requireSession } from '@/lib/auth-server';
 import { getCountry } from '@/lib/countries';
 import { getLatestRate } from '@/lib/exchange-rate';
 import { getOrCreateUserSettings } from '../../configuracion/queries';
-import { getTrip, getTripExpenses } from '../queries';
+import { getTrip, getTripExpenses, getTripDayTitles } from '../queries';
 import { TripDetail } from './_components/trip-detail';
 
 export const metadata: Metadata = { title: 'Viaje — Neta' };
@@ -20,10 +20,11 @@ export default async function TripDetailPage({
   const trip = await getTrip(userId, id);
   if (!trip) notFound();
 
-  const [expenses, settings, destinationRate] = await Promise.all([
+  const [expenses, settings, destinationRate, dayTitles] = await Promise.all([
     getTripExpenses(userId, id),
     getOrCreateUserSettings(userId),
     trip.destinationCountry ? getLatestRate(trip.destinationCountry) : null,
+    getTripDayTitles(userId, id),
   ]);
   const country = getCountry(settings.country);
 
@@ -34,6 +35,7 @@ export default async function TripDetailPage({
       locale={country.locale}
       localCurrency={country.currency}
       destinationRate={destinationRate}
+      dayTitles={dayTitles}
     />
   );
 }

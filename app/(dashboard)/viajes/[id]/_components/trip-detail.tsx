@@ -15,6 +15,8 @@ import {
   Sparkles,
   Check,
   Loader2,
+  Users,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -72,6 +74,7 @@ import {
   toggleTripExpensePaid,
   deleteTripExpense,
   getTripSuggestions,
+  setTripDayTitle,
 } from '../../actions';
 import { TRIP_EXPENSE_CATEGORIES, TRIP_STATUS_LABEL } from '../../schema';
 import type { TripSuggestion } from '@/lib/ai';
@@ -99,12 +102,14 @@ export function TripDetail({
   locale,
   localCurrency,
   destinationRate,
+  dayTitles,
 }: {
   trip: Trip;
   expenses: TripExpense[];
   locale: string;
   localCurrency: string;
   destinationRate?: number | null;
+  dayTitles?: Record<string, string>;
 }) {
   const router = useRouter();
   const confirm = useConfirm();
@@ -129,6 +134,10 @@ export function TripDetail({
       ? { currency: destinationCountryInfo.currency, rate: destinationRate }
       : null;
   const totals = tripTotals(expenses, trip.currency, trip.dollarRate, trip.budget, dest);
+  // Sugerencia simple de cuánto llevar: lo mayor entre presupuesto y gasto
+  // real/planeado, con un margen del 15% (imprevistos, algún gusto extra).
+  const cashBase = hasBudget ? Math.max(trip.budget, totals.totalLocal) : totals.totalLocal;
+  const suggestedCash = cashBase * 1.15;
   const showDestinationBreakdown =
     !!destinationCountryInfo &&
     !!destinationRate &&
@@ -201,6 +210,11 @@ export function TripDetail({
                 {trip.endDate ? formatDate(trip.endDate, locale) : '—'}
               </span>
             )}
+            {trip.travelers > 1 && (
+              <span className="flex items-center gap-1">
+                <Users className="size-3.5" /> {trip.travelers} viajeros
+              </span>
+            )}
           </div>
         </div>
         <Badge variant="secondary">{TRIP_STATUS_LABEL[trip.status]}</Badge>
@@ -251,6 +265,21 @@ export function TripDetail({
                 value={hasBudget ? fmtDest(totals.remainingLocal) : fmtDest(totals.totalLocal)}
               />
             </div>
+          </CardContent>
+        )}
+        {(hasBudget || totals.totalLocal > 0) && (
+          <CardContent className="border-t pt-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="text-primary size-4" />
+                <p className="text-sm font-medium">Efectivo sugerido para llevar</p>
+              </div>
+              <p className="text-lg font-semibold tabular-nums">{fmt(suggestedCash)}</p>
+            </div>
+            <p className="text-muted-foreground mt-1 text-xs">
+              {fmt(cashBase)} {hasBudget ? 'de presupuesto' : 'gastado/planeado'} + 15% de margen
+              {showDestinationBreakdown ? ` ≈ ${fmtDest(suggestedCash)}.` : '.'}
+            </p>
           </CardContent>
         )}
       </Card>
@@ -314,7 +343,12 @@ export function TripDetail({
                 </div>
               </TabsContent>
               <TabsContent value="itinerario" className="px-6 pb-4">
-                <TripItinerary trip={trip} expenses={expenses} locale={locale} />
+                <TripItinerary
+                  trip={trip}
+                  expenses={expenses}
+                  locale={locale}
+                  dayTitles={dayTitles ?? {}}
+                />
               </TabsContent>
             </Tabs>
           )}
@@ -347,6 +381,7 @@ export function TripDetail({
 function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
   const [pending, startTransition] = useTransition();
   const [suggestions, setSuggestions] = useState<TripSuggestion[] | null>(null);
+  const [dayThemes, setDayThemes] = useState<Record<number, string>>({});
   const [addedTitles, setAddedTitles] = useState<Set<string>>(new Set());
   const [addingTitle, setAddingTitle] = useState<string | null>(null);
   const [addingAll, setAddingAll] = useState(false);
@@ -368,9 +403,10 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
         toast.error(res.error ?? 'No se pudieron generar sugerencias');
         return;
       }
-      setSuggestions(res.data);
+      setSuggestions(res.data.suggestions);
+      setDayThemes(res.data.dayThemes);
       setAddedTitles(new Set());
-      setShownTitles((prev) => [...prev, ...res.data!.map((s) => s.title)]);
+      setShownTitles((prev) => [...prev, ...res.data!.suggestions.map((s) => s.title)]);
     });
   }
 
@@ -385,6 +421,7 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
         currency: 'USD',
         paid: false,
         date: dateForDay(s.day),
+        time: s.time,
         note: s.description,
       });
       setAddingTitle(null);
@@ -413,9 +450,19 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
             currency: 'USD',
             paid: false,
             date: dateForDay(s.day),
+            time: s.time,
             note: s.description,
           })
         )
+      );
+      // Aplica los temas de día que propuso la IA para los días recién poblados.
+      const daysAdded = new Set(toAdd.map((s) => s.day).filter((d): d is number => d !== null));
+      await Promise.all(
+        [...daysAdded]
+          .filter((d) => dayThemes[d] && dateForDay(d))
+          .map((d) =>
+            setTripDayTitle({ tripId: trip.id, date: dateForDay(d)!, title: dayThemes[d] })
+          )
       );
       setAddingAll(false);
       const okTitles = toAdd.filter((_, i) => results[i].ok).map((s) => s.title);
@@ -444,7 +491,7 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
       .sort((a, b) => a - b);
     const result = dayKeys.map((day) => ({
       key: String(day),
-      label: `Día ${day} — ${formatDayHeader(dateForDay(day)!, locale)}`,
+      label: `Día ${day} — ${formatDayHeader(dateForDay(day)!, locale)}${dayThemes[day] ? ` · ${dayThemes[day]}` : ''}`,
       items: byDay.get(day)!,
     }));
     if (byDay.has(null)) {
@@ -452,7 +499,7 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
     }
     return result;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [suggestions, days, locale]);
+  }, [suggestions, days, dayThemes, locale]);
 
   const pendingCount = suggestions
     ? suggestions.filter((s) => !addedTitles.has(s.title)).length
@@ -518,6 +565,11 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
                             <Badge variant="outline" className="rounded-full">
                               {s.category}
                             </Badge>
+                            {s.time && (
+                              <span className="text-muted-foreground text-xs tabular-nums">
+                                {s.time}
+                              </span>
+                            )}
                             {s.estimatedUsd !== null && (
                               <span className="text-muted-foreground text-xs tabular-nums">
                                 ~{formatMoney(s.estimatedUsd, 'USD', locale)}
@@ -624,6 +676,7 @@ function TripExpenseRow({
         </p>
         <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
           {expense.date && formatDate(expense.date, locale)}
+          {expense.time && <span>{expense.time}</span>}
           {linked && (
             <span className="flex items-center gap-1" title="Viene de un gasto vinculado; edítalo desde el mes">
               <Link2 className="size-3" /> vinculado al mes
@@ -697,6 +750,7 @@ function TripExpenseDialog({
     expense?.currency ?? destinationCurrency ?? tripCurrency
   );
   const [date, setDate] = useState(expense?.date ?? todayISO());
+  const [time, setTime] = useState(expense?.time ?? '');
   const [paid, setPaid] = useState(expense?.paid ?? false);
 
   const isEdit = expense !== null;
@@ -717,6 +771,7 @@ function TripExpenseDialog({
       amount: amountNum,
       currency,
       date: date || null,
+      time: time || null,
       paid,
     };
     startTransition(async () => {
@@ -800,9 +855,20 @@ function TripExpenseDialog({
             </div>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label>Fecha (opcional)</Label>
-            <DatePicker value={date} onChange={(iso) => setDate(iso ?? '')} className="w-full" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label>Fecha (opcional)</Label>
+              <DatePicker value={date} onChange={(iso) => setDate(iso ?? '')} className="w-full" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="te-time">Hora (opcional)</Label>
+              <Input
+                id="te-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2">

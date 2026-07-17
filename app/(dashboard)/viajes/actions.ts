@@ -1,11 +1,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, isNull, trip, tripExpense } from '@/db';
+import { db, eq, and, isNull, trip, tripExpense, tripDay } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { resolveDestinationImage } from '@/lib/destination-image';
-import { generateTripSuggestions, serverApiKey, type TripSuggestion } from '@/lib/ai';
+import { generateTripSuggestions, serverApiKey, type TripSuggestionsResult } from '@/lib/ai';
 import { getUserAiConfig } from '../configuracion/queries';
 import { getCountry } from '@/lib/countries';
 import { daysBetween } from '@/lib/dates';
@@ -17,6 +17,7 @@ import {
   deleteTripExpenseSchema,
   toggleTripExpensePaidSchema,
   moveTripExpenseDaySchema,
+  setTripDayTitleSchema,
 } from './schema';
 
 function revalidate(id?: string) {
@@ -56,6 +57,7 @@ export async function createTrip(input: unknown): Promise<ActionResult<{ id: str
       destinationCountry: data.destinationCountry ?? null,
       startDate: data.startDate ?? null,
       endDate: data.endDate ?? null,
+      travelers: data.travelers,
       currency: data.currency,
       dollarRate: data.dollarRate,
       budget: data.budget,
@@ -152,6 +154,7 @@ export async function addTripExpense(
       amount: data.amount,
       currency: data.currency,
       date: data.date ?? null,
+      time: data.time ?? null,
       paid: data.paid,
       note: data.note ?? null,
       sortOrder: nextOrder,
@@ -305,7 +308,7 @@ export async function deleteTripExpense(input: unknown): Promise<ActionResult> {
 export async function getTripSuggestions(
   tripId: string,
   excludeTitles: string[] = []
-): Promise<ActionResult<TripSuggestion[]>> {
+): Promise<ActionResult<TripSuggestionsResult>> {
   const session = await verifySession();
   if (!session) return UNAUTHORIZED;
 
@@ -315,6 +318,7 @@ export async function getTripSuggestions(
       destinationCountry: trip.destinationCountry,
       startDate: trip.startDate,
       endDate: trip.endDate,
+      travelers: trip.travelers,
     })
     .from(trip)
     .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
@@ -339,35 +343,74 @@ export async function getTripSuggestions(
   }
 
   try {
-    const suggestions = await generateTripSuggestions({
+    const result = await generateTripSuggestions({
       apiKey,
       model: userAi.model,
       destination: t.destination,
       destinationCountryName: t.destinationCountry ? getCountry(t.destinationCountry).name : null,
       exclude,
       days,
+      travelers: t.travelers,
     });
     // Red de seguridad por si el modelo repite algo pese a la instrucción,
     // ya sea contra lo excluido o duplicado dentro de la misma respuesta, o
     // asigna un día fuera de rango.
     const excludeNorm = new Set(exclude.map((s) => s.trim().toLowerCase()));
     const seen = new Set<string>();
-    const filtered = suggestions
+    const filtered = result.suggestions
       .filter((s) => {
         const key = s.title.trim().toLowerCase();
         if (excludeNorm.has(key) || seen.has(key)) return false;
         seen.add(key);
         return true;
       })
-      .map((s) => ({
-        ...s,
-        day: s.day !== null && days > 0 && s.day >= 1 && s.day <= days ? s.day : null,
-      }));
+      .map((s) => {
+        const day = s.day !== null && days > 0 && s.day >= 1 && s.day <= days ? s.day : null;
+        return { ...s, day, time: day ? s.time : null };
+      });
     if (filtered.length === 0) {
       return fail('No se pudieron generar sugerencias nuevas. Intenta de nuevo.');
     }
-    return ok(filtered);
+    const dayThemes = Object.fromEntries(
+      Object.entries(result.dayThemes).filter(([day]) => Number(day) >= 1 && Number(day) <= days)
+    );
+    return ok({ suggestions: filtered, dayThemes });
   } catch (err) {
     return fail(err instanceof Error ? err.message : 'No se pudieron generar sugerencias.');
   }
+}
+
+/** Pone (o borra con null) el título/tema de un día puntual del itinerario. */
+export async function setTripDayTitle(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setTripDayTitleSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { tripId, date, title } = parsed.data;
+
+  const [t] = await db
+    .select({ id: trip.id })
+    .from(trip)
+    .where(and(eq(trip.id, tripId), eq(trip.userId, session.userId)));
+  if (!t) return UNAUTHORIZED;
+
+  if (!title) {
+    await db
+      .delete(tripDay)
+      .where(and(eq(tripDay.tripId, tripId), eq(tripDay.userId, session.userId), eq(tripDay.date, date)));
+    revalidate(tripId);
+    return ok();
+  }
+
+  await db
+    .insert(tripDay)
+    .values({ userId: session.userId, tripId, date, title })
+    .onConflictDoUpdate({
+      target: [tripDay.tripId, tripDay.date],
+      set: { title },
+    });
+
+  revalidate(tripId);
+  return ok();
 }

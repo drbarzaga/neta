@@ -6,6 +6,7 @@ import {
   asc,
   trip,
   tripExpense,
+  tripDay,
   type Trip,
   type TripExpense,
 } from '@/db';
@@ -70,6 +71,22 @@ export async function getTripExpenses(
     .from(tripExpense)
     .where(and(eq(tripExpense.userId, userId), eq(tripExpense.tripId, tripId)))
     .orderBy(asc(tripExpense.date), asc(tripExpense.sortOrder), asc(tripExpense.createdAt));
+}
+
+/** Títulos/temas de días puntuales del itinerario, por fecha. */
+export async function getTripDayTitles(
+  userId: string,
+  tripId: string
+): Promise<Record<string, string>> {
+  const rows = await db
+    .select({ date: tripDay.date, title: tripDay.title })
+    .from(tripDay)
+    .where(and(eq(tripDay.userId, userId), eq(tripDay.tripId, tripId)));
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    if (r.title) map[r.date] = r.title;
+  }
+  return map;
 }
 
 /** Lista liviana de viajes para el selector de vínculo en el gasto mensual. */

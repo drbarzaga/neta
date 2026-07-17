@@ -33,6 +33,9 @@ export const trip = pgTable('trip', {
   destinationCountry: text(),
   startDate: date({ mode: 'string' }),
   endDate: date({ mode: 'string' }),
+  // Cantidad de viajeros. La IA usa este número para estimar costos totales
+  // del grupo (no por persona) al sugerir gastos.
+  travelers: integer().notNull().default(1),
   currency: text().notNull().default('UYU'), // ISO-4217 (moneda local o USD)
   dollarRate: numeric({ precision: 14, scale: 4, mode: 'number' })
     .notNull()

@@ -169,6 +169,13 @@
       "when": 1784163662248,
       "tag": "0023_melted_lilandra",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1784251179331,
+      "tag": "0024_kind_xorn",
+      "breakpoints": true
     }
   ]
 }

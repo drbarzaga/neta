@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { CalendarDays, GripVertical, Link2, CircleCheck } from 'lucide-react';
+import { CalendarDays, GripVertical, Link2, CircleCheck, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -16,11 +16,12 @@ import {
 import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import { daysBetween } from '@/lib/dates';
 import type { Trip, TripExpense } from '@/db';
-import { moveTripExpenseDay } from '../../actions';
+import { moveTripExpenseDay, setTripDayTitle } from '../../actions';
 
 const NONE = 'none';
 
@@ -43,10 +44,12 @@ export function TripItinerary({
   trip,
   expenses,
   locale,
+  dayTitles = {},
 }: {
   trip: Trip;
   expenses: TripExpense[];
   locale: string;
+  dayTitles?: Record<string, string>;
 }) {
   const [, startTransition] = useTransition();
 
@@ -179,6 +182,9 @@ export function TripItinerary({
             subtitle={formatDayHeader(day, locale)}
             items={grouped.get(day) ?? []}
             locale={locale}
+            tripId={trip.id}
+            date={day}
+            dayTheme={dayTitles[day] ?? null}
           />
         ))}
         <DayColumn
@@ -198,12 +204,18 @@ function DayColumn({
   subtitle,
   items,
   locale,
+  tripId,
+  date,
+  dayTheme,
 }: {
   id: string;
   title: string;
   subtitle?: string;
   items: TripExpense[];
   locale: string;
+  tripId?: string;
+  date?: string;
+  dayTheme?: string | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
@@ -219,6 +231,7 @@ function DayColumn({
           {items.length}
         </Badge>
       </div>
+      {tripId && date && <DayThemeEditor tripId={tripId} date={date} theme={dayTheme ?? null} />}
 
       <div
         ref={setNodeRef}
@@ -240,6 +253,65 @@ function DayColumn({
         </SortableContext>
       </div>
     </div>
+  );
+}
+
+function DayThemeEditor({
+  tripId,
+  date,
+  theme,
+}: {
+  tripId: string;
+  date: string;
+  theme: string | null;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(theme ?? '');
+  const [, startTransition] = useTransition();
+
+  function save() {
+    setEditing(false);
+    const next = value.trim();
+    if (next === (theme ?? '')) return;
+    startTransition(async () => {
+      const res = await setTripDayTitle({ tripId, date, title: next || null });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo guardar el tema del día');
+    });
+  }
+
+  if (editing) {
+    return (
+      <Input
+        autoFocus
+        value={value}
+        placeholder="Tema del día (opcional)"
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') save();
+          if (e.key === 'Escape') {
+            setValue(theme ?? '');
+            setEditing(false);
+          }
+        }}
+        className="h-7 text-xs"
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setEditing(true)}
+      className="group/theme text-muted-foreground hover:text-foreground -mt-1 flex items-center gap-1 truncate text-left text-xs"
+    >
+      {theme ? (
+        <span className="truncate italic">{theme}</span>
+      ) : (
+        <span>+ agregar tema del día</span>
+      )}
+      <Pencil className="size-3 shrink-0 opacity-0 group-hover/theme:opacity-100" />
+    </button>
   );
 }
 
@@ -286,6 +358,7 @@ function ItineraryCard({
 
       <div className="min-w-0 flex-1">
         <p className={cn('truncate text-sm font-medium', expense.paid && 'text-muted-foreground line-through')}>
+          {expense.time && <span className="text-muted-foreground font-normal">{expense.time} · </span>}
           {expense.concept}
         </p>
         <div className="mt-1 flex items-center gap-1.5">

@@ -16,3 +16,4 @@ export * from './todo-column';
 export * from './todo';
 export * from './trip';
 export * from './trip-expense';
+export * from './trip-day';
