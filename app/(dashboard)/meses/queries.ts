@@ -1,5 +1,5 @@
 import 'server-only';
-import { db, eq, desc, period, expense } from '@/db';
+import { db, eq, and, desc, period, expense } from '@/db';
 import { periodTotals, type PeriodTotals } from '@/lib/money';
 import type { Period } from '@/db';
 
@@ -9,12 +9,15 @@ export interface PeriodWithTotals extends Period {
 }
 
 export async function getPeriodsWithTotals(
-  userId: string
+  userId: string,
+  year?: number
 ): Promise<PeriodWithTotals[]> {
   const periods = await db
     .select()
     .from(period)
-    .where(eq(period.userId, userId))
+    .where(
+      year ? and(eq(period.userId, userId), eq(period.year, year)) : eq(period.userId, userId)
+    )
     .orderBy(desc(period.year), desc(period.month));
 
   const allExpenses = await db
@@ -36,4 +39,26 @@ export async function getPeriodsWithTotals(
       count: exps.length,
     };
   });
+}
+
+/** Id + label de todos los meses (todos los años), para el selector "duplicar desde". */
+export async function getAllPeriodLabels(
+  userId: string
+): Promise<{ id: string; label: string }[]> {
+  return db
+    .select({ id: period.id, label: period.label })
+    .from(period)
+    .where(eq(period.userId, userId))
+    .orderBy(desc(period.year), desc(period.month));
+}
+
+/** Años con al menos un mes, más el año actual (para poder crear el primero). */
+export async function getPeriodYears(userId: string, currentYear: number): Promise<number[]> {
+  const rows = await db
+    .selectDistinct({ year: period.year })
+    .from(period)
+    .where(eq(period.userId, userId));
+  const years = new Set(rows.map((r) => r.year));
+  years.add(currentYear);
+  return Array.from(years).sort((a, b) => b - a);
 }

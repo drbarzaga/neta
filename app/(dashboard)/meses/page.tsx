@@ -2,16 +2,27 @@ import type { Metadata } from 'next';
 import { requireSession } from '@/lib/auth-server';
 import { getCountry } from '@/lib/countries';
 import { getOrCreateUserSettings } from '../configuracion/queries';
-import { getPeriodsWithTotals } from './queries';
+import { getPeriodsWithTotals, getPeriodYears, getAllPeriodLabels } from './queries';
 import { PeriodsClient } from './_components/periods-client';
 
 export const metadata: Metadata = { title: 'Meses — Neta' };
 
-export default async function MesesPage() {
+export default async function MesesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   const { userId } = await requireSession();
-  const [periods, settings] = await Promise.all([
-    getPeriodsWithTotals(userId),
+  const { year: yearParam } = await searchParams;
+
+  const currentYear = new Date().getFullYear();
+  const year = yearParam ? Number(yearParam) || currentYear : currentYear;
+
+  const [periods, settings, years, allPeriodLabels] = await Promise.all([
+    getPeriodsWithTotals(userId, year),
     getOrCreateUserSettings(userId),
+    getPeriodYears(userId, currentYear),
+    getAllPeriodLabels(userId),
   ]);
   const locale = getCountry(settings.country).locale;
 
@@ -30,5 +41,12 @@ export default async function MesesPage() {
     locale,
   }));
 
-  return <PeriodsClient periods={data} />;
+  return (
+    <PeriodsClient
+      periods={data}
+      allPeriodLabels={allPeriodLabels}
+      years={years}
+      year={year}
+    />
+  );
 }

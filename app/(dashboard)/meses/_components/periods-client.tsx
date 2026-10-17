@@ -30,9 +30,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { Money, Pct } from '@/components/money';
 import { useConfirm } from '@/components/confirm-provider';
+import { nextMonth } from '@/lib/dates';
 import { CreatePeriodDialog } from './create-period-dialog';
 import { duplicatePeriod, setPeriodStatus, deletePeriod } from '../actions';
 
@@ -51,26 +59,52 @@ interface PeriodCard {
   locale: string;
 }
 
-export function PeriodsClient({ periods }: { periods: PeriodCard[] }) {
+export function PeriodsClient({
+  periods,
+  allPeriodLabels,
+  years,
+  year,
+}: {
+  periods: PeriodCard[];
+  allPeriodLabels: { id: string; label: string }[];
+  years: number[];
+  year: number;
+}) {
+  const router = useRouter();
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">Períodos</p>
           <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
             Meses
           </h1>
         </div>
-        <CreatePeriodDialog periods={periods.map((p) => ({ id: p.id, label: p.label }))} />
+        <div className="flex items-center gap-2">
+          <Select value={String(year)} onValueChange={(y) => router.push(`/meses?year=${y}`)}>
+            <SelectTrigger className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <CreatePeriodDialog periods={allPeriodLabels} />
+        </div>
       </div>
 
       {periods.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <CalendarDays className="text-muted-foreground size-10" />
-            <p className="font-medium">Todavía no tienes meses</p>
+            <p className="font-medium">Todavía no tienes meses en {year}</p>
             <p className="text-muted-foreground text-sm">
-              Crea tu primer mes o importa tu planilla desde la sección Importar.
+              Crea el primero de {year} o importa tu planilla desde la sección Importar.
             </p>
           </CardContent>
         </Card>
@@ -100,6 +134,20 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
     });
   }
 
+  function duplicate(resetAmounts: boolean) {
+    const target = nextMonth(period.month, period.year);
+    startTransition(async () => {
+      const res = await duplicatePeriod(period.id, resetAmounts);
+      if (!res.ok) {
+        toast.error(res.error ?? 'Error');
+        return;
+      }
+      toast.success(resetAmounts ? 'Mes duplicado con montos en $0' : 'Mes duplicado al siguiente período');
+      // Si el nuevo mes cae en otro año, lleva al usuario ahí para que lo vea.
+      if (target.year !== period.year) router.push(`/meses?year=${target.year}`);
+    });
+  }
+
   return (
     <Card className={cn('relative', pending && 'opacity-60')}>
       <CardHeader>
@@ -119,21 +167,10 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
               <DropdownMenuItem onClick={() => router.push(`/meses/${period.id}`)}>
                 <FolderOpen className="size-4" /> Abrir
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  act(() => duplicatePeriod(period.id), 'Mes duplicado al siguiente período')
-                }
-              >
+              <DropdownMenuItem onClick={() => duplicate(false)}>
                 <Copy className="size-4" /> Duplicar al mes siguiente
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() =>
-                  act(
-                    () => duplicatePeriod(period.id, true),
-                    'Mes duplicado con montos en $0'
-                  )
-                }
-              >
+              <DropdownMenuItem onClick={() => duplicate(true)}>
                 <CopyPlus className="size-4" /> Duplicar sin montos ($0)
               </DropdownMenuItem>
               {period.status === 'open' ? (
