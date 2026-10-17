@@ -92,6 +92,16 @@ interface MonthGroup {
   isPast: boolean;
 }
 
+interface CategoryTotal {
+  category: string;
+  paidUsd: number;
+  pendingUsd: number;
+  totalUsd: number;
+}
+
+/** Categorías de uso frecuente, para accesos rápidos al agregar un gasto. */
+const QUICK_CATEGORIES = ['Seguro', 'Patente', 'Combustible', 'Mantenimiento'] as const;
+
 export function AutoClient({
   vehicles,
   locale,
@@ -185,6 +195,7 @@ function VehicleSection({
     expense: VehicleExpense | null;
     month: number;
     year: number;
+    category?: string;
   }>({ open: false, expense: null, ...nowParts() });
   const [showHistory, setShowHistory] = useState(false);
 
@@ -221,6 +232,25 @@ function VehicleSection({
 
   const pending = groups.filter((g) => !(g.isPast && g.allPaid));
   const history = groups.filter((g) => g.isPast && g.allPaid);
+
+  const categoryTotals = useMemo<CategoryTotal[]>(() => {
+    const byCategory = new Map<string, CategoryTotal>();
+    for (const e of vehicle.expenses) {
+      const usd =
+        e.currency === 'USD' ? e.amount : vehicle.dollarRate > 0 ? e.amount / vehicle.dollarRate : e.amount;
+      const cur = byCategory.get(e.category) ?? {
+        category: e.category,
+        paidUsd: 0,
+        pendingUsd: 0,
+        totalUsd: 0,
+      };
+      if (e.paid) cur.paidUsd += usd;
+      else cur.pendingUsd += usd;
+      cur.totalUsd += usd;
+      byCategory.set(e.category, cur);
+    }
+    return [...byCategory.values()].sort((a, b) => b.totalUsd - a.totalUsd);
+  }, [vehicle.expenses, vehicle.dollarRate]);
 
   const pctDown = pctOf(vehicle.downPaymentSaved, vehicle.downPaymentTarget);
   const remainingDown = Math.max(0, vehicle.downPaymentTarget - vehicle.downPaymentSaved);
@@ -321,18 +351,61 @@ function VehicleSection({
         />
       </CardContent>
 
+      {categoryTotals.length > 0 && (
+        <CardContent className="border-t pt-6">
+          <h3 className="mb-3 font-medium">Gastos por categoría</h3>
+          <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+            {categoryTotals.map((c) => (
+              <div key={c.category} className="flex items-center gap-3">
+                <span className="text-muted-foreground flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <CategoryIcon name={CATEGORY_ICON_KEY[c.category] ?? 'tag'} className="size-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{c.category}</p>
+                  {c.pendingUsd > 0 && (
+                    <p className="text-muted-foreground text-xs tabular-nums">
+                      {fmtUsd(c.paidUsd)} pagado · {fmtUsd(c.pendingUsd)} pendiente
+                    </p>
+                  )}
+                </div>
+                <span className="text-sm font-medium tabular-nums">{fmtUsd(c.totalUsd)}</span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      )}
+
       <CardContent className="flex flex-col gap-4 border-t pt-6">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Gastos mes a mes</h3>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
-            }
-          >
-            <Plus className="size-4" /> Agregar gasto
-          </Button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-medium">Gastos mes a mes</h3>
+            <p className="text-muted-foreground text-xs">
+              Cuotas del préstamo y cualquier otro gasto del auto: seguro, patente, service,
+              combustible…
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {QUICK_CATEGORIES.map((c) => (
+              <Button
+                key={c}
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear, category: c })
+                }
+              >
+                <Plus className="size-3.5" /> {c}
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              onClick={() =>
+                setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
+              }
+            >
+              <Plus className="size-4" /> Agregar gasto
+            </Button>
+          </div>
         </div>
 
         {pending.length === 0 && history.length === 0 ? (
@@ -384,13 +457,17 @@ function VehicleSection({
       </CardContent>
 
       <VehicleExpenseDialog
-        key={expenseDialog.expense?.id ?? `${expenseDialog.month}-${expenseDialog.year}`}
+        key={
+          expenseDialog.expense?.id ??
+          `${expenseDialog.month}-${expenseDialog.year}-${expenseDialog.category ?? ''}`
+        }
         open={expenseDialog.open}
         vehicleId={vehicle.id}
         vehicleCurrency={vehicle.currency}
         localCurrency={localCurrency}
         month={expenseDialog.month}
         year={expenseDialog.year}
+        defaultCategory={expenseDialog.category}
         expense={expenseDialog.expense}
         onOpenChange={(o) => setExpenseDialog((d) => ({ ...d, open: o }))}
       />
@@ -678,6 +755,7 @@ function VehicleExpenseDialog({
   localCurrency,
   month,
   year,
+  defaultCategory,
   expense,
   onOpenChange,
 }: {
@@ -687,11 +765,12 @@ function VehicleExpenseDialog({
   localCurrency: string;
   month: number;
   year: number;
+  defaultCategory?: string;
   expense: VehicleExpense | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const [category, setCategory] = useState(expense?.category ?? 'Otro');
+  const [category, setCategory] = useState(expense?.category ?? defaultCategory ?? 'Otro');
   const [concept, setConcept] = useState(expense?.concept ?? '');
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
   const [currency, setCurrency] = useState(expense?.currency ?? localCurrency);
