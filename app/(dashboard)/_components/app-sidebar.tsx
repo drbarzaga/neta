@@ -47,7 +47,7 @@ export function AppSidebar({
             >
               <Link href="/">
                 <div className="flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--lime)]">
-                  <span className="font-heading text-sm font-bold text-[var(--ink)]">N</span>
+                  <span className="font-heading text-sm font-bold text-[var(--sb)]">N</span>
                 </div>
                 <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="font-heading text-[22px] font-bold text-white [letter-spacing:-0.025em]">
@@ -99,7 +99,7 @@ function NavGroup({
                   className={cn(
                     'relative h-auto gap-3 rounded-[12px] px-3 py-2.5 text-[15px] text-(--sb-ink) [&>svg]:size-[18px]',
                     'hover:bg-(--sb-hover) hover:text-(--sb-ink)',
-                    'data-active:bg-(--lime) data-active:font-semibold data-active:text-(--ink) data-active:hover:bg-(--lime) data-active:hover:text-(--ink)',
+                    'data-active:bg-(--lime) data-active:font-semibold data-active:text-(--sb) data-active:hover:bg-(--lime) data-active:hover:text-(--sb)',
                     // Colapsado: icono arriba, texto debajo, todo centrado.
                     'group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full',
                     'group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center',

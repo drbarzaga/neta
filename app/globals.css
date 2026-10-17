@@ -101,9 +101,11 @@
   --sidebar: var(--sb);
   --sidebar-foreground: var(--sb-ink);
   --sidebar-primary: var(--lime);
-  --sidebar-primary-foreground: var(--ink);
+  /* --sb (no --ink): el sidebar es oscuro en ambos temas, así que el texto
+     sobre el lima activo debe quedar oscuro siempre, sin invertirse en dark. */
+  --sidebar-primary-foreground: var(--sb);
   --sidebar-accent: var(--lime);
-  --sidebar-accent-foreground: var(--ink);
+  --sidebar-accent-foreground: var(--sb);
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: var(--lime);
 }

@@ -23,7 +23,7 @@ const badgeVariants = cva(
         forest: "bg-[var(--forest-soft)] text-[var(--forest)]",
         coral: "bg-[var(--coral-soft)] text-[var(--coral)]",
         amber: "bg-[var(--amber-soft)] text-[var(--amber)]",
-        lime: "bg-[var(--lime)] text-[var(--ink)]",
+        lime: "bg-[var(--lime)] text-[var(--sb)]",
       },
     },
     defaultVariants: {
