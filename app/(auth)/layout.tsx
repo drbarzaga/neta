@@ -7,9 +7,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         aria-hidden
         className="bg-primary/10 absolute top-1/4 left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-3xl"
       />
-      <div className="rounded-xl bg-[#0e1512] px-4 py-3 shadow-lg shadow-black/10">
-        <NetaWordmark className="h-11 w-auto" />
-      </div>
+      <NetaWordmark className="h-14 w-auto" />
       <div className="w-full max-w-md">{children}</div>
     </div>
   );
