@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS, isNewNavItem, type NavItem } from '@/lib/nav';
+import { NetaMark, NetaWordmark } from '@/components/brand/neta-wordmark';
 import { NavUser } from './nav-user';
 
 // Primer ítem de "Herramientas" (el resto de NAV_ITEMS, en orden, es "Mes").
@@ -46,14 +47,8 @@ export function AppSidebar({
               className="hover:bg-transparent group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
             >
               <Link href="/">
-                <div className="flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--lime)]">
-                  <span className="font-heading text-sm font-bold text-[var(--sb)]">N</span>
-                </div>
-                <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="font-heading text-[22px] font-bold text-white [letter-spacing:-0.025em]">
-                    Neta
-                  </span>
-                </div>
+                <NetaMark className="hidden size-[26px] shrink-0 group-data-[collapsible=icon]:block" />
+                <NetaWordmark className="h-[24px] w-auto group-data-[collapsible=icon]:hidden" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

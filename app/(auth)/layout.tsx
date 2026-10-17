@@ -1,4 +1,4 @@
-import { Wallet } from 'lucide-react';
+import { NetaWordmark } from '@/components/brand/neta-wordmark';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,11 +7,8 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         aria-hidden
         className="bg-primary/10 absolute top-1/4 left-1/2 -z-10 size-[28rem] -translate-x-1/2 rounded-full blur-3xl"
       />
-      <div className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
-        <div className="bg-primary text-primary-foreground flex size-11 items-center justify-center rounded-2xl shadow-lg shadow-primary/25">
-          <Wallet className="size-6" />
-        </div>
-        Neta
+      <div className="rounded-2xl bg-[#0e1512] px-6 py-4 shadow-lg shadow-black/10">
+        <NetaWordmark className="h-9 w-auto" />
       </div>
       <div className="w-full max-w-md">{children}</div>
     </div>
