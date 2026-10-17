@@ -71,7 +71,21 @@ export default async function DashboardPage() {
     );
   }
 
-  const current = periods[0];
+  // "Actual" es siempre el mes de hoy, no el más reciente que exista: con
+  // "Crear año completo" puede haber meses futuros ya cargados (ej. todo
+  // 2027), y no queremos que el Resumen salte a diciembre de 2027 por error.
+  const now = new Date();
+  const curMonth = now.getMonth() + 1;
+  const curYear = now.getFullYear();
+  // `periods` viene ordenado del más reciente al más antiguo, así que esto
+  // conserva ese orden quedándose solo con los meses de hoy hacia atrás.
+  const pastOrCurrent = periods.filter(
+    (p) => p.year < curYear || (p.year === curYear && p.month <= curMonth)
+  );
+  const current =
+    pastOrCurrent.find((p) => p.year === curYear && p.month === curMonth) ??
+    pastOrCurrent[0] ??
+    periods[periods.length - 1];
   const [categories, currentExpenses, goals] = await Promise.all([
     getCategories(userId),
     getExpenses(userId, current.id),
@@ -119,7 +133,10 @@ export default async function DashboardPage() {
     }))
     .filter((d) => d.value > 0);
 
-  const trendData: TrendDatum[] = periods
+  // Igual que `current`: la tendencia mira hacia atrás desde hoy, nunca
+  // hacia meses futuros ya creados por adelantado.
+  const trendSource = pastOrCurrent.length > 0 ? pastOrCurrent : periods;
+  const trendData: TrendDatum[] = trendSource
     .slice(0, 6)
     .reverse()
     .map((p) => ({

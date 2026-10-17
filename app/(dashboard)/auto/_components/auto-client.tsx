@@ -94,6 +94,10 @@ interface MonthGroup {
   year: number;
   items: VehicleExpense[];
   subtotalUsd: number;
+  // Suma cruda de los montos, sin convertir. Solo tiene sentido cuando todo
+  // el grupo comparte una moneda (las cuotas del préstamo, por ejemplo);
+  // para "otros gastos" (que sí mezclan monedas) usar subtotalUsd.
+  subtotalNative: number;
   allPaid: boolean;
   isPast: boolean;
 }
@@ -133,6 +137,7 @@ function buildMonthGroups(
           (sum, e) => sum + (e.currency === 'USD' ? e.amount : dollarRate > 0 ? e.amount / dollarRate : e.amount),
           0
         ),
+        subtotalNative: items.reduce((sum, e) => sum + e.amount, 0),
         allPaid: items.every((e) => e.paid),
         isPast,
       };
@@ -239,6 +244,10 @@ function VehicleSection({
   const [showOtherHistory, setShowOtherHistory] = useState(false);
 
   const fmtUsd = (n: number) => formatMoney(n, 'USD', locale);
+  // Precio, inicial y préstamo son todos en vehicle.currency (se elige al
+  // crear/editar el vehículo). Los agregados cross-categoría (otros gastos,
+  // totales) siguen en USD porque mezclan monedas distintas por gasto.
+  const fmtVehicle = (n: number) => formatMoney(n, vehicle.currency, locale);
   const { month: curMonth, year: curYear } = nowParts();
 
   const loanExpenses = useMemo(
@@ -288,7 +297,12 @@ function VehicleSection({
   const pctDown = pctOf(vehicle.downPaymentSaved, vehicle.downPaymentTarget);
   const remainingDown = Math.max(0, vehicle.downPaymentTarget - vehicle.downPaymentSaved);
   const remainingInstallments = vehicle.totals.installmentsTotal - vehicle.totals.installmentsPaid;
-  const outstandingLoan = vehicle.totals.loanPendingUsd;
+  // Saldo del préstamo en vehicle.currency (no en USD): las cuotas se crean
+  // todas en esa moneda, así que sumar el monto crudo es correcto y evita
+  // mostrar un monto en una moneda distinta a la del resto de la tarjeta.
+  const outstandingLoanNative = loanExpenses
+    .filter((e) => !e.paid)
+    .reduce((sum, e) => sum + e.amount, 0);
 
   // Confetti cuando el préstamo pasa de "con saldo" a "100% pagado" (ya sea
   // tildando la última cuota a mano o cancelando toda la deuda de una vez).
@@ -308,7 +322,7 @@ function VehicleSection({
   async function payOffDebt() {
     const ok = await confirm({
       title: 'Cancelar deuda del préstamo',
-      description: `Se van a marcar como pagadas las ${remainingInstallments} cuotas restantes (saldo de ${fmtUsd(outstandingLoan)}). Usalo si liquidaste el préstamo de una sola vez.`,
+      description: `Se van a marcar como pagadas las ${remainingInstallments} cuotas restantes (saldo de ${fmtVehicle(outstandingLoanNative)}). Usalo si liquidaste el préstamo de una sola vez.`,
       confirmText: 'Cancelar deuda',
     });
     if (!ok) return;
@@ -349,8 +363,8 @@ function VehicleSection({
             <Badge variant="secondary">{VEHICLE_STATUS_LABEL[vehicle.status]}</Badge>
           </div>
           <p className="text-muted-foreground mt-1 text-sm">
-            Precio {fmtUsd(vehicle.totalPrice)} · Inicial {fmtUsd(vehicle.downPaymentTarget)} · Préstamo{' '}
-            {fmtUsd(vehicle.loanAmount)} en {vehicle.loanMonths} cuotas
+            Precio {fmtVehicle(vehicle.totalPrice)} · Inicial {fmtVehicle(vehicle.downPaymentTarget)} · Préstamo{' '}
+            {fmtVehicle(vehicle.loanAmount)} en {vehicle.loanMonths} cuotas
           </p>
         </div>
         <DropdownMenu>
@@ -374,16 +388,16 @@ function VehicleSection({
       <CardContent className="grid gap-4 border-t pt-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Precio total"
-          value={fmtUsd(vehicle.totalPrice)}
+          value={fmtVehicle(vehicle.totalPrice)}
           valueClass="text-[28px]"
           icon={<Car className="size-5" />}
           accent="primary"
         />
         <StatCard
           label="Préstamo"
-          value={fmtUsd(vehicle.loanAmount)}
+          value={fmtVehicle(vehicle.loanAmount)}
           valueClass="text-[28px]"
-          sub={`${fmtUsd(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
+          sub={`${fmtVehicle(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
           icon={<Landmark className="size-5" />}
           accent="sky"
         />
@@ -391,7 +405,7 @@ function VehicleSection({
           label="Cuotas pagadas"
           value={`${vehicle.totals.installmentsPaid}/${vehicle.totals.installmentsTotal}`}
           valueClass="text-[28px]"
-          sub={`Saldo del préstamo: ${fmtUsd(outstandingLoan)}`}
+          sub={`Saldo del préstamo: ${fmtVehicle(outstandingLoanNative)}`}
           icon={<CalendarClock className="size-5" />}
           accent="emerald"
         />
@@ -408,7 +422,7 @@ function VehicleSection({
       <CardContent className="border-t pt-6">
         <DownPaymentCard
           vehicle={vehicle}
-          fmtUsd={fmtUsd}
+          fmt={fmtVehicle}
           pct={pctDown}
           remaining={remainingDown}
         />
@@ -457,7 +471,7 @@ function VehicleSection({
               ) : (
                 <p className="text-muted-foreground text-xs">
                   {vehicle.loanMonths > 0
-                    ? `${fmtUsd(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
+                    ? `${fmtVehicle(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
                     : 'Este vehículo no tiene un préstamo cargado.'}
                 </p>
               )}
@@ -492,7 +506,7 @@ function VehicleSection({
               locale={locale}
               curMonth={curMonth}
               curYear={curYear}
-              fmtUsd={fmtUsd}
+              fmtSubtotal={(g) => fmtVehicle(g.subtotalNative)}
               showHistory={showLoanHistory}
               onShowHistoryChange={setShowLoanHistory}
               emptyMessage="Todavía no hay cuotas cargadas para este vehículo."
@@ -540,7 +554,7 @@ function VehicleSection({
               locale={locale}
               curMonth={curMonth}
               curYear={curYear}
-              fmtUsd={fmtUsd}
+              fmtSubtotal={(g) => fmtUsd(g.subtotalUsd)}
               showHistory={showOtherHistory}
               onShowHistoryChange={setShowOtherHistory}
               emptyMessage="Todavía no cargaste otros gastos para este vehículo."
@@ -576,12 +590,12 @@ function VehicleSection({
 
 function DownPaymentCard({
   vehicle,
-  fmtUsd,
+  fmt,
   pct,
   remaining,
 }: {
   vehicle: VehicleWithExpenses;
-  fmtUsd: (n: number) => string;
+  fmt: (n: number) => string;
   pct: number;
   remaining: number;
 }) {
@@ -604,9 +618,9 @@ function DownPaymentCard({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-medium">Inicial</h3>
         <div className="flex items-baseline gap-2">
-          <span className="text-lg font-semibold tabular-nums">{fmtUsd(vehicle.downPaymentSaved)}</span>
+          <span className="text-lg font-semibold tabular-nums">{fmt(vehicle.downPaymentSaved)}</span>
           <span className="text-muted-foreground text-sm tabular-nums">
-            de {fmtUsd(vehicle.downPaymentTarget)}
+            de {fmt(vehicle.downPaymentTarget)}
           </span>
         </div>
       </div>
@@ -618,7 +632,7 @@ function DownPaymentCard({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-muted-foreground text-xs tabular-nums">
-          {Math.round(pct)}%{remaining > 0 ? ` · faltan ${fmtUsd(remaining)}` : ' · ¡completo!'}
+          {Math.round(pct)}%{remaining > 0 ? ` · faltan ${fmt(remaining)}` : ' · ¡completo!'}
         </p>
         <div className="flex gap-2">
           <Input
@@ -656,7 +670,7 @@ function ExpenseMonthList({
   locale,
   curMonth,
   curYear,
-  fmtUsd,
+  fmtSubtotal,
   showHistory,
   onShowHistoryChange,
   emptyMessage,
@@ -669,7 +683,7 @@ function ExpenseMonthList({
   locale: string;
   curMonth: number;
   curYear: number;
-  fmtUsd: (n: number) => string;
+  fmtSubtotal: (g: MonthGroup) => string;
   showHistory: boolean;
   onShowHistoryChange: (open: boolean) => void;
   emptyMessage: string;
@@ -689,7 +703,7 @@ function ExpenseMonthList({
           vehicle={vehicle}
           locale={locale}
           isCurrent={g.month === curMonth && g.year === curYear}
-          fmtUsd={fmtUsd}
+          fmtSubtotal={fmtSubtotal}
           onAdd={() => onAddToMonth(g.month, g.year)}
           onEdit={onEditExpense}
         />
@@ -712,7 +726,7 @@ function ExpenseMonthList({
                 vehicle={vehicle}
                 locale={locale}
                 isCurrent={false}
-                fmtUsd={fmtUsd}
+                fmtSubtotal={fmtSubtotal}
                 onAdd={() => onAddToMonth(g.month, g.year)}
                 onEdit={onEditExpense}
               />
@@ -729,7 +743,7 @@ function MonthCard({
   vehicle,
   locale,
   isCurrent,
-  fmtUsd,
+  fmtSubtotal,
   onAdd,
   onEdit,
 }: {
@@ -737,7 +751,7 @@ function MonthCard({
   vehicle: VehicleWithExpenses;
   locale: string;
   isCurrent: boolean;
-  fmtUsd: (n: number) => string;
+  fmtSubtotal: (g: MonthGroup) => string;
   onAdd: () => void;
   onEdit: (e: VehicleExpense) => void;
 }) {
@@ -755,7 +769,7 @@ function MonthCard({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium tabular-nums">{fmtUsd(group.subtotalUsd)}</span>
+          <span className="text-sm font-medium tabular-nums">{fmtSubtotal(group)}</span>
           <Button
             variant="ghost"
             size="icon"
@@ -1119,6 +1133,7 @@ function VehicleDialog({
   const [monthlyPayment, setMonthlyPayment] = useState(
     String(vehicle?.monthlyPayment ?? 291.25)
   );
+  const [currency, setCurrency] = useState(vehicle?.currency ?? 'USD');
   const [dollarRate, setDollarRate] = useState(
     vehicle ? String(vehicle.dollarRate) : defaultDollarRate ? String(defaultDollarRate) : ''
   );
@@ -1149,7 +1164,7 @@ function VehicleDialog({
       version: version.trim() || null,
       year: year === '' ? null : Number(year),
       imageUrl: imageUrl.trim() || null,
-      currency: 'USD',
+      currency,
       color,
       loanStartMonth,
       loanStartYear,
@@ -1214,20 +1229,40 @@ function VehicleDialog({
             </p>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="v-price">Precio total (USD)</Label>
-            <Input
-              id="v-price"
-              inputMode="decimal"
-              value={totalPrice}
-              onChange={(e) => setTotalPrice(e.target.value)}
-              className="tabular-nums"
-            />
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-price">Precio total</Label>
+              <Input
+                id="v-price"
+                inputMode="decimal"
+                value={totalPrice}
+                onChange={(e) => setTotalPrice(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-currency">Moneda</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="v-currency" className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="USD">USD</SelectItem>
+                  {localCurrency !== 'USD' && (
+                    <SelectItem value={localCurrency}>{localCurrency}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Se aplica al precio, el inicial y el préstamo. Los demás gastos del auto pueden tener
+            su propia moneda cada uno.
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="v-down-target">Inicial objetivo (USD)</Label>
+              <Label htmlFor="v-down-target">Inicial objetivo ({currency})</Label>
               <Input
                 id="v-down-target"
                 inputMode="decimal"
@@ -1237,7 +1272,7 @@ function VehicleDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="v-down-saved">Ya ahorrado (USD)</Label>
+              <Label htmlFor="v-down-saved">Ya ahorrado ({currency})</Label>
               <Input
                 id="v-down-saved"
                 inputMode="decimal"
@@ -1250,7 +1285,7 @@ function VehicleDialog({
 
           <div className="grid grid-cols-3 gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="v-loan-amount">Préstamo (USD)</Label>
+              <Label htmlFor="v-loan-amount">Préstamo ({currency})</Label>
               <Input
                 id="v-loan-amount"
                 inputMode="decimal"
@@ -1270,7 +1305,7 @@ function VehicleDialog({
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="v-monthly-payment">Cuota mensual</Label>
+              <Label htmlFor="v-monthly-payment">Cuota mensual ({currency})</Label>
               <Input
                 id="v-monthly-payment"
                 inputMode="decimal"
@@ -1320,7 +1355,8 @@ function VehicleDialog({
 
           {!isEdit && Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
             <p className="text-muted-foreground text-xs">
-              Se van a crear {loanMonths} cuotas de {formatMoney(Number(monthlyPayment) || 0, 'USD')} desde{' '}
+              Se van a crear {loanMonths} cuotas de{' '}
+              {formatMoney(Number(monthlyPayment) || 0, currency)} desde{' '}
               {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
             </p>
           )}
