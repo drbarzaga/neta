@@ -47,8 +47,8 @@ export function AppSidebar({
               className="hover:bg-transparent group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
             >
               <Link href="/">
-                <NetaMarkDark className="hidden size-[26px]! shrink-0 group-data-[collapsible=icon]:block" />
-                <NetaWordmarkDark className="h-[26px]! w-auto! group-data-[collapsible=icon]:hidden" />
+                <NetaMarkDark className="hidden size-[32px]! shrink-0 group-data-[collapsible=icon]:block" />
+                <NetaWordmarkDark className="h-[32px]! w-auto! group-data-[collapsible=icon]:hidden" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
