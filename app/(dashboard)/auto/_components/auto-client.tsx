@@ -375,12 +375,14 @@ function VehicleSection({
         <StatCard
           label="Precio total"
           value={fmtUsd(vehicle.totalPrice)}
+          valueClass="text-[28px]"
           icon={<Car className="size-5" />}
           accent="primary"
         />
         <StatCard
           label="Préstamo"
           value={fmtUsd(vehicle.loanAmount)}
+          valueClass="text-[28px]"
           sub={`${fmtUsd(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
           icon={<Landmark className="size-5" />}
           accent="sky"
@@ -388,6 +390,7 @@ function VehicleSection({
         <StatCard
           label="Cuotas pagadas"
           value={`${vehicle.totals.installmentsPaid}/${vehicle.totals.installmentsTotal}`}
+          valueClass="text-[28px]"
           sub={`Saldo del préstamo: ${fmtUsd(outstandingLoan)}`}
           icon={<CalendarClock className="size-5" />}
           accent="emerald"
@@ -395,6 +398,7 @@ function VehicleSection({
         <StatCard
           label="Otros gastos"
           value={fmtUsd(vehicle.totals.otherPaidUsd + vehicle.totals.otherPendingUsd)}
+          valueClass="text-[28px]"
           sub={`Pagado: ${fmtUsd(vehicle.totals.otherPaidUsd)} · Pendiente: ${fmtUsd(vehicle.totals.otherPendingUsd)}`}
           icon={<Wallet className="size-5" />}
           accent="amber"
