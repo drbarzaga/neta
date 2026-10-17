@@ -247,7 +247,8 @@ function VehicleSection({
           imageUrl={vehicle.imageUrl}
           color={vehicle.color}
           alt={vehicle.name}
-          className="h-24 w-48 shrink-0 self-center text-muted-foreground sm:self-auto"
+          className="size-20 self-center sm:self-auto"
+          iconClassName="size-8"
         />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
