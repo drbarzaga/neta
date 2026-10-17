@@ -183,6 +183,13 @@
       "when": 1792258617838,
       "tag": "0025_add_vehicle",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792261039828,
+      "tag": "0026_add_vehicle_image_url",
+      "breakpoints": true
     }
   ]
 }

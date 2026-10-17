@@ -38,6 +38,7 @@ export async function createVehicle(input: unknown): Promise<ActionResult<{ id: 
       name: data.name,
       version: data.version ?? null,
       year: data.year ?? null,
+      imageUrl: data.imageUrl ?? null,
       totalPrice: data.totalPrice,
       downPaymentTarget: data.downPaymentTarget,
       downPaymentSaved: data.downPaymentSaved,

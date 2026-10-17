@@ -45,7 +45,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useConfirm } from '@/components/confirm-provider';
 import { CategoryIcon } from '@/components/category-icon';
-import { VehicleSketch } from '@/components/vehicle-sketch';
+import { VehiclePhoto } from '@/components/vehicle-photo';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -127,7 +127,7 @@ export function AutoClient({
       {vehicles.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-            <VehicleSketch color="#2563eb" className="h-28 w-56 text-muted-foreground" />
+            <VehiclePhoto color="#2563eb" alt="Auto" className="h-28 w-56 text-muted-foreground" />
             <div className="space-y-1">
               <p className="font-medium">Todavía no configuraste tu auto</p>
               <p className="text-muted-foreground max-w-sm text-sm">
@@ -241,7 +241,12 @@ function VehicleSection({
   return (
     <Card className="overflow-hidden">
       <CardContent className="flex flex-col gap-6 pt-6 sm:flex-row sm:items-center">
-        <VehicleSketch color={vehicle.color} className="h-24 w-48 shrink-0 self-center text-muted-foreground sm:self-auto" />
+        <VehiclePhoto
+          imageUrl={vehicle.imageUrl}
+          color={vehicle.color}
+          alt={vehicle.name}
+          className="h-24 w-48 shrink-0 self-center text-muted-foreground sm:self-auto"
+        />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="truncate text-xl font-semibold tracking-tight">
@@ -843,6 +848,7 @@ function VehicleDialog({
   const [name, setName] = useState(vehicle?.name ?? 'VW Tera');
   const [version, setVersion] = useState(vehicle?.version ?? 'High');
   const [year, setYear] = useState(vehicle?.year ? String(vehicle.year) : '');
+  const [imageUrl, setImageUrl] = useState(vehicle?.imageUrl ?? '');
   const [totalPrice, setTotalPrice] = useState(String(vehicle?.totalPrice ?? 26990));
   const [downPaymentTarget, setDownPaymentTarget] = useState(
     String(vehicle?.downPaymentTarget ?? 20000)
@@ -886,6 +892,7 @@ function VehicleDialog({
       name: name.trim(),
       version: version.trim() || null,
       year: year === '' ? null : Number(year),
+      imageUrl: imageUrl.trim() || null,
       currency: 'USD',
       color,
       loanStartMonth,
@@ -935,6 +942,20 @@ function VehicleDialog({
                 className="tabular-nums"
               />
             </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="v-image">Foto (URL, opcional)</Label>
+            <Input
+              id="v-image"
+              value={imageUrl}
+              placeholder="https://…"
+              onChange={(e) => setImageUrl(e.target.value)}
+            />
+            <p className="text-muted-foreground text-xs">
+              Pegá el link de una foto real del auto (por ejemplo, una captura del configurador
+              3D de VW). Si la dejás vacía se muestra un boceto genérico.
+            </p>
           </div>
 
           <div className="grid gap-1.5">

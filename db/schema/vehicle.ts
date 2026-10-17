@@ -26,6 +26,7 @@ export const vehicle = pgTable('vehicle', {
   name: text().notNull(), // ej. "VW Tera"
   version: text(), // ej. "High"
   year: integer(),
+  imageUrl: text(), // foto real del auto (URL pegada a mano), opcional
   totalPrice: numeric({ precision: 14, scale: 2, mode: 'number' })
     .notNull()
     .default(0),
