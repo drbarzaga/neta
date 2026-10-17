@@ -1,0 +1,1063 @@
+'use client';
+
+import { useMemo, useState, useTransition } from 'react';
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  Car,
+  Landmark,
+  Wallet,
+  CalendarClock,
+  ChevronDown,
+  History,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useConfirm } from '@/components/confirm-provider';
+import { CategoryIcon } from '@/components/category-icon';
+import { VehicleSketch } from '@/components/vehicle-sketch';
+import { StatCard } from '../../_components/stat-card';
+import { cn } from '@/lib/utils';
+import { formatMoney } from '@/lib/money';
+import { MONTHS_ES, periodLabel } from '@/lib/dates';
+import type { VehicleExpense } from '@/db';
+import type { VehicleWithExpenses } from '../queries';
+import {
+  createVehicle,
+  updateVehicle,
+  deleteVehicle,
+  contributeDownPayment,
+  addVehicleExpense,
+  updateVehicleExpense,
+  toggleVehicleExpensePaid,
+  deleteVehicleExpense,
+} from '../actions';
+import { VEHICLE_EXPENSE_CATEGORIES, VEHICLE_STATUS_LABEL, LOAN_INSTALLMENT_CATEGORY } from '../schema';
+
+const CATEGORY_ICON_KEY: Record<string, string> = {
+  [LOAN_INSTALLMENT_CATEGORY]: 'landmark',
+  Seguro: 'umbrella',
+  Patente: 'receipt',
+  Mantenimiento: 'hammer',
+  Combustible: 'fuel',
+  Otro: 'tag',
+};
+
+function nowParts() {
+  const d = new Date();
+  return { month: d.getMonth() + 1, year: d.getFullYear() };
+}
+
+function pctOf(saved: number, target: number) {
+  if (target <= 0) return 0;
+  return Math.min(100, Math.max(0, (saved / target) * 100));
+}
+
+interface MonthGroup {
+  month: number;
+  year: number;
+  items: VehicleExpense[];
+  subtotalUsd: number;
+  allPaid: boolean;
+  isPast: boolean;
+}
+
+export function AutoClient({
+  vehicles,
+  locale,
+  localCurrency,
+  defaultDollarRate,
+}: {
+  vehicles: VehicleWithExpenses[];
+  locale: string;
+  localCurrency: string;
+  defaultDollarRate: number;
+}) {
+  const [dialog, setDialog] = useState<{ open: boolean; vehicle: VehicleWithExpenses | null }>({
+    open: false,
+    vehicle: null,
+  });
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Auto</h1>
+          <p className="text-muted-foreground mt-1 text-base">
+            Inicial, préstamo y gastos del auto, mes a mes.
+          </p>
+        </div>
+        {vehicles.length > 0 && (
+          <Button variant="outline" onClick={() => setDialog({ open: true, vehicle: null })}>
+            <Plus /> Otro vehículo
+          </Button>
+        )}
+      </div>
+
+      {vehicles.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
+            <VehicleSketch color="#2563eb" className="h-28 w-56 text-muted-foreground" />
+            <div className="space-y-1">
+              <p className="font-medium">Todavía no configuraste tu auto</p>
+              <p className="text-muted-foreground max-w-sm text-sm">
+                Cargá el precio, el inicial y el préstamo una vez y seguí las cuotas y gastos mes
+                a mes desde acá.
+              </p>
+            </div>
+            <Button onClick={() => setDialog({ open: true, vehicle: null })}>
+              <Plus /> Configurar mi auto
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-8">
+          {vehicles.map((v) => (
+            <VehicleSection
+              key={v.id}
+              vehicle={v}
+              locale={locale}
+              localCurrency={localCurrency}
+              onEdit={() => setDialog({ open: true, vehicle: v })}
+            />
+          ))}
+        </div>
+      )}
+
+      <VehicleDialog
+        key={dialog.vehicle?.id ?? 'new'}
+        open={dialog.open}
+        vehicle={dialog.vehicle}
+        localCurrency={localCurrency}
+        defaultDollarRate={defaultDollarRate}
+        onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
+      />
+    </div>
+  );
+}
+
+function VehicleSection({
+  vehicle,
+  locale,
+  localCurrency,
+  onEdit,
+}: {
+  vehicle: VehicleWithExpenses;
+  locale: string;
+  localCurrency: string;
+  onEdit: () => void;
+}) {
+  const confirm = useConfirm();
+  const [expenseDialog, setExpenseDialog] = useState<{
+    open: boolean;
+    expense: VehicleExpense | null;
+    month: number;
+    year: number;
+  }>({ open: false, expense: null, ...nowParts() });
+  const [showHistory, setShowHistory] = useState(false);
+
+  const fmtUsd = (n: number) => formatMoney(n, 'USD', locale);
+  const { month: curMonth, year: curYear } = nowParts();
+
+  const groups = useMemo<MonthGroup[]>(() => {
+    const byKey = new Map<string, VehicleExpense[]>();
+    for (const e of vehicle.expenses) {
+      const key = `${e.year}-${e.month}`;
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key)!.push(e);
+    }
+    return [...byKey.entries()]
+      .map(([, items]) => {
+        const [first] = items;
+        const isPast =
+          first.year < curYear || (first.year === curYear && first.month < curMonth);
+        return {
+          month: first.month,
+          year: first.year,
+          items,
+          subtotalUsd: items.reduce(
+            (sum, e) =>
+              sum + (e.currency === 'USD' ? e.amount : vehicle.dollarRate > 0 ? e.amount / vehicle.dollarRate : e.amount),
+            0
+          ),
+          allPaid: items.every((e) => e.paid),
+          isPast,
+        };
+      })
+      .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+  }, [vehicle.expenses, vehicle.dollarRate, curMonth, curYear]);
+
+  const pending = groups.filter((g) => !(g.isPast && g.allPaid));
+  const history = groups.filter((g) => g.isPast && g.allPaid);
+
+  const pctDown = pctOf(vehicle.downPaymentSaved, vehicle.downPaymentTarget);
+  const remainingDown = Math.max(0, vehicle.downPaymentTarget - vehicle.downPaymentSaved);
+  const remainingInstallments = vehicle.totals.installmentsTotal - vehicle.totals.installmentsPaid;
+  const outstandingLoan = remainingInstallments * vehicle.monthlyPayment;
+
+  async function removeVehicle() {
+    const ok = await confirm({
+      title: 'Eliminar vehículo',
+      description: `Se eliminará "${vehicle.name}" y todos sus gastos. No se puede deshacer.`,
+      confirmText: 'Eliminar',
+      destructive: true,
+    });
+    if (!ok) return;
+    const res = await deleteVehicle(vehicle.id);
+    if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
+    else toast.success('Vehículo eliminado');
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <CardContent className="flex flex-col gap-6 pt-6 sm:flex-row sm:items-center">
+        <VehicleSketch color={vehicle.color} className="h-24 w-48 shrink-0 self-center text-muted-foreground sm:self-auto" />
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-xl font-semibold tracking-tight">
+              {vehicle.name}
+              {vehicle.version && <span className="text-muted-foreground"> {vehicle.version}</span>}
+              {vehicle.year && <span className="text-muted-foreground"> · {vehicle.year}</span>}
+            </h2>
+            <Badge variant="secondary">{VEHICLE_STATUS_LABEL[vehicle.status]}</Badge>
+          </div>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Precio {fmtUsd(vehicle.totalPrice)} · Inicial {fmtUsd(vehicle.downPaymentTarget)} · Préstamo{' '}
+            {fmtUsd(vehicle.loanAmount)} en {vehicle.loanMonths} cuotas
+          </p>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Acciones del vehículo" className="self-start">
+              <MoreVertical className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuItem onClick={onEdit}>
+              <Pencil className="size-4" /> Editar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={removeVehicle}>
+              <Trash2 className="size-4" /> Eliminar
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </CardContent>
+
+      <CardContent className="grid gap-4 border-t pt-6 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Precio total"
+          value={fmtUsd(vehicle.totalPrice)}
+          icon={<Car className="size-5" />}
+          accent="primary"
+        />
+        <StatCard
+          label="Préstamo"
+          value={fmtUsd(vehicle.loanAmount)}
+          sub={`${fmtUsd(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
+          icon={<Landmark className="size-5" />}
+          accent="sky"
+        />
+        <StatCard
+          label="Cuotas pagadas"
+          value={`${vehicle.totals.installmentsPaid}/${vehicle.totals.installmentsTotal}`}
+          sub={`Saldo del préstamo: ${fmtUsd(outstandingLoan)}`}
+          icon={<CalendarClock className="size-5" />}
+          accent="emerald"
+        />
+        <StatCard
+          label="Pagado hasta ahora"
+          value={fmtUsd(vehicle.totals.paidUsd)}
+          sub={`Pendiente: ${fmtUsd(vehicle.totals.pendingUsd)}`}
+          icon={<Wallet className="size-5" />}
+          accent="amber"
+        />
+      </CardContent>
+
+      <CardContent className="border-t pt-6">
+        <DownPaymentCard
+          vehicle={vehicle}
+          fmtUsd={fmtUsd}
+          pct={pctDown}
+          remaining={remainingDown}
+        />
+      </CardContent>
+
+      <CardContent className="flex flex-col gap-4 border-t pt-6">
+        <div className="flex items-center justify-between">
+          <h3 className="font-medium">Gastos mes a mes</h3>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
+            }
+          >
+            <Plus className="size-4" /> Agregar gasto
+          </Button>
+        </div>
+
+        {pending.length === 0 && history.length === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            Todavía no hay gastos cargados para este vehículo.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {pending.map((g) => (
+              <MonthCard
+                key={`${g.year}-${g.month}`}
+                group={g}
+                vehicle={vehicle}
+                locale={locale}
+                isCurrent={g.month === curMonth && g.year === curYear}
+                fmtUsd={fmtUsd}
+                onAdd={() => setExpenseDialog({ open: true, expense: null, month: g.month, year: g.year })}
+                onEdit={(e) => setExpenseDialog({ open: true, expense: e, month: g.month, year: g.year })}
+              />
+            ))}
+
+            {history.length > 0 && (
+              <Collapsible open={showHistory} onOpenChange={setShowHistory}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
+                    <History className="size-4" />
+                    {showHistory ? 'Ocultar' : 'Ver'} histórico de meses pagados ({history.length})
+                    <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="flex flex-col gap-3 pt-3">
+                  {history.map((g) => (
+                    <MonthCard
+                      key={`${g.year}-${g.month}`}
+                      group={g}
+                      vehicle={vehicle}
+                      locale={locale}
+                      isCurrent={false}
+                      fmtUsd={fmtUsd}
+                      onAdd={() => setExpenseDialog({ open: true, expense: null, month: g.month, year: g.year })}
+                      onEdit={(e) => setExpenseDialog({ open: true, expense: e, month: g.month, year: g.year })}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+          </div>
+        )}
+      </CardContent>
+
+      <VehicleExpenseDialog
+        key={expenseDialog.expense?.id ?? `${expenseDialog.month}-${expenseDialog.year}`}
+        open={expenseDialog.open}
+        vehicleId={vehicle.id}
+        vehicleCurrency={vehicle.currency}
+        localCurrency={localCurrency}
+        month={expenseDialog.month}
+        year={expenseDialog.year}
+        expense={expenseDialog.expense}
+        onOpenChange={(o) => setExpenseDialog((d) => ({ ...d, open: o }))}
+      />
+    </Card>
+  );
+}
+
+function DownPaymentCard({
+  vehicle,
+  fmtUsd,
+  pct,
+  remaining,
+}: {
+  vehicle: VehicleWithExpenses;
+  fmtUsd: (n: number) => string;
+  pct: number;
+  remaining: number;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [amount, setAmount] = useState('');
+
+  function addAmount() {
+    const value = Number(amount);
+    if (!amount || Number.isNaN(value) || value === 0) return;
+    setAmount('');
+    startTransition(async () => {
+      const res = await contributeDownPayment({ id: vehicle.id, amount: value });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo actualizar');
+      else toast.success('Ahorro actualizado');
+    });
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-3', pending && 'opacity-60')}>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="font-medium">Inicial</h3>
+        <div className="flex items-baseline gap-2">
+          <span className="text-lg font-semibold tabular-nums">{fmtUsd(vehicle.downPaymentSaved)}</span>
+          <span className="text-muted-foreground text-sm tabular-nums">
+            de {fmtUsd(vehicle.downPaymentTarget)}
+          </span>
+        </div>
+      </div>
+      <div className="bg-muted h-2.5 w-full overflow-hidden rounded-full">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: vehicle.color }}
+        />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-muted-foreground text-xs tabular-nums">
+          {Math.round(pct)}%{remaining > 0 ? ` · faltan ${fmtUsd(remaining)}` : ' · ¡completo!'}
+        </p>
+        <div className="flex gap-2">
+          <Input
+            inputMode="decimal"
+            placeholder="Monto"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addAmount();
+              }
+            }}
+            className="h-8 w-28 tabular-nums"
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            className="h-8"
+            onClick={addAmount}
+            disabled={pending || amount.trim() === ''}
+          >
+            <Plus className="size-3.5" /> Abonar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MonthCard({
+  group,
+  vehicle,
+  locale,
+  isCurrent,
+  fmtUsd,
+  onAdd,
+  onEdit,
+}: {
+  group: MonthGroup;
+  vehicle: VehicleWithExpenses;
+  locale: string;
+  isCurrent: boolean;
+  fmtUsd: (n: number) => string;
+  onAdd: () => void;
+  onEdit: (e: VehicleExpense) => void;
+}) {
+  const overdue = group.isPast && !group.allPaid;
+
+  return (
+    <div className="rounded-xl border">
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium">{periodLabel(group.month, group.year)}</p>
+          {isCurrent && <Badge>Este mes</Badge>}
+          {overdue && <Badge variant="destructive">Atrasado</Badge>}
+          {!overdue && !isCurrent && group.allPaid && (
+            <Badge variant="secondary">Pagado</Badge>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium tabular-nums">{fmtUsd(group.subtotalUsd)}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground size-7"
+            aria-label="Agregar gasto a este mes"
+            onClick={onAdd}
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+      </div>
+      <ul className="flex flex-col gap-2.5 px-4 py-3">
+        {group.items.map((e) => (
+          <VehicleExpenseRow
+            key={e.id}
+            expense={e}
+            locale={locale}
+            dollarRate={vehicle.dollarRate}
+            onEdit={() => onEdit(e)}
+          />
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function VehicleExpenseRow({
+  expense,
+  locale,
+  dollarRate,
+  onEdit,
+}: {
+  expense: VehicleExpense;
+  locale: string;
+  dollarRate: number;
+  onEdit: () => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const confirm = useConfirm();
+  const fmt = (n: number) => formatMoney(n, expense.currency, locale);
+  const usdEquivalent =
+    expense.currency !== 'USD' && dollarRate > 0 ? expense.amount / dollarRate : null;
+
+  function togglePaid(checked: boolean) {
+    startTransition(async () => {
+      const res = await toggleVehicleExpensePaid({ id: expense.id, paid: checked });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo actualizar');
+    });
+  }
+
+  async function remove() {
+    const ok = await confirm({
+      title: 'Eliminar gasto',
+      description: `Se eliminará "${expense.concept}".`,
+      confirmText: 'Eliminar',
+      destructive: true,
+    });
+    if (!ok) return;
+    startTransition(async () => {
+      const res = await deleteVehicleExpense({ id: expense.id });
+      if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
+      else toast.success('Gasto eliminado');
+    });
+  }
+
+  return (
+    <li className={cn('flex items-center gap-3', pending && 'opacity-60')}>
+      <Checkbox
+        checked={expense.paid}
+        disabled={pending}
+        onCheckedChange={(v) => togglePaid(v === true)}
+        aria-label={expense.paid ? 'Marcar como pendiente' : 'Marcar como pagado'}
+      />
+      <span className="text-muted-foreground flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted">
+        <CategoryIcon name={CATEGORY_ICON_KEY[expense.category] ?? 'tag'} className="size-3.5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={cn('truncate text-sm', expense.paid && 'text-muted-foreground line-through')}>
+          {expense.concept}
+        </p>
+        <p className="text-muted-foreground text-xs">{expense.category}</p>
+      </div>
+      <div className="text-right">
+        <p className="text-sm font-medium tabular-nums">{fmt(expense.amount)}</p>
+        {usdEquivalent !== null && (
+          <p className="text-muted-foreground text-xs tabular-nums">
+            ≈ {formatMoney(usdEquivalent, 'USD', locale)}
+          </p>
+        )}
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground size-7 shrink-0"
+            aria-label="Acciones del gasto"
+            disabled={pending}
+          >
+            <MoreVertical className="size-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="size-4" /> Editar
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={remove}>
+            <Trash2 className="size-4" /> Eliminar
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </li>
+  );
+}
+
+function MonthYearSelect({
+  month,
+  year,
+  onMonthChange,
+  onYearChange,
+}: {
+  month: number;
+  year: number;
+  onMonthChange: (m: number) => void;
+  onYearChange: (y: number) => void;
+}) {
+  const { year: curYear } = nowParts();
+  const years = Array.from({ length: 10 }, (_, i) => curYear - 2 + i);
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-1.5">
+        <Label>Mes</Label>
+        <Select value={String(month)} onValueChange={(v) => onMonthChange(Number(v))}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MONTHS_ES.map((m, i) => (
+              <SelectItem key={m} value={String(i + 1)}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-1.5">
+        <Label>Año</Label>
+        <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map((y) => (
+              <SelectItem key={y} value={String(y)}>
+                {y}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function VehicleExpenseDialog({
+  open,
+  vehicleId,
+  vehicleCurrency,
+  localCurrency,
+  month,
+  year,
+  expense,
+  onOpenChange,
+}: {
+  open: boolean;
+  vehicleId: string;
+  vehicleCurrency: string;
+  localCurrency: string;
+  month: number;
+  year: number;
+  expense: VehicleExpense | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [category, setCategory] = useState(expense?.category ?? 'Otro');
+  const [concept, setConcept] = useState(expense?.concept ?? '');
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
+  const [currency, setCurrency] = useState(expense?.currency ?? localCurrency);
+  const [expMonth, setExpMonth] = useState(expense?.month ?? month);
+  const [expYear, setExpYear] = useState(expense?.year ?? year);
+  const [paid, setPaid] = useState(expense?.paid ?? false);
+
+  const isEdit = expense !== null;
+  const isLoanInstallment = expense?.category === LOAN_INSTALLMENT_CATEGORY;
+
+  function submit() {
+    if (!concept.trim()) {
+      toast.error('Ponle un concepto al gasto');
+      return;
+    }
+    const amountNum = amount === '' ? 0 : Number(amount);
+    if (Number.isNaN(amountNum)) {
+      toast.error('El monto debe ser un número');
+      return;
+    }
+    const payload = {
+      category: category.trim() || 'Otro',
+      concept: concept.trim(),
+      amount: amountNum,
+      currency,
+      month: expMonth,
+      year: expYear,
+      paid,
+    };
+    startTransition(async () => {
+      const res = isEdit
+        ? await updateVehicleExpense({ id: expense.id, ...payload })
+        : await addVehicleExpense({ vehicleId, ...payload });
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo guardar');
+        return;
+      }
+      toast.success(isEdit ? 'Gasto actualizado' : 'Gasto agregado');
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Editar gasto' : 'Nuevo gasto'}</DialogTitle>
+          <DialogDescription>
+            {isLoanInstallment
+              ? 'Esta cuota del préstamo se generó automáticamente; podés ajustar su monto o marcarla como pagada.'
+              : 'Registra un gasto del auto (seguro, patente, mantenimiento, combustible…).'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid gap-1.5">
+            <Label htmlFor="ve-concept">Concepto</Label>
+            <Input
+              id="ve-concept"
+              value={concept}
+              placeholder="Ej. Seguro anual"
+              onChange={(e) => setConcept(e.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="ve-category">Categoría</Label>
+            <Input
+              id="ve-category"
+              list="vehicle-expense-categories"
+              value={category}
+              placeholder="Ej. Seguro"
+              onChange={(e) => setCategory(e.target.value)}
+            />
+            <datalist id="vehicle-expense-categories">
+              {VEHICLE_EXPENSE_CATEGORIES.map((c) => (
+                <option key={c} value={c} />
+              ))}
+            </datalist>
+          </div>
+
+          <div className="grid grid-cols-[1fr_auto] gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ve-amount">Monto</Label>
+              <Input
+                id="ve-amount"
+                inputMode="decimal"
+                value={amount}
+                placeholder="0"
+                onChange={(e) => setAmount(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ve-currency">Moneda</Label>
+              <Select value={currency} onValueChange={setCurrency}>
+                <SelectTrigger id="ve-currency" className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={localCurrency}>{localCurrency}</SelectItem>
+                  {localCurrency !== vehicleCurrency && (
+                    <SelectItem value={vehicleCurrency}>{vehicleCurrency}</SelectItem>
+                  )}
+                  {localCurrency !== 'USD' && vehicleCurrency !== 'USD' && (
+                    <SelectItem value="USD">USD</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <MonthYearSelect
+            month={expMonth}
+            year={expYear}
+            onMonthChange={setExpMonth}
+            onYearChange={setExpYear}
+          />
+
+          <div className="flex items-center gap-2">
+            <Checkbox id="ve-paid" checked={paid} onCheckedChange={(v) => setPaid(v === true)} />
+            <Label htmlFor="ve-paid" className="font-normal">
+              Ya está pagado
+            </Label>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={pending}>
+            {isEdit ? 'Guardar' : 'Agregar gasto'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function VehicleDialog({
+  open,
+  vehicle,
+  localCurrency,
+  defaultDollarRate,
+  onOpenChange,
+}: {
+  open: boolean;
+  vehicle: VehicleWithExpenses | null;
+  localCurrency: string;
+  defaultDollarRate: number;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const { month: curMonth, year: curYear } = nowParts();
+
+  const [name, setName] = useState(vehicle?.name ?? 'VW Tera');
+  const [version, setVersion] = useState(vehicle?.version ?? 'High');
+  const [year, setYear] = useState(vehicle?.year ? String(vehicle.year) : '');
+  const [totalPrice, setTotalPrice] = useState(String(vehicle?.totalPrice ?? 26990));
+  const [downPaymentTarget, setDownPaymentTarget] = useState(
+    String(vehicle?.downPaymentTarget ?? 20000)
+  );
+  const [downPaymentSaved, setDownPaymentSaved] = useState(
+    String(vehicle?.downPaymentSaved ?? 16000)
+  );
+  const [loanAmount, setLoanAmount] = useState(String(vehicle?.loanAmount ?? 6990));
+  const [loanMonths, setLoanMonths] = useState(String(vehicle?.loanMonths ?? 24));
+  const [loanStartMonth, setLoanStartMonth] = useState(vehicle?.loanStartMonth ?? curMonth);
+  const [loanStartYear, setLoanStartYear] = useState(vehicle?.loanStartYear ?? curYear);
+  const [monthlyPayment, setMonthlyPayment] = useState(
+    String(vehicle?.monthlyPayment ?? 291.25)
+  );
+  const [dollarRate, setDollarRate] = useState(
+    vehicle ? String(vehicle.dollarRate) : defaultDollarRate ? String(defaultDollarRate) : ''
+  );
+  const [color, setColor] = useState(vehicle?.color ?? '#2563eb');
+
+  const isEdit = vehicle !== null;
+
+  function submit() {
+    if (!name.trim()) {
+      toast.error('Ponle un nombre al vehículo');
+      return;
+    }
+    const nums = {
+      totalPrice: totalPrice === '' ? 0 : Number(totalPrice),
+      downPaymentTarget: downPaymentTarget === '' ? 0 : Number(downPaymentTarget),
+      downPaymentSaved: downPaymentSaved === '' ? 0 : Number(downPaymentSaved),
+      loanAmount: loanAmount === '' ? 0 : Number(loanAmount),
+      loanMonths: loanMonths === '' ? 0 : Number(loanMonths),
+      monthlyPayment: monthlyPayment === '' ? 0 : Number(monthlyPayment),
+      dollarRate: dollarRate === '' ? 0 : Number(dollarRate),
+    };
+    if (Object.values(nums).some((n) => Number.isNaN(n))) {
+      toast.error('Los montos deben ser números');
+      return;
+    }
+    const payload = {
+      name: name.trim(),
+      version: version.trim() || null,
+      year: year === '' ? null : Number(year),
+      currency: 'USD',
+      color,
+      loanStartMonth,
+      loanStartYear,
+      ...nums,
+    };
+    startTransition(async () => {
+      const res = isEdit
+        ? await updateVehicle({ id: vehicle.id, ...payload })
+        : await createVehicle(payload);
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo guardar');
+        return;
+      }
+      toast.success(isEdit ? 'Vehículo actualizado' : 'Vehículo creado');
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{isEdit ? 'Editar vehículo' : 'Configurar mi auto'}</DialogTitle>
+          <DialogDescription>
+            Precio, inicial y préstamo. Las cuotas se generan solas al crearlo.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid grid-cols-[2fr_1fr_1fr] gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-name">Nombre</Label>
+              <Input id="v-name" value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-version">Versión</Label>
+              <Input id="v-version" value={version} onChange={(e) => setVersion(e.target.value)} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-year">Año</Label>
+              <Input
+                id="v-year"
+                inputMode="numeric"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="v-price">Precio total (USD)</Label>
+            <Input
+              id="v-price"
+              inputMode="decimal"
+              value={totalPrice}
+              onChange={(e) => setTotalPrice(e.target.value)}
+              className="tabular-nums"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-down-target">Inicial objetivo (USD)</Label>
+              <Input
+                id="v-down-target"
+                inputMode="decimal"
+                value={downPaymentTarget}
+                onChange={(e) => setDownPaymentTarget(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-down-saved">Ya ahorrado (USD)</Label>
+              <Input
+                id="v-down-saved"
+                inputMode="decimal"
+                value={downPaymentSaved}
+                onChange={(e) => setDownPaymentSaved(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-loan-amount">Préstamo (USD)</Label>
+              <Input
+                id="v-loan-amount"
+                inputMode="decimal"
+                value={loanAmount}
+                onChange={(e) => setLoanAmount(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-loan-months">Cuotas</Label>
+              <Input
+                id="v-loan-months"
+                inputMode="numeric"
+                value={loanMonths}
+                onChange={(e) => setLoanMonths(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-monthly-payment">Cuota mensual</Label>
+              <Input
+                id="v-monthly-payment"
+                inputMode="decimal"
+                value={monthlyPayment}
+                onChange={(e) => setMonthlyPayment(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+          </div>
+
+          {!isEdit && (
+            <div className="grid gap-1.5">
+              <Label>Primera cuota</Label>
+              <MonthYearSelect
+                month={loanStartMonth}
+                year={loanStartYear}
+                onMonthChange={setLoanStartMonth}
+                onYearChange={setLoanStartYear}
+              />
+            </div>
+          )}
+
+          <div className="flex items-end gap-4">
+            <div className="grid flex-1 gap-1.5">
+              <Label htmlFor="v-dollar-rate">
+                Cotización USD → {localCurrency} (para gastos en {localCurrency})
+              </Label>
+              <Input
+                id="v-dollar-rate"
+                inputMode="decimal"
+                value={dollarRate}
+                onChange={(e) => setDollarRate(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="v-color">Color</Label>
+              <Input
+                id="v-color"
+                type="color"
+                value={color}
+                onChange={(e) => setColor(e.target.value)}
+                className="h-10 w-16 p-1"
+              />
+            </div>
+          </div>
+
+          {!isEdit && Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
+            <p className="text-muted-foreground text-xs">
+              Se van a crear {loanMonths} cuotas de {formatMoney(Number(monthlyPayment) || 0, 'USD')} desde{' '}
+              {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={pending}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={pending}>
+            {isEdit ? 'Guardar' : 'Crear vehículo'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

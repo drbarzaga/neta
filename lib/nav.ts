@@ -10,6 +10,7 @@ import {
   Settings,
   ListTodo,
   Plane,
+  Car,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -28,6 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Ahorros', href: '/ahorros', icon: PiggyBank, addedOn: '2026-07-06' },
   { title: 'Todos', href: '/todos', icon: ListTodo, addedOn: '2026-07-15' },
   { title: 'Viajes', href: '/viajes', icon: Plane, addedOn: '2026-07-15' },
+  { title: 'Auto', href: '/auto', icon: Car, addedOn: '2026-10-17' },
   { title: 'Analítica', href: '/analitica', icon: BarChart3 },
   { title: 'Categorías', href: '/categorias', icon: Tags },
   { title: 'Plantillas', href: '/plantillas', icon: Bookmark },
