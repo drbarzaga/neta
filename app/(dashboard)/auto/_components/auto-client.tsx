@@ -263,9 +263,11 @@ function VehicleSection({
   const otherPending = otherGroups.filter((g) => !(g.isPast && g.allPaid));
   const otherHistory = otherGroups.filter((g) => g.isPast && g.allPaid);
 
+  // Solo gastos que no son cuota del préstamo (ese ya tiene sus propias
+  // tarjetas y su propia tab, separado a propósito del resto).
   const categoryTotals = useMemo<CategoryTotal[]>(() => {
     const byCategory = new Map<string, CategoryTotal>();
-    for (const e of vehicle.expenses) {
+    for (const e of otherExpenses) {
       const usd =
         e.currency === 'USD' ? e.amount : vehicle.dollarRate > 0 ? e.amount / vehicle.dollarRate : e.amount;
       const cur = byCategory.get(e.category) ?? {
@@ -280,12 +282,12 @@ function VehicleSection({
       byCategory.set(e.category, cur);
     }
     return [...byCategory.values()].sort((a, b) => b.totalUsd - a.totalUsd);
-  }, [vehicle.expenses, vehicle.dollarRate]);
+  }, [otherExpenses, vehicle.dollarRate]);
 
   const pctDown = pctOf(vehicle.downPaymentSaved, vehicle.downPaymentTarget);
   const remainingDown = Math.max(0, vehicle.downPaymentTarget - vehicle.downPaymentSaved);
   const remainingInstallments = vehicle.totals.installmentsTotal - vehicle.totals.installmentsPaid;
-  const outstandingLoan = remainingInstallments * vehicle.monthlyPayment;
+  const outstandingLoan = vehicle.totals.loanPendingUsd;
 
   // Confetti cuando el préstamo pasa de "con saldo" a "100% pagado" (ya sea
   // tildando la última cuota a mano o cancelando toda la deuda de una vez).
@@ -390,9 +392,9 @@ function VehicleSection({
           accent="emerald"
         />
         <StatCard
-          label="Pagado hasta ahora"
-          value={fmtUsd(vehicle.totals.paidUsd)}
-          sub={`Pendiente: ${fmtUsd(vehicle.totals.pendingUsd)}`}
+          label="Otros gastos"
+          value={fmtUsd(vehicle.totals.otherPaidUsd + vehicle.totals.otherPendingUsd)}
+          sub={`Pagado: ${fmtUsd(vehicle.totals.otherPaidUsd)} · Pendiente: ${fmtUsd(vehicle.totals.otherPendingUsd)}`}
           icon={<Wallet className="size-5" />}
           accent="amber"
         />
@@ -409,7 +411,10 @@ function VehicleSection({
 
       {categoryTotals.length > 0 && (
         <CardContent className="border-t pt-6">
-          <h3 className="mb-3 font-medium">Gastos por categoría</h3>
+          <h3 className="mb-1 font-medium">Otros gastos por categoría</h3>
+          <p className="text-muted-foreground mb-3 text-xs">
+            Sin contar las cuotas del préstamo, que tienen su propia sección más abajo.
+          </p>
           <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
             {categoryTotals.map((c) => (
               <div key={c.category} className="flex items-center gap-3">

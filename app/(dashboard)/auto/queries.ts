@@ -14,6 +14,10 @@ export interface VehicleTotals {
   paidUsd: number;
   pendingUsd: number;
   totalUsd: number;
+  loanPaidUsd: number;
+  loanPendingUsd: number;
+  otherPaidUsd: number;
+  otherPendingUsd: number;
   installmentsPaid: number;
   installmentsTotal: number;
 }
@@ -64,13 +68,25 @@ export async function getVehicles(
 
     let paidUsd = 0;
     let pendingUsd = 0;
+    let loanPaidUsd = 0;
+    let loanPendingUsd = 0;
+    let otherPaidUsd = 0;
+    let otherPendingUsd = 0;
     let installmentsPaid = 0;
     let installmentsTotal = 0;
     for (const e of expenses) {
       const usd = toUsdAmount(e.amount, e.currency, localCurrency, v.dollarRate);
-      if (e.paid) paidUsd += usd;
-      else pendingUsd += usd;
-      if (e.category === LOAN_INSTALLMENT_CATEGORY) {
+      const isLoan = e.category === LOAN_INSTALLMENT_CATEGORY;
+      if (e.paid) {
+        paidUsd += usd;
+        if (isLoan) loanPaidUsd += usd;
+        else otherPaidUsd += usd;
+      } else {
+        pendingUsd += usd;
+        if (isLoan) loanPendingUsd += usd;
+        else otherPendingUsd += usd;
+      }
+      if (isLoan) {
         installmentsTotal++;
         if (e.paid) installmentsPaid++;
       }
@@ -83,6 +99,10 @@ export async function getVehicles(
         paidUsd,
         pendingUsd,
         totalUsd: paidUsd + pendingUsd,
+        loanPaidUsd,
+        loanPendingUsd,
+        otherPaidUsd,
+        otherPendingUsd,
         installmentsPaid,
         installmentsTotal,
       },
