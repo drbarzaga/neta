@@ -31,6 +31,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -227,13 +228,18 @@ export function TodosClient({
 
   const totalCount = items.length;
   const doneCount = items.filter((t) => t.completedAt).length;
+  const pendingCount = totalCount - doneCount;
+  const donePct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Todos</h1>
-          <p className="text-muted-foreground mt-1 text-base">
+          <p className="eyebrow">Propósitos</p>
+          <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            Todos
+          </h1>
+          <p className="text-muted-foreground mt-2 text-base">
             Propósitos y tareas del año. Arrastra las tarjetas para llevar el
             seguimiento y revisa al cerrar el año qué lograste.
           </p>
@@ -258,10 +264,29 @@ export function TodosClient({
       </div>
 
       {totalCount > 0 && (
-        <p className="text-muted-foreground flex items-center gap-1.5 text-sm">
-          <ListChecks className="size-4" />
-          {doneCount} de {totalCount} tarea(s) completadas en {year}
-        </p>
+        <Card variant="ink">
+          <CardContent className="grid gap-6 sm:grid-cols-3">
+            <div>
+              <p className="text-sm text-(--sb-mute)">Completadas</p>
+              <p className="font-heading mt-1 text-[32px] leading-none font-bold tabular-nums text-white [letter-spacing:-0.025em]">
+                {doneCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-(--sb-mute)">Pendientes</p>
+              <p className="font-heading mt-1 text-[32px] leading-none font-bold tabular-nums text-white [letter-spacing:-0.025em]">
+                {pendingCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-(--sb-mute)">Progreso en {year}</p>
+              <p className="font-heading mt-1 flex items-center gap-2 text-[32px] leading-none font-bold tabular-nums text-(--lime) [letter-spacing:-0.025em]">
+                <ListChecks className="size-6" />
+                {donePct}%
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <DndContext
@@ -351,7 +376,7 @@ function ColumnView({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       {...attributes}
       className={cn(
-        'bg-muted/40 ring-border/60 flex w-72 shrink-0 flex-col gap-3 rounded-xl p-3 ring-1',
+        'bg-secondary/40 border-border flex w-72 shrink-0 flex-col gap-3 rounded-2xl border p-3',
         isDragging && 'relative z-10 shadow-lg'
       )}
     >
@@ -365,21 +390,21 @@ function ColumnView({
           <GripVertical className="size-4" />
         </button>
         <span
-          className="size-2.5 shrink-0 rounded-full"
+          className="ring-background size-3 shrink-0 rounded-full ring-2"
           style={{ backgroundColor: column.color }}
         />
         <span className="min-w-0 flex-1 truncate text-sm font-semibold">
           {column.name}
         </span>
-        <Badge variant="secondary" className="shrink-0 tabular-nums">
+        <Badge variant="neutral" className="shrink-0 tabular-nums">
           {todos.length}
         </Badge>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="text-muted-foreground -mr-1 size-7 shrink-0"
+              size="icon-sm"
+              className="text-muted-foreground -mr-1 shrink-0"
               aria-label="Acciones de la columna"
             >
               <MoreVertical className="size-4" />
@@ -409,7 +434,7 @@ function ColumnView({
           strategy={verticalListSortingStrategy}
         >
           {todos.length === 0 ? (
-            <p className="text-muted-foreground py-4 text-center text-xs">
+            <p className="text-muted-foreground rounded-xl border-[1.5px] border-dashed border-[#C5CBBF] py-4 text-center text-xs">
               Sin tareas. Arrastra una aquí.
             </p>
           ) : (
@@ -452,7 +477,7 @@ function TodoCard({ todo, onEdit }: { todo: Todo; onEdit: () => void }) {
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'bg-card ring-border/60 group flex items-start gap-1.5 rounded-lg p-2.5 ring-1',
+        'bg-card border-border group flex items-start gap-1.5 rounded-xl border p-2.5 shadow-sm transition-shadow hover:shadow-md',
         isDragging && 'relative z-10 shadow-lg'
       )}
     >
@@ -491,8 +516,8 @@ function TodoCard({ todo, onEdit }: { todo: Todo; onEdit: () => void }) {
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            className="text-muted-foreground size-6 shrink-0 opacity-0 group-hover:opacity-100"
+            size="icon-xs"
+            className="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100"
             aria-label="Acciones de la tarea"
           >
             <MoreVertical className="size-3.5" />
