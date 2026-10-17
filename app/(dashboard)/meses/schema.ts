@@ -10,3 +10,7 @@ export const createPeriodSchema = z.object({
 });
 
 export type CreatePeriodInput = z.infer<typeof createPeriodSchema>;
+
+export const createYearSchema = z.object({
+  year: z.number().int().min(2000).max(2100),
+});

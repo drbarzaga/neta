@@ -35,8 +35,10 @@ export function CreatePeriodDialog({
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const now = new Date();
+  const currentYear = now.getFullYear();
+  const yearOptions = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
   const [month, setMonth] = useState(String(now.getMonth() + 1));
-  const [year, setYear] = useState(String(now.getFullYear()));
+  const [year, setYear] = useState(String(currentYear));
   const [income, setIncome] = useState('');
   const [cloneFromId, setCloneFromId] = useState<string>('none');
 
@@ -90,13 +92,19 @@ export function CreatePeriodDialog({
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="year">Año</Label>
-              <Input
-                id="year"
-                inputMode="numeric"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              />
+              <Label>Año</Label>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {yearOptions.map((y) => (
+                    <SelectItem key={y} value={String(y)}>
+                      {y}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid gap-1.5">

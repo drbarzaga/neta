@@ -9,7 +9,7 @@ import { getCountry } from '@/lib/countries';
 import { ensureDefaultCategories } from '@/lib/categories';
 import { periodLabel, nextMonth, monthDiff } from '@/lib/dates';
 import { getOrCreateUserSettings } from '../configuracion/queries';
-import { createPeriodSchema } from './schema';
+import { createPeriodSchema, createYearSchema } from './schema';
 
 async function cloneExpenses(
   userId: string,
@@ -201,6 +201,62 @@ export async function createPeriod(
   revalidatePath('/meses');
   revalidatePath('/');
   return ok({ id: row.id });
+}
+
+/**
+ * Crea de una vez los 12 meses de `year` que todavía no existan, vacíos
+ * (sin clonar conceptos, ingreso en $0). Igual que un mes en blanco, cada
+ * uno arrastra los gastos recurrentes y materializa las cuotas que le
+ * correspondan, en orden de enero a diciembre para que el arrastre
+ * encadene correctamente dentro del año nuevo.
+ */
+export async function createYearPeriods(
+  input: unknown
+): Promise<ActionResult<{ created: number; skipped: number }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = createYearSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { year } = parsed.data;
+
+  const existing = await db
+    .select({ month: period.month })
+    .from(period)
+    .where(and(eq(period.userId, session.userId), eq(period.year, year)));
+  const existingMonths = new Set(existing.map((p) => p.month));
+  if (existingMonths.size === 12) return fail(`Ya existen los 12 meses de ${year}`);
+
+  await ensureDefaultCategories(session.userId);
+  const settings = await getOrCreateUserSettings(session.userId);
+  const localCurrency = getCountry(settings.country).currency;
+  const rate = await getLatestRate(settings.country, settings.arCasa);
+
+  let created = 0;
+  for (let month = 1; month <= 12; month++) {
+    if (existingMonths.has(month)) continue;
+
+    const [row] = await db
+      .insert(period)
+      .values({
+        userId: session.userId,
+        label: periodLabel(month, year),
+        year,
+        month,
+        incomeTotal: 0,
+        localCurrency,
+        dollarRate: rate,
+      })
+      .returning({ id: period.id });
+
+    await addRecurringExpenses(session.userId, row.id);
+    await materializeInstallments(session.userId, row.id, year, month);
+    created++;
+  }
+
+  revalidatePath('/meses');
+  revalidatePath('/');
+  return ok({ created, skipped: existingMonths.size });
 }
 
 export async function duplicatePeriod(

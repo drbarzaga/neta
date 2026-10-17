@@ -42,6 +42,7 @@ import { Money, Pct } from '@/components/money';
 import { useConfirm } from '@/components/confirm-provider';
 import { nextMonth } from '@/lib/dates';
 import { CreatePeriodDialog } from './create-period-dialog';
+import { CreateYearDialog } from './create-year-dialog';
 import { duplicatePeriod, setPeriodStatus, deletePeriod } from '../actions';
 
 interface PeriodCard {
@@ -94,6 +95,7 @@ export function PeriodsClient({
               ))}
             </SelectContent>
           </Select>
+          <CreateYearDialog />
           <CreatePeriodDialog periods={allPeriodLabels} />
         </div>
       </div>
