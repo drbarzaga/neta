@@ -96,5 +96,7 @@ export const contributeDownPaymentSchema = z.object({
   amount: z.number(),
 });
 
+export const payOffLoanSchema = z.object({ id: z.uuid() });
+
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;

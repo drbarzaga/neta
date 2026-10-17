@@ -13,6 +13,7 @@ import {
   deleteVehicleExpenseSchema,
   toggleVehicleExpensePaidSchema,
   contributeDownPaymentSchema,
+  payOffLoanSchema,
   LOAN_INSTALLMENT_CATEGORY,
 } from './schema';
 
@@ -127,6 +128,44 @@ export async function contributeDownPayment(input: unknown): Promise<ActionResul
   await db
     .update(vehicle)
     .set({ downPaymentSaved: Math.max(0, current.saved + amount) })
+    .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)));
+
+  revalidate();
+  return ok();
+}
+
+/**
+ * Cancela el saldo del préstamo: marca todas las cuotas pendientes como
+ * pagadas (por ejemplo, al liquidarlo anticipadamente en un solo pago) y
+ * pasa el vehículo a "pagado".
+ */
+export async function payOffLoan(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = payOffLoanSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id } = parsed.data;
+
+  const [v] = await db
+    .select({ id: vehicle.id })
+    .from(vehicle)
+    .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)));
+  if (!v) return UNAUTHORIZED;
+
+  await db
+    .update(vehicleExpense)
+    .set({ paid: true })
+    .where(
+      and(
+        eq(vehicleExpense.vehicleId, id),
+        eq(vehicleExpense.userId, session.userId),
+        eq(vehicleExpense.category, LOAN_INSTALLMENT_CATEGORY)
+      )
+    );
+  await db
+    .update(vehicle)
+    .set({ status: 'pagado' })
     .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)));
 
   revalidate();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import {
   Plus,
   Pencil,
@@ -12,6 +12,7 @@ import {
   CalendarClock,
   ChevronDown,
   History,
+  PartyPopper,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -45,12 +46,14 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
+import { useAnimations } from '@/components/animations-provider';
 import { CategoryIcon } from '@/components/category-icon';
 import { VehiclePhoto } from '@/components/vehicle-photo';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import { MONTHS_ES, periodLabel } from '@/lib/dates';
+import { fireConfetti } from '@/lib/confetti';
 import type { VehicleExpense } from '@/db';
 import type { VehicleWithExpenses } from '../queries';
 import {
@@ -58,6 +61,7 @@ import {
   updateVehicle,
   deleteVehicle,
   contributeDownPayment,
+  payOffLoan,
   addVehicleExpense,
   updateVehicleExpense,
   toggleVehicleExpensePaid,
@@ -283,6 +287,32 @@ function VehicleSection({
   const remainingInstallments = vehicle.totals.installmentsTotal - vehicle.totals.installmentsPaid;
   const outstandingLoan = remainingInstallments * vehicle.monthlyPayment;
 
+  // Confetti cuando el préstamo pasa de "con saldo" a "100% pagado" (ya sea
+  // tildando la última cuota a mano o cancelando toda la deuda de una vez).
+  // La ref arranca en el valor actual para no festejar de nuevo al recargar
+  // la página con un préstamo que ya estaba saldado.
+  const animations = useAnimations();
+  const fullyPaid = vehicle.totals.installmentsTotal > 0 && remainingInstallments === 0;
+  const wasFullyPaidRef = useRef(fullyPaid);
+  useEffect(() => {
+    if (fullyPaid && !wasFullyPaidRef.current && animations) {
+      fireConfetti();
+      toast.success('¡Préstamo saldado! 🎉');
+    }
+    wasFullyPaidRef.current = fullyPaid;
+  }, [fullyPaid, animations]);
+
+  async function payOffDebt() {
+    const ok = await confirm({
+      title: 'Cancelar deuda del préstamo',
+      description: `Se van a marcar como pagadas las ${remainingInstallments} cuotas restantes (saldo de ${fmtUsd(outstandingLoan)}). Usalo si liquidaste el préstamo de una sola vez.`,
+      confirmText: 'Cancelar deuda',
+    });
+    if (!ok) return;
+    const res = await payOffLoan({ id: vehicle.id });
+    if (!res.ok) toast.error(res.error ?? 'No se pudo actualizar');
+  }
+
   async function removeVehicle() {
     const ok = await confirm({
       title: 'Eliminar vehículo',
@@ -410,26 +440,39 @@ function VehicleSection({
 
           <TabsContent value="cuotas" className="flex flex-col gap-4 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-muted-foreground text-xs">
-                {vehicle.loanMonths > 0
-                  ? `${fmtUsd(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
-                  : 'Este vehículo no tiene un préstamo cargado.'}
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() =>
-                  setExpenseDialog({
-                    open: true,
-                    expense: null,
-                    month: curMonth,
-                    year: curYear,
-                    category: LOAN_INSTALLMENT_CATEGORY,
-                  })
-                }
-              >
-                <Plus className="size-3.5" /> Agregar cuota
-              </Button>
+              {fullyPaid ? (
+                <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  <PartyPopper className="size-4" /> Préstamo saldado
+                </p>
+              ) : (
+                <p className="text-muted-foreground text-xs">
+                  {vehicle.loanMonths > 0
+                    ? `${fmtUsd(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
+                    : 'Este vehículo no tiene un préstamo cargado.'}
+                </p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {remainingInstallments > 0 && (
+                  <Button size="sm" variant="outline" onClick={payOffDebt}>
+                    <PartyPopper className="size-3.5" /> Cancelar deuda
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setExpenseDialog({
+                      open: true,
+                      expense: null,
+                      month: curMonth,
+                      year: curYear,
+                      category: LOAN_INSTALLMENT_CATEGORY,
+                    })
+                  }
+                >
+                  <Plus className="size-3.5" /> Agregar cuota
+                </Button>
+              </div>
             </div>
             <ExpenseMonthList
               pending={loanPending}
