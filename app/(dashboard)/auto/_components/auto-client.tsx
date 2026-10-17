@@ -126,8 +126,10 @@ export function AutoClient({
 
       {vehicles.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-            <VehiclePhoto color="#2563eb" alt="Auto" className="h-28 w-56 text-muted-foreground" />
+          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+            <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
+              <Car className="size-7" />
+            </span>
             <div className="space-y-1">
               <p className="font-medium">Todavía no configuraste tu auto</p>
               <p className="text-muted-foreground max-w-sm text-sm">
