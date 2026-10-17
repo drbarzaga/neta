@@ -68,16 +68,21 @@ export function DollarRate({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-1.5 font-medium tabular-nums">
-          <DollarSign className="size-4 text-emerald-600 dark:text-emerald-400" />
-          <span className="text-muted-foreground hidden sm:inline">USD</span>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 rounded-full border-(--line) font-mono font-semibold tabular-nums"
+        >
+          <DollarSign className="size-4 text-(--forest)" />
+          <span className="text-(--ink-3) hidden sm:inline">USD</span>
           <NumberFlow
             value={rate}
             locales={locale}
             prefix="$ "
             format={{ maximumFractionDigits: 2 }}
+            className="text-(--forest)"
           />
-          <span className="text-muted-foreground hidden sm:inline">{localCurrency}</span>
+          <span className="text-(--ink-3) hidden sm:inline">· {localCurrency}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72">

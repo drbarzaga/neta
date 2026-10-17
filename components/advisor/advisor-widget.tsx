@@ -318,7 +318,7 @@ function VizCard({ viz }: { viz: Viz }) {
   if (viz.kind === 'progress') {
     const pct = Math.max(0, Math.min(100, viz.value));
     const tone =
-      pct > 100 ? 'bg-destructive' : pct >= 85 ? 'bg-amber-500' : 'bg-primary';
+      pct > 100 ? 'bg-destructive' : pct >= 85 ? 'bg-[var(--amber)]' : 'bg-primary';
     return (
       <div className="bg-background w-full max-w-[92%] space-y-1.5 rounded-xl border px-3 py-2.5 shadow-sm">
         <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -368,8 +368,8 @@ const INSIGHT_STYLE: Record<
   AdvisorInsight['level'],
   { icon: typeof CircleCheck; className: string }
 > = {
-  ok: { icon: CircleCheck, className: 'text-emerald-600 dark:text-emerald-400' },
-  warn: { icon: CircleAlert, className: 'text-amber-600 dark:text-amber-400' },
+  ok: { icon: CircleCheck, className: 'text-[var(--forest)]' },
+  warn: { icon: CircleAlert, className: 'text-[var(--amber)]' },
   alert: { icon: TriangleAlert, className: 'text-destructive' },
 };
 
@@ -669,7 +669,7 @@ export function AdvisorWidget() {
                             <Zap className="text-primary size-4 shrink-0" />
                             <span className="min-w-0 flex-1">{actionLabel(a)}</span>
                             {st === 'done' ? (
-                              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--forest)]">
                                 <Check className="size-3.5" /> Hecho
                               </span>
                             ) : st === 'dismissed' ? (

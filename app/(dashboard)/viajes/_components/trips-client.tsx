@@ -53,9 +53,9 @@ import type { TripWithTotals } from '../queries';
 import type { Trip } from '@/db';
 
 const STATUS_BADGE_CLASS: Record<Trip['status'], string> = {
-  planificando: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
-  en_curso: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
-  completado: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  planificando: 'bg-[var(--amber-soft)] text-[var(--amber)]',
+  en_curso: 'bg-[#EEF0EA] text-[var(--ink-2)]',
+  completado: 'bg-[var(--forest-soft)] text-[var(--forest)]',
 };
 
 function formatDate(iso: string, locale: string) {

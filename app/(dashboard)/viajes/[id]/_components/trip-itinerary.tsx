@@ -369,7 +369,7 @@ function ItineraryCard({
             {formatMoney(expense.amount, expense.currency, locale)}
           </span>
           {expense.paid && (
-            <CircleCheck className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+            <CircleCheck className="size-3.5 text-[var(--forest)]" />
           )}
         </div>
       </div>

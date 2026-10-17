@@ -50,21 +50,21 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0"
+              className="rounded-[12px] text-(--sb-ink) hover:bg-(--sb-hover) hover:text-(--sb-ink) data-[state=open]:bg-(--sb-hover) group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:!p-0"
             >
-              <Avatar className="size-8 rounded-lg">
+              <Avatar className="size-8 rounded-full">
                 {user.image ? <AvatarImage src={user.image} alt={user.name} /> : null}
-                <AvatarFallback className="rounded-lg">
+                <AvatarFallback className="rounded-full bg-(--lime) font-semibold text-(--ink)">
                   {initials(user.name)}
                 </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                <span className="truncate font-semibold">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
+                <span className="truncate text-[14px] font-semibold text-white">{user.name}</span>
+                <span className="truncate text-xs text-(--sb-mute)">
                   {user.email}
                 </span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDown className="ml-auto size-4 text-(--sb-mute) group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent

@@ -1,6 +1,6 @@
 'use client';
 
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
+import { Line, LineChart, CartesianGrid, XAxis } from 'recharts';
 import {
   ChartContainer,
   ChartTooltip,
@@ -19,7 +19,7 @@ export interface TrendDatum {
 }
 
 const config: ChartConfig = {
-  ingreso: { label: 'Ingreso', color: 'var(--chart-4)' },
+  ingreso: { label: 'Ingreso', color: 'var(--ink-3)' },
   utilizado: { label: 'Utilizado', color: 'var(--chart-1)' },
 };
 
@@ -43,9 +43,15 @@ export function TrendBar({
 
   return (
     <ChartContainer config={config} className="max-h-[260px] w-full">
-      <BarChart data={data} accessibilityLayer>
-        <CartesianGrid vertical={false} />
-        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+      <LineChart data={data} accessibilityLayer margin={{ top: 12, right: 12, left: 12 }}>
+        <CartesianGrid vertical={false} stroke="var(--line)" />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          tick={{ fontFamily: 'var(--font-geist-mono)', fontSize: 12, fill: 'var(--ink-3)' }}
+        />
         <ChartTooltip
           content={
             <ChartTooltipContent
@@ -63,9 +69,27 @@ export function TrendBar({
           }
         />
         <ChartLegend content={<ChartLegendContent />} />
-        <Bar dataKey="ingreso" fill="var(--color-ingreso)" radius={6} maxBarSize={48} isAnimationActive={animations} animationDuration={550} animationEasing="ease-out" />
-        <Bar dataKey="utilizado" fill="var(--color-utilizado)" radius={6} maxBarSize={48} isAnimationActive={animations} animationDuration={550} animationEasing="ease-out" />
-      </BarChart>
+        <Line
+          dataKey="ingreso"
+          stroke="var(--color-ingreso)"
+          strokeWidth={2}
+          strokeDasharray="4 4"
+          dot={false}
+          isAnimationActive={animations}
+          animationDuration={550}
+          animationEasing="ease-out"
+        />
+        <Line
+          dataKey="utilizado"
+          stroke="var(--color-utilizado)"
+          strokeWidth={3}
+          dot={{ r: 5, fill: 'var(--color-utilizado)', strokeWidth: 0 }}
+          activeDot={{ r: 6 }}
+          isAnimationActive={animations}
+          animationDuration={550}
+          animationEasing="ease-out"
+        />
+      </LineChart>
     </ChartContainer>
   );
 }

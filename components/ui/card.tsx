@@ -1,20 +1,39 @@
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+
+const cardVariants = cva(
+  "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-[16px] py-(--card-spacing) text-sm [--card-spacing:22px] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:16px] *:[img:first-child]:rounded-t-[16px] *:[img:last-child]:rounded-b-[16px]",
+  {
+    variants: {
+      variant: {
+        default: "border border-border bg-card text-card-foreground",
+        forest: "border border-transparent bg-[var(--forest)] text-white",
+        ink: "border border-transparent bg-[var(--sb)] text-white",
+        dashed:
+          "items-center justify-center border-[1.5px] border-dashed border-[#C5CBBF] bg-transparent text-center text-muted-foreground",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  }
+)
 
 function Card({
   className,
   size = "default",
+  variant = "default",
   ...props
-}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> &
+  VariantProps<typeof cardVariants> & { size?: "default" | "sm" }) {
   return (
     <div
       data-slot="card"
       data-size={size}
-      className={cn(
-        "group/card flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl bg-card py-(--card-spacing) text-sm text-card-foreground ring-1 ring-border/60 shadow-sm [--card-spacing:--spacing(6)] has-[>img:first-child]:pt-0 data-[size=sm]:[--card-spacing:--spacing(4)] *:[img:first-child]:rounded-t-xl *:[img:last-child]:rounded-b-xl",
-        className
-      )}
+      data-variant={variant}
+      className={cn(cardVariants({ variant }), className)}
       {...props}
     />
   )
@@ -37,7 +56,7 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-title"
-      className={cn("font-heading text-base font-semibold tracking-tight", className)}
+      className={cn("font-heading text-xl font-bold tracking-tight [letter-spacing:-0.025em]", className)}
       {...props}
     />
   )

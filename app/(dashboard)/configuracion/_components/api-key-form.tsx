@@ -80,7 +80,7 @@ export function ApiKeyForm({ configured }: { configured: boolean }) {
         {configured && !editing ? (
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--forest-soft)] text-[var(--forest)]">
                 <Check className="size-5" />
               </span>
               <div className="space-y-0.5">

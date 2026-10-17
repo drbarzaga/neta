@@ -49,6 +49,7 @@ import { useConfirm } from '@/components/confirm-provider';
 import { useAnimations } from '@/components/animations-provider';
 import { CategoryIcon } from '@/components/category-icon';
 import { VehiclePhoto } from '@/components/vehicle-photo';
+import { InstallmentGrid } from '@/components/installment-grid';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -446,7 +447,7 @@ function VehicleSection({
           <TabsContent value="cuotas" className="flex flex-col gap-4 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               {fullyPaid ? (
-                <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--forest)]">
                   <PartyPopper className="size-4" /> Préstamo saldado
                 </p>
               ) : (
@@ -479,6 +480,7 @@ function VehicleSection({
                 </Button>
               </div>
             </div>
+            <InstallmentGrid paid={loanExpenses.map((e) => e.paid)} />
             <ExpenseMonthList
               pending={loanPending}
               history={loanHistory}

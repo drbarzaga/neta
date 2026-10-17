@@ -11,6 +11,7 @@ import {
   Wallet,
   CreditCard,
   PiggyBank,
+  PieChart,
   RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -52,7 +53,6 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { CategoryIcon } from '@/components/category-icon';
-import { ProgressRing } from '@/components/progress-ring';
 import { periodTotals } from '@/lib/money';
 import { Money, Pct } from '@/components/money';
 import type { Category, Expense, Period, Goal, SavingsAccount } from '@/db';
@@ -372,9 +372,11 @@ export function MonthDetail({
           </Link>
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{period.label}</h1>
+          <h1 className="font-heading text-[32px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            {period.label}
+          </h1>
         </div>
-        <Badge variant={period.status === 'open' ? 'default' : 'secondary'}>
+        <Badge variant={period.status === 'open' ? 'forest' : 'neutral'}>
           {period.status === 'open' ? 'Abierto' : 'Cerrado'}
         </Badge>
         <AddFromTemplateDialog
@@ -416,45 +418,23 @@ export function MonthDetail({
           label="Restante"
           value={<Money animateOnMount value={toDisp(totals.restante)} currency={dispCode} locale={locale} />}
           sub={<Money animateOnMount value={toAlt(totals.restante)} currency={altCode} locale={locale} />}
-          valueClass={overBudget ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}
-          accent={overBudget ? 'rose' : 'emerald'}
+          valueClass={overBudget ? 'text-[var(--coral)]' : undefined}
+          variant="forest"
           icon={<PiggyBank className="size-6" />}
         />
-        <Card className="transition-shadow hover:shadow-md">
-          <CardContent className="flex flex-col items-center justify-center gap-3">
-            <ProgressRing
-              value={pct}
-              size={104}
-              strokeWidth={11}
-              indicatorClassName={cn(
-                overBudget ? 'stroke-destructive' : pct > 90 ? 'stroke-amber-500' : 'stroke-primary'
-              )}
-            >
-              <div className="flex flex-col items-center leading-none">
-                <Pct animateOnMount value={totals.pctUsado} className="text-2xl font-semibold tabular-nums" />
-                <span className="text-muted-foreground mt-1 text-[10px] tracking-wide uppercase">
-                  usado
-                </span>
-              </div>
-            </ProgressRing>
-            <p className="text-muted-foreground text-center text-xs tabular-nums">
-              <Money
-                value={toDisp(totals.pagadoLocal)}
-                currency={dispCode}
-                locale={locale}
-                className="text-emerald-600 dark:text-emerald-400 font-medium"
-              />{' '}
-              pagado ·{' '}
-              <Money
-                value={toDisp(totals.pendienteLocal)}
-                currency={dispCode}
-                locale={locale}
-                className="text-amber-600 dark:text-amber-400 font-medium"
-              />{' '}
-              pend.
-            </p>
-          </CardContent>
-        </Card>
+        <StatCard
+          label="% usado"
+          value={<Pct animateOnMount value={totals.pctUsado} />}
+          sub={
+            <>
+              <Money value={toDisp(totals.pagadoLocal)} currency={dispCode} locale={locale} /> pagado ·{' '}
+              <Money value={toDisp(totals.pendienteLocal)} currency={dispCode} locale={locale} /> pendiente
+            </>
+          }
+          accent="amber"
+          progress={pct}
+          icon={<PieChart className="size-6" />}
+        />
       </div>
 
       {/* Ajustes del mes */}
@@ -685,7 +665,7 @@ function SortableSection({
         style={{ transform: CSS.Transform.toString(transform), transition }}
         {...attributes}
         className={cn(
-          'bg-card ring-border/60 overflow-hidden rounded-xl shadow-sm ring-1',
+          'bg-card overflow-hidden rounded-[16px] border border-border',
           isDragging && 'relative z-10 shadow-lg'
         )}
       >

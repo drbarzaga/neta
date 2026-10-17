@@ -2,21 +2,30 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Wallet } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
-import { NAV_ITEMS, isNewNavItem } from '@/lib/nav';
+import { NAV_ITEMS, isNewNavItem, type NavItem } from '@/lib/nav';
 import { NavUser } from './nav-user';
+
+// Primer ítem de "Herramientas" (el resto de NAV_ITEMS, en orden, es "Mes").
+const TOOLS_START_HREF = '/analitica';
+
+function splitNavGroups(items: NavItem[]) {
+  const idx = items.findIndex((i) => i.href === TOOLS_START_HREF);
+  if (idx === -1) return { month: items, tools: [] as NavItem[] };
+  return { month: items.slice(0, idx), tools: items.slice(idx) };
+}
 
 export function AppSidebar({
   user,
@@ -24,25 +33,25 @@ export function AppSidebar({
   user: { name: string; email: string; image?: string | null };
 }) {
   const pathname = usePathname();
+  const { month, tools } = splitNavGroups(NAV_ITEMS);
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               asChild
-              className="group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+              className="hover:bg-transparent group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
             >
               <Link href="/">
-                <div className="bg-primary text-primary-foreground flex aspect-square size-9 shrink-0 items-center justify-center rounded-full shadow-sm group-data-[collapsible=icon]:size-8">
-                  <Wallet className="size-5 group-data-[collapsible=icon]:size-4" />
+                <div className="flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-[var(--lime)]">
+                  <span className="font-heading text-sm font-bold text-[var(--ink)]">N</span>
                 </div>
                 <div className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate text-base font-semibold">Neta</span>
-                  <span className="text-muted-foreground truncate text-xs">
-                    Gastos mensuales
+                  <span className="font-heading text-[22px] font-bold text-white [letter-spacing:-0.025em]">
+                    Neta
                   </span>
                 </div>
               </Link>
@@ -51,56 +60,74 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {NAV_ITEMS.map((item) => {
-                const active =
-                  item.href === '/'
-                    ? pathname === '/'
-                    : pathname.startsWith(item.href);
-                const isNew = isNewNavItem(item);
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      size="lg"
-                      isActive={active}
-                      className={cn(
-                        'relative gap-3 text-[0.95rem] font-medium [&>svg]:size-5',
-                        // Colapsado: icono arriba, texto debajo, todo centrado.
-                        'group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full',
-                        'group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center',
-                        'group-data-[collapsible=icon]:!gap-1 group-data-[collapsible=icon]:!px-1 group-data-[collapsible=icon]:!py-2.5'
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon />
-                        <span className="group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:text-center group-data-[collapsible=icon]:text-[0.65rem] group-data-[collapsible=icon]:font-medium group-data-[collapsible=icon]:leading-tight group-data-[collapsible=icon]:!overflow-visible group-data-[collapsible=icon]:!whitespace-normal group-data-[collapsible=icon]:break-words">
-                          {item.title}
-                        </span>
-                        {isNew && (
-                          <>
-                            {/* Expandido: pill "Nuevo" a la derecha, centrado */}
-                            <span className="bg-primary/15 text-primary ml-auto rounded-full px-1.5 py-0.5 text-[0.65rem] font-semibold group-data-[collapsible=icon]:hidden">
-                              Nuevo
-                            </span>
-                            {/* Colapsado: puntito sobre el icono */}
-                            <span className="bg-primary ring-sidebar absolute top-1.5 right-3 hidden size-2 rounded-full ring-2 group-data-[collapsible=icon]:block" />
-                          </>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <NavGroup label="Mes" items={month} pathname={pathname} />
+        <NavGroup label="Herramientas" items={tools} pathname={pathname} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />
       </SidebarFooter>
     </Sidebar>
+  );
+}
+
+function NavGroup({
+  label,
+  items,
+  pathname,
+}: {
+  label: string;
+  items: NavItem[];
+  pathname: string;
+}) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel className="px-3 font-mono text-[11px] font-medium tracking-[.08em] text-(--sb-mute) uppercase">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const active =
+              item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+            const isNew = isNewNavItem(item);
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  size="lg"
+                  isActive={active}
+                  className={cn(
+                    'relative h-auto gap-3 rounded-[12px] px-3 py-2.5 text-[15px] text-(--sb-ink) [&>svg]:size-[18px]',
+                    'hover:bg-(--sb-hover) hover:text-(--sb-ink)',
+                    'data-active:bg-(--lime) data-active:font-semibold data-active:text-(--ink) data-active:hover:bg-(--lime) data-active:hover:text-(--ink)',
+                    // Colapsado: icono arriba, texto debajo, todo centrado.
+                    'group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full',
+                    'group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center',
+                    'group-data-[collapsible=icon]:!gap-1 group-data-[collapsible=icon]:!px-1 group-data-[collapsible=icon]:!py-2.5'
+                  )}
+                >
+                  <Link href={item.href}>
+                    <item.icon />
+                    <span className="group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:text-center group-data-[collapsible=icon]:text-[0.65rem] group-data-[collapsible=icon]:font-medium group-data-[collapsible=icon]:leading-tight group-data-[collapsible=icon]:!overflow-visible group-data-[collapsible=icon]:!whitespace-normal group-data-[collapsible=icon]:break-words">
+                      {item.title}
+                    </span>
+                    {isNew && (
+                      <>
+                        {/* Expandido: chip "Nuevo" a la derecha */}
+                        <span className="ml-auto rounded-full bg-[#1F3A2E] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-(--lime) group-data-[collapsible=icon]:hidden">
+                          Nuevo
+                        </span>
+                        {/* Colapsado: puntito sobre el icono */}
+                        <span className="absolute top-1.5 right-3 hidden size-2 rounded-full bg-(--lime) ring-2 ring-sidebar group-data-[collapsible=icon]:block" />
+                      </>
+                    )}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }

@@ -140,7 +140,7 @@ function EmailHint({ status }: { status: EmailStatus }) {
   if (status === 'idle') return null;
   const map = {
     checking: { icon: Loader2, text: 'Comprobando…', cls: 'text-muted-foreground', spin: true },
-    available: { icon: Check, text: 'Disponible', cls: 'text-emerald-600 dark:text-emerald-400', spin: false },
+    available: { icon: Check, text: 'Disponible', cls: 'text-[var(--forest)]', spin: false },
     taken: { icon: CircleAlert, text: 'Este correo ya está en uso', cls: 'text-destructive', spin: false },
     invalid: { icon: CircleAlert, text: 'Correo inválido', cls: 'text-destructive', spin: false },
   }[status];

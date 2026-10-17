@@ -1,18 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, DM_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/providers/providers";
 import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
+const dmSans = DM_Sans({
   subsets: ["latin"],
   variable: "--font-sans",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const bricolage = Bricolage_Grotesque({
   subsets: ["latin"],
+  variable: "--font-heading",
+});
+
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
@@ -29,7 +35,7 @@ export default function RootLayout({
     <html
       lang="es"
       suppressHydrationWarning
-      className={cn("h-full", geistSans.variable, geistMono.variable)}
+      className={cn("h-full", dmSans.variable, bricolage.variable, dmMono.variable)}
     >
       <body className="min-h-full font-sans antialiased">
         <Providers>{children}</Providers>

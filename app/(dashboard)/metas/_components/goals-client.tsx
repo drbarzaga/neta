@@ -98,20 +98,48 @@ export function GoalsClient({
 
   const active = goals.filter((g) => !g.completed);
   const completed = goals.filter((g) => g.completed);
+  const savedTotal = goals.reduce((s, g) => s + g.savedAmount, 0);
+  const targetTotal = goals.reduce((s, g) => s + g.targetAmount, 0);
+  const overallPct = pctOf(savedTotal, targetTotal);
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Metas</h1>
-          <p className="text-muted-foreground mt-1 text-base">
-            Tus objetivos de ahorro: el inicial del auto, la casa, un viaje…
-          </p>
+          <p className="eyebrow">Ahorro</p>
+          <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            Metas
+          </h1>
         </div>
         <Button onClick={() => setDialog({ open: true, goal: null })}>
           <Plus /> Nueva meta
         </Button>
       </div>
+
+      {goals.length > 0 && (
+        <Card variant="ink">
+          <CardContent className="grid gap-6 sm:grid-cols-3">
+            <div>
+              <p className="text-sm text-(--sb-mute)">Ahorrado</p>
+              <p className="font-heading mt-1 text-[32px] leading-none font-bold tabular-nums text-white [letter-spacing:-0.025em]">
+                {formatMoney(savedTotal, localCurrency, locale)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-(--sb-mute)">Objetivo</p>
+              <p className="font-heading mt-1 text-[32px] leading-none font-bold tabular-nums text-white [letter-spacing:-0.025em]">
+                {formatMoney(targetTotal, localCurrency, locale)}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-(--sb-mute)">Avance</p>
+              <p className="font-heading mt-1 text-[32px] leading-none font-bold tabular-nums text-(--lime) [letter-spacing:-0.025em]">
+                {Math.round(overallPct)}%
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {goals.length === 0 ? (
         <Card>
@@ -144,6 +172,17 @@ export function GoalsClient({
                 onEdit={() => setDialog({ open: true, goal: g })}
               />
             ))}
+            <Card
+              variant="dashed"
+              role="button"
+              tabIndex={0}
+              onClick={() => setDialog({ open: true, goal: null })}
+              onKeyDown={(e) => e.key === 'Enter' && setDialog({ open: true, goal: null })}
+              className="min-h-40 cursor-pointer gap-2 hover:border-(--ink-3)"
+            >
+              <Plus className="size-5 text-(--ink-3)" />
+              <p className="text-sm font-medium text-(--ink-2)">Nueva meta</p>
+            </Card>
           </div>
 
           {completed.length > 0 && (
@@ -283,7 +322,7 @@ function GoalCard({
             <span>{Math.round(pct)}%</span>
             {!goal.completed && remaining > 0 && <span>faltan {fmt(remaining)}</span>}
             {goal.completed && (
-              <span className="text-emerald-600 dark:text-emerald-400">
+              <span className="text-[var(--forest)]">
                 ¡Lograda!
               </span>
             )}
@@ -299,7 +338,7 @@ function GoalCard({
               <span
                 className={cn(
                   days < 0 && 'text-destructive',
-                  days >= 0 && days <= 30 && 'text-amber-600 dark:text-amber-400'
+                  days >= 0 && days <= 30 && 'text-[var(--amber)]'
                 )}
               >
                 ·{' '}

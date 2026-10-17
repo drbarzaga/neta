@@ -248,7 +248,7 @@ export function GoalDetail({
           {goal.title}
         </h1>
         {goal.completed && (
-          <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400">
+          <Badge className="bg-[var(--forest-soft)] text-[var(--forest)]">
             Completada
           </Badge>
         )}
@@ -278,7 +278,7 @@ export function GoalDetail({
             size={120}
             strokeWidth={12}
             indicatorClassName={
-              goal.completed ? 'stroke-emerald-500' : 'stroke-primary'
+              goal.completed ? 'stroke-[var(--forest)]' : 'stroke-primary'
             }
           >
             <div className="flex flex-col items-center leading-none">
@@ -297,7 +297,7 @@ export function GoalDetail({
             <Stat
               label="Falta"
               value={fmt(remaining)}
-              className={remaining === 0 ? 'text-emerald-600 dark:text-emerald-400' : undefined}
+              className={remaining === 0 ? 'text-[var(--forest)]' : undefined}
             />
             {goal.targetDate && (
               <Stat
@@ -318,7 +318,7 @@ export function GoalDetail({
                 className={cn(
                   'text-base',
                   days < 0 && 'text-destructive',
-                  days >= 0 && days <= 30 && 'text-amber-600 dark:text-amber-400'
+                  days >= 0 && days <= 30 && 'text-[var(--amber)]'
                 )}
               />
             )}
@@ -353,8 +353,8 @@ export function GoalDetail({
               <Badge
                 className={cn(
                   onTrack
-                    ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                    ? 'bg-[var(--forest-soft)] text-[var(--forest)]'
+                    : 'bg-[var(--amber-soft)] text-[var(--amber)]'
                 )}
               >
                 {onTrack ? 'En camino' : 'Atrasado'}
@@ -372,7 +372,7 @@ export function GoalDetail({
               <Stat
                 label="Estado"
                 value="Objetivo alcanzado"
-                className="text-emerald-600 dark:text-emerald-400"
+                className="text-[var(--forest)]"
               />
             )}
             {perMonth !== null && (
@@ -549,7 +549,7 @@ export function GoalDetail({
                         'text-sm font-medium tabular-nums',
                         c.amount < 0
                           ? 'text-destructive'
-                          : 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-[var(--forest)]'
                       )}
                     >
                       {c.amount < 0 ? '' : '+'}

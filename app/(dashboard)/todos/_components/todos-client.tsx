@@ -478,7 +478,7 @@ function TodoCard({ todo, onEdit }: { todo: Todo; onEdit: () => void }) {
             className={cn(
               'text-muted-foreground mt-1.5 inline-flex items-center gap-1 text-xs',
               !done && days !== null && days < 0 && 'text-destructive',
-              !done && days !== null && days >= 0 && days <= 7 && 'text-amber-600 dark:text-amber-400'
+              !done && days !== null && days >= 0 && days <= 7 && 'text-[var(--amber)]'
             )}
           >
             <CalendarClock className="size-3.5" />

@@ -4,14 +4,15 @@ import { cn } from '@/lib/utils';
 export type StatAccent = 'primary' | 'emerald' | 'amber' | 'sky' | 'rose' | 'violet';
 
 const ACCENTS: Record<StatAccent, string> = {
-  primary: 'bg-primary/10 text-primary',
-  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  amber: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
-  sky: 'bg-sky-500/10 text-sky-600 dark:text-sky-400',
-  rose: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
-  violet: 'bg-violet-500/10 text-violet-600 dark:text-violet-400',
+  primary: 'bg-[var(--forest-soft)] text-[var(--forest)]',
+  emerald: 'bg-[var(--forest-soft)] text-[var(--forest)]',
+  sky: 'bg-[#EEF0EA] text-[var(--ink-2)] dark:bg-[var(--muted)]',
+  amber: 'bg-[var(--amber-soft)] text-[var(--amber)]',
+  rose: 'bg-[var(--coral-soft)] text-[var(--coral)]',
+  violet: 'bg-[var(--coral-soft)] text-[var(--coral)]',
 };
 
+/** Indicador (KPI): etiqueta + ícono arriba, valor grande, subtexto en mono. */
 export function StatCard({
   label,
   value,
@@ -19,6 +20,8 @@ export function StatCard({
   valueClass,
   icon,
   accent = 'primary',
+  variant = 'default',
+  progress,
 }: {
   label: string;
   value: React.ReactNode;
@@ -26,17 +29,24 @@ export function StatCard({
   valueClass?: string;
   icon?: React.ReactNode;
   accent?: StatAccent;
+  /** 'forest' para destacar un indicador clave (ej. "Restante") con fondo sólido. */
+  variant?: 'default' | 'forest';
+  /** 0-100: si se pasa, dibuja una barra de progreso bajo el valor. */
+  progress?: number;
 }) {
+  const forest = variant === 'forest';
   return (
-    <Card className="transition-shadow hover:shadow-md">
+    <Card variant={forest ? 'forest' : 'default'}>
       <CardContent className="flex flex-col gap-4">
         <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-sm font-medium">{label}</p>
+          <p className={cn('text-sm font-medium', forest ? 'text-white/80' : 'text-[var(--ink-2)]')}>
+            {label}
+          </p>
           {icon ? (
             <div
               className={cn(
-                'flex size-11 shrink-0 items-center justify-center rounded-xl',
-                ACCENTS[accent]
+                'flex size-9 shrink-0 items-center justify-center rounded-xl',
+                forest ? 'bg-white/15 text-white' : ACCENTS[accent]
               )}
             >
               {icon}
@@ -44,11 +54,37 @@ export function StatCard({
           ) : null}
         </div>
         <div>
-          <p className={cn('text-3xl font-semibold tracking-tight tabular-nums', valueClass)}>
+          <p
+            className={cn(
+              'font-heading text-[38px] leading-none font-bold tracking-tight tabular-nums [letter-spacing:-0.025em]',
+              forest && 'text-white',
+              valueClass
+            )}
+          >
             {value}
           </p>
+          {progress !== undefined && (
+            <div
+              className={cn(
+                'mt-3 h-2.5 w-full overflow-hidden rounded-full',
+                forest ? 'bg-white/20' : 'bg-[#E6E9E0]'
+              )}
+            >
+              <div
+                className={cn('h-full rounded-full', forest ? 'bg-[var(--lime)]' : 'bg-[var(--forest)]')}
+                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+              />
+            </div>
+          )}
           {sub ? (
-            <p className="text-muted-foreground mt-1 text-sm tabular-nums">{sub}</p>
+            <p
+              className={cn(
+                'mt-2 font-mono text-[13px] tabular-nums',
+                forest ? 'text-white/70' : 'text-[var(--ink-3)]'
+              )}
+            >
+              {sub}
+            </p>
           ) : null}
         </div>
       </CardContent>

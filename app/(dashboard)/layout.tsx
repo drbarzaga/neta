@@ -32,7 +32,7 @@ export default async function DashboardLayout({
       defaultOpen={defaultOpen}
       style={
         {
-          '--sidebar-width': '17rem',
+          '--sidebar-width': '15.5rem',
           '--sidebar-width-icon': '6rem',
         } as React.CSSProperties
       }
@@ -48,7 +48,7 @@ export default async function DashboardLayout({
           <ThemeToggle />
           <HeaderUser user={user} />
         </header>
-        <main className="flex flex-1 flex-col gap-6 p-4 md:p-8">
+        <main className="flex flex-1 flex-col gap-6 px-4 pt-[26px] pb-10 md:px-10 md:pb-12">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </SidebarInset>

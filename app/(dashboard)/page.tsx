@@ -6,9 +6,12 @@ import {
   PieChart,
   PiggyBank,
   Repeat,
+  Clock,
+  Target,
 } from 'lucide-react';
 import { requireSession } from '@/lib/auth-server';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Card,
   CardContent,
@@ -22,16 +25,18 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Money, Pct } from '@/components/money';
-import { CategoryIcon } from '@/components/category-icon';
 import { BrandLogo } from '@/components/brand-logo';
+import { CategoryIcon } from '@/components/category-icon';
 import { detectBrand } from '@/lib/brands';
 import { formatMoney } from '@/lib/money';
 import { getCountry } from '@/lib/countries';
 import { getOrCreateUserSettings } from './configuracion/queries';
 import { getPeriodsWithTotals } from './meses/queries';
 import { getCategories, getExpenses } from './meses/[id]/queries';
+import { getGoals } from './metas/queries';
 import { StatCard } from './_components/stat-card';
-import { CategoryPie, type PieDatum } from './_components/category-pie';
+import { CategoryStack } from './_components/category-stack';
+import type { PieDatum } from './_components/category-pie';
 import { TrendBar, type TrendDatum } from './_components/trend-bar';
 
 export default async function DashboardPage() {
@@ -67,10 +72,17 @@ export default async function DashboardPage() {
   }
 
   const current = periods[0];
-  const [categories, currentExpenses] = await Promise.all([
+  const [categories, currentExpenses, goals] = await Promise.all([
     getCategories(userId),
     getExpenses(userId, current.id),
+    getGoals(userId),
   ]);
+  const activeGoal = goals.find((g) => !g.completed) ?? null;
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
+  const pendientes = currentExpenses
+    .filter((e) => e.status !== 'pagado')
+    .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
+    .slice(0, 6);
 
   // Suscripciones del mes: gastos cuyo concepto coincide con una marca conocida.
   const subscriptions = currentExpenses
@@ -122,8 +134,10 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Resumen</h1>
-          <p className="text-muted-foreground mt-1 text-base">{current.label}</p>
+          <p className="eyebrow">{current.label}</p>
+          <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            Resumen
+          </h1>
         </div>
         <Button variant="outline" size="lg" asChild>
           <Link href={`/meses/${current.id}`}>
@@ -151,8 +165,8 @@ export default async function DashboardPage() {
           label="Restante"
           value={<Money value={toDisp(current.totals.restante, rate)} currency={dispCode} locale={locale} animateOnMount />}
           sub={<Money value={toAlt(current.totals.restante, rate)} currency={altCode} locale={locale} animateOnMount />}
-          valueClass={over ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'}
-          accent={over ? 'rose' : 'emerald'}
+          valueClass={over ? 'text-[var(--coral)]' : undefined}
+          variant="forest"
           icon={<PiggyBank className="size-6" />}
         />
         <StatCard
@@ -160,6 +174,7 @@ export default async function DashboardPage() {
           value={<Pct value={current.totals.pctUsado} animateOnMount />}
           sub={<><Money value={toDisp(current.totals.pagadoLocal, rate)} currency={dispCode} locale={locale} animateOnMount /> pagado</>}
           accent="amber"
+          progress={current.totals.pctUsado}
           icon={<PieChart className="size-6" />}
         />
       </div>
@@ -170,26 +185,7 @@ export default async function DashboardPage() {
             <CardTitle>Gasto por categoría</CardTitle>
           </CardHeader>
           <CardContent>
-            <CategoryPie data={pieData} currency={dispCode} locale={locale} />
-            <div className="mt-4 flex flex-col gap-1">
-              {pieData.map((d) => (
-                <div
-                  key={d.name}
-                  className="hover:bg-muted/50 flex items-center justify-between rounded-lg px-2 py-1.5 text-sm"
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span
-                      className="flex size-7 items-center justify-center rounded-lg"
-                      style={{ backgroundColor: `${d.color}33`, color: d.color }}
-                    >
-                      <CategoryIcon name={d.icon} className="size-4" />
-                    </span>
-                    {d.name}
-                  </span>
-                  <Money value={d.value} currency={dispCode} locale={locale} className="font-semibold tabular-nums" />
-                </div>
-              ))}
-            </div>
+            <CategoryStack data={pieData} currency={dispCode} locale={locale} />
           </CardContent>
         </Card>
 
@@ -253,6 +249,97 @@ export default async function DashboardPage() {
             </TooltipProvider>
           </CardContent>
         </Card>
+      )}
+
+      {(pendientes.length > 0 || activeGoal) && (
+        <div className="grid gap-4 lg:grid-cols-5">
+          {pendientes.length > 0 && (
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="size-5 text-(--ink-3)" /> Pendientes de pagar
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col">
+                {pendientes.map((e) => {
+                  const cat = categoryById.get(e.categoryId);
+                  return (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between gap-3 border-t border-(--line) py-3.5 first:border-t-0"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ backgroundColor: `${cat?.color ?? '#848E87'}26`, color: cat?.color ?? 'var(--ink-3)' }}
+                        >
+                          <CategoryIcon name={cat?.icon} className="size-4" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm">{e.concept}</span>
+                          {e.dueDate && (
+                            <span className="font-mono text-xs text-(--ink-3)">
+                              Vence{' '}
+                              {new Date(`${e.dueDate}T00:00:00`).toLocaleDateString(locale, {
+                                day: '2-digit',
+                                month: 'short',
+                              })}
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2.5">
+                        <Badge variant={e.status === 'vencido' ? 'coral' : 'amber'}>
+                          {e.status === 'vencido' ? 'Vencido' : 'Pendiente'}
+                        </Badge>
+                        <Money
+                          value={toDisp(e.currency === 'USD' ? e.amount * current.dollarRate : e.amount, rate)}
+                          currency={dispCode}
+                          locale={locale}
+                          className="w-20 text-right text-sm font-medium tabular-nums"
+                        />
+                      </span>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeGoal && (
+            <Card variant="ink" className={pendientes.length > 0 ? 'lg:col-span-2' : 'lg:col-span-5'}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Target className="size-5 text-(--lime)" /> Meta activa
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                <p className="text-lg font-semibold text-white">{activeGoal.title}</p>
+                <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/15">
+                  <div
+                    className="h-full rounded-full bg-(--lime)"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, activeGoal.targetAmount > 0 ? (activeGoal.savedAmount / activeGoal.targetAmount) * 100 : 0))}%`,
+                    }}
+                  />
+                </div>
+                <div className="flex items-baseline justify-between font-mono text-sm tabular-nums">
+                  <span className="text-white">
+                    {formatMoney(activeGoal.savedAmount, activeGoal.currency, locale)}
+                  </span>
+                  <span className="text-(--sb-mute)">
+                    de {formatMoney(activeGoal.targetAmount, activeGoal.currency, locale)}
+                  </span>
+                </div>
+                <Button variant="lime" size="sm" className="mt-1 w-fit" asChild>
+                  <Link href="/metas">
+                    Ver metas <ArrowRight />
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );

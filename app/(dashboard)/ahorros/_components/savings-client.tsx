@@ -170,7 +170,7 @@ export function SavingsClient({
   );
 
   const chartConfig: ChartConfig = {
-    total: { label: 'Total ahorrado', color: 'var(--primary)' },
+    total: { label: 'Total ahorrado', color: 'var(--lime)' },
   };
 
   const movementsByAccount = useMemo(() => {
@@ -186,10 +186,10 @@ export function SavingsClient({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Ahorros</h1>
-          <p className="text-muted-foreground mt-1 text-base">
-            Lleva el control de tu plata guardada y cómo evoluciona.
-          </p>
+          <p className="eyebrow">Ahorro</p>
+          <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            Ahorros
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -227,36 +227,37 @@ export function SavingsClient({
         </Card>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Card className="sm:col-span-2 lg:col-span-1">
-              <CardContent className="flex flex-col justify-center gap-1 py-2">
+          <Card variant="forest">
+            <CardContent className="flex flex-col gap-6 lg:flex-row lg:items-center">
+              <div className="flex shrink-0 flex-col gap-1 lg:w-56">
                 <div className="flex items-center gap-2">
-                  <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-xl">
+                  <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white">
                     <Wallet className="size-5" />
                   </span>
-                  <span className="text-muted-foreground text-sm">Total ahorrado</span>
+                  <span className="text-sm text-white/80">Total ahorrado</span>
                 </div>
-                <p className="text-3xl font-semibold tabular-nums">
+                <p className="font-heading text-[38px] leading-none font-bold tabular-nums text-white [letter-spacing:-0.025em]">
                   {money(hidden, totalLocal, localCurrency, locale)}
                 </p>
                 {localCurrency !== 'USD' && (
-                  <p className="text-muted-foreground text-sm tabular-nums">
+                  <p className="font-mono text-sm tabular-nums text-white/70">
                     {money(hidden, totalUsd, 'USD', locale)} · {accounts.length} apartado(s)
                   </p>
                 )}
-              </CardContent>
-            </Card>
+              </div>
 
-            {chartData.length > 1 && (
-              <Card className="sm:col-span-2">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Evolución del ahorro</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ChartContainer config={chartConfig} className="max-h-[200px] w-full">
+              {chartData.length > 1 && (
+                <div className="min-w-0 flex-1">
+                  <ChartContainer config={chartConfig} className="max-h-[180px] w-full">
                     <AreaChart data={chartData} accessibilityLayer>
-                      <CartesianGrid vertical={false} />
-                      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                      <CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" />
+                      <XAxis
+                        dataKey="label"
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tick={{ fontFamily: 'var(--font-geist-mono)', fontSize: 12, fill: 'rgba(255,255,255,.6)' }}
+                      />
                       <YAxis hide domain={[0, 'dataMax']} />
                       <ChartTooltip
                         content={
@@ -272,16 +273,17 @@ export function SavingsClient({
                       <Area
                         dataKey="total"
                         type="monotone"
-                        stroke="var(--primary)"
-                        fill="var(--primary)"
-                        fillOpacity={0.15}
+                        stroke="var(--lime)"
+                        fill="var(--lime)"
+                        fillOpacity={0.18}
+                        strokeWidth={2.5}
                       />
                     </AreaChart>
                   </ChartContainer>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {accounts.map((acc) => (
@@ -402,7 +404,7 @@ function AccountCard({
           <Button
             variant="outline"
             size="sm"
-            className="flex-1 text-emerald-700 dark:text-emerald-400"
+            className="flex-1 text-[var(--forest)]"
             onClick={() => onMovement('deposit')}
           >
             <ArrowDownCircle className="size-4" /> Depositar
@@ -685,7 +687,7 @@ function MovementSheet({
                       className={cn(
                         'flex size-8 shrink-0 items-center justify-center rounded-full',
                         positive
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          ? 'bg-[var(--forest-soft)] text-[var(--forest)]'
                           : 'bg-muted text-muted-foreground'
                       )}
                     >
@@ -702,7 +704,7 @@ function MovementSheet({
                     <span
                       className={cn(
                         'shrink-0 text-sm font-medium tabular-nums',
-                        positive ? 'text-emerald-600 dark:text-emerald-400' : ''
+                        positive && 'text-[var(--forest)]'
                       )}
                     >
                       {hidden ? MASK : `${positive ? '+' : '−'}${formatMoney(Math.abs(m.amount), account.currency, locale)}`}

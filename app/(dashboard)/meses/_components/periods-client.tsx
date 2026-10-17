@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import {
   Card,
   CardContent,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -32,7 +33,6 @@ import {
 import { cn } from '@/lib/utils';
 import { Money, Pct } from '@/components/money';
 import { useConfirm } from '@/components/confirm-provider';
-import { ProgressRing } from '@/components/progress-ring';
 import { CreatePeriodDialog } from './create-period-dialog';
 import { duplicatePeriod, setPeriodStatus, deletePeriod } from '../actions';
 
@@ -56,10 +56,10 @@ export function PeriodsClient({ periods }: { periods: PeriodCard[] }) {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Meses</h1>
-          <p className="text-muted-foreground text-sm">
-            Tus períodos de gastos.
-          </p>
+          <p className="eyebrow">Períodos</p>
+          <h1 className="font-heading mt-1 text-[46px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
+            Meses
+          </h1>
         </div>
         <CreatePeriodDialog periods={periods.map((p) => ({ id: p.id, label: p.label }))} />
       </div>
@@ -101,13 +101,10 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
   }
 
   return (
-    <Card className={cn('relative transition-shadow hover:shadow-md', pending && 'opacity-60')}>
+    <Card className={cn('relative', pending && 'opacity-60')}>
       <CardHeader>
         <div className="flex items-start justify-between">
-          <CardTitle className="flex items-center gap-2.5 text-base">
-            <span className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-xl">
-              <CalendarDays className="size-5" />
-            </span>
+          <CardTitle className="text-base">
             <Link href={`/meses/${period.id}`} className="hover:underline">
               {period.label}
             </Link>
@@ -170,53 +167,45 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <Badge
-          variant={period.status === 'open' ? 'default' : 'secondary'}
-          className="w-fit"
-        >
+        <Badge variant={period.status === 'open' ? 'forest' : 'neutral'} className="w-fit">
           {period.status === 'open' ? 'Abierto' : 'Cerrado'} · {period.count} gastos
         </Badge>
       </CardHeader>
-      <CardContent className="flex items-center gap-4">
-        <div className="flex-1 space-y-3">
-          <div>
-            <p className="text-muted-foreground text-xs">Utilizado</p>
-            <Money
-              value={period.totalLocal}
-              currency={period.localCurrency}
-              locale={period.locale}
-              animateOnMount
-              className="text-2xl font-semibold tabular-nums"
-            />
-          </div>
-          <div>
-            <p className="text-muted-foreground text-xs">Restante</p>
-            <Money
-              value={period.restante}
-              currency={period.localCurrency}
-              locale={period.locale}
-              animateOnMount
-              className={cn(
-                'font-medium tabular-nums',
-                over ? 'text-destructive' : 'text-emerald-600 dark:text-emerald-400'
-              )}
-            />
-          </div>
+      <CardContent className="flex flex-col gap-4">
+        <div>
+          <p className="text-(--ink-2) text-xs">Utilizado</p>
+          <Money
+            value={period.totalLocal}
+            currency={period.localCurrency}
+            locale={period.locale}
+            animateOnMount
+            className="font-heading text-[32px] leading-none font-bold tabular-nums [letter-spacing:-0.025em]"
+          />
         </div>
-        <ProgressRing
-          value={pct}
-          size={80}
-          indicatorClassName={cn(
-            over ? 'stroke-destructive' : pct > 90 ? 'stroke-amber-500' : 'stroke-primary'
-          )}
-        >
+        <div className="flex flex-col gap-1.5">
+          <div className="h-2.5 w-full overflow-hidden rounded-full bg-[#E6E9E0]">
+            <div
+              className={cn('h-full rounded-full', over ? 'bg-(--coral)' : 'bg-(--forest)')}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
           <Pct
             value={period.pctUsado}
             animateOnMount
-            className="text-sm font-semibold tabular-nums"
+            className="font-mono text-xs text-(--ink-3) tabular-nums"
           />
-        </ProgressRing>
+        </div>
       </CardContent>
+      <CardFooter className="flex items-center justify-between border-t border-(--line) pt-(--card-spacing)">
+        <span className="text-(--ink-2) text-xs">Restante</span>
+        <Money
+          value={period.restante}
+          currency={period.localCurrency}
+          locale={period.locale}
+          animateOnMount
+          className={cn('font-mono text-sm font-medium tabular-nums', over && 'text-(--coral)')}
+        />
+      </CardFooter>
     </Card>
   );
 }

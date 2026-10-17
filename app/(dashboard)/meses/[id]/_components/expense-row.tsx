@@ -62,9 +62,9 @@ import {
 } from '../actions';
 
 const STATUS_STYLES: Record<string, string> = {
-  pendiente: 'text-amber-700 dark:text-amber-400',
-  pagado: 'text-emerald-700 dark:text-emerald-400',
-  vencido: 'text-red-700 dark:text-red-400',
+  pendiente: 'text-[var(--amber)]',
+  pagado: 'text-[var(--forest)]',
+  vencido: 'text-[var(--coral)]',
 };
 
 const STATUS_ICONS: Record<string, LucideIcon> = {
