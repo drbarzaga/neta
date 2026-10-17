@@ -1154,6 +1154,9 @@ function VehicleDialog({
   const [color, setColor] = useState(vehicle?.color ?? '#2563eb');
 
   const isEdit = vehicle !== null;
+  // Año modelo: los autos 0km suelen venderse con el año siguiente al
+  // calendario, y el rango no necesita ir más atrás de unas décadas.
+  const vehicleYears = Array.from({ length: curYear + 1 - 1990 + 1 }, (_, i) => curYear + 1 - i);
 
   function submit() {
     if (!name.trim()) {
@@ -1228,13 +1231,22 @@ function VehicleDialog({
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="v-year">Año</Label>
-                <Input
-                  id="v-year"
-                  inputMode="numeric"
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className="tabular-nums"
-                />
+                <Select
+                  value={year || 'none'}
+                  onValueChange={(v) => setYear(v === 'none' ? '' : v)}
+                >
+                  <SelectTrigger id="v-year" className="w-full">
+                    <SelectValue placeholder="Sin definir" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Sin definir</SelectItem>
+                    {vehicleYears.map((y) => (
+                      <SelectItem key={y} value={String(y)}>
+                        {y}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
