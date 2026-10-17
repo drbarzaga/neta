@@ -9,6 +9,7 @@ import {
   CopyPlus,
   Lock,
   LockOpen,
+  Eraser,
   Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useConfirm } from '@/components/confirm-provider';
 import { duplicatePeriod, setPeriodStatus, deletePeriod } from '../../actions';
+import { clearPeriodExpenses } from '../actions';
 
 export function MonthActions({
   periodId,
@@ -36,10 +38,10 @@ export function MonthActions({
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
 
-  function run(
-    fn: () => Promise<{ ok: boolean; error?: string; data?: { id: string } }>,
-    success: string,
-    onOk?: (data?: { id: string }) => void
+  function run<T>(
+    fn: () => Promise<{ ok: boolean; error?: string; data?: T }>,
+    success: string | ((data?: T) => string),
+    onOk?: (data?: T) => void
   ) {
     startTransition(async () => {
       const res = await fn();
@@ -47,7 +49,7 @@ export function MonthActions({
         toast.error(res.error ?? 'Error');
         return;
       }
-      toast.success(success);
+      toast.success(typeof success === 'function' ? success(res.data) : success);
       onOk?.(res.data);
     });
   }
@@ -105,6 +107,27 @@ export function MonthActions({
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={async () => {
+            const ok = await confirm({
+              title: 'Vaciar mes',
+              description: `Se eliminarán todos los gastos de "${label}", dejándolo limpio. El mes y su ingreso quedan como están. Esta acción no se puede deshacer.`,
+              confirmText: 'Vaciar mes',
+              destructive: true,
+            });
+            if (ok)
+              run(
+                () => clearPeriodExpenses(periodId),
+                (data) =>
+                  data && data.count > 0
+                    ? `Se eliminaron ${data.count} gasto(s)`
+                    : 'El mes ya estaba vacío'
+              );
+          }}
+        >
+          <Eraser className="size-4" /> Vaciar mes
+        </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
           onClick={async () => {

@@ -997,6 +997,54 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
   return ok();
 }
 
+/**
+ * Borra todos los gastos del mes y lo deja vacío (el período en sí queda,
+ * con su ingreso y su estado). Revierte antes cualquier aporte automático a
+ * metas o apartados de ahorro que esos gastos hayan generado, igual que
+ * `deleteExpense`.
+ */
+export async function clearPeriodExpenses(
+  periodId: string
+): Promise<ActionResult<{ count: number }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+  if (!(await ownsPeriod(session.userId, periodId))) return UNAUTHORIZED;
+
+  const exps = await db
+    .select({ id: expense.id })
+    .from(expense)
+    .where(and(eq(expense.userId, session.userId), eq(expense.periodId, periodId)));
+  if (exps.length === 0) return ok({ count: 0 });
+  const ids = exps.map((e) => e.id);
+
+  const contribs = await db
+    .select({ goalId: goalContribution.goalId, amount: goalContribution.amount })
+    .from(goalContribution)
+    .where(
+      and(eq(goalContribution.userId, session.userId), inArray(goalContribution.expenseId, ids))
+    );
+  for (const c of contribs) {
+    await adjustGoalSaved(session.userId, c.goalId, -c.amount);
+  }
+
+  const movs = await db
+    .select({ accountId: savingsMovement.accountId, amount: savingsMovement.amount })
+    .from(savingsMovement)
+    .where(
+      and(eq(savingsMovement.userId, session.userId), inArray(savingsMovement.expenseId, ids))
+    );
+  for (const m of movs) {
+    await adjustSavingsBalance(session.userId, m.accountId, -m.amount);
+  }
+
+  await db
+    .delete(expense)
+    .where(and(eq(expense.userId, session.userId), eq(expense.periodId, periodId)));
+
+  revalidate(periodId);
+  return ok({ count: ids.length });
+}
+
 export async function updatePeriodHeader(input: unknown): Promise<ActionResult> {
   const session = await verifySession();
   if (!session) return UNAUTHORIZED;

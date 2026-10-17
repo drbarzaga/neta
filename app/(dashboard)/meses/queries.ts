@@ -1,5 +1,5 @@
 import 'server-only';
-import { db, eq, and, desc, period, expense } from '@/db';
+import { db, eq, and, desc, asc, period, expense } from '@/db';
 import { periodTotals, type PeriodTotals } from '@/lib/money';
 import type { Period } from '@/db';
 
@@ -18,7 +18,9 @@ export async function getPeriodsWithTotals(
     .where(
       year ? and(eq(period.userId, userId), eq(period.year, year)) : eq(period.userId, userId)
     )
-    .orderBy(desc(period.year), desc(period.month));
+    // Filtrado a un año: orden cronológico (enero a diciembre). Sin filtro
+    // (dashboard, analítica): más reciente primero, como esperan esas vistas.
+    .orderBy(desc(period.year), year ? asc(period.month) : desc(period.month));
 
   const allExpenses = await db
     .select({
