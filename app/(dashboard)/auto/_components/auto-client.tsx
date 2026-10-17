@@ -43,6 +43,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
 import { CategoryIcon } from '@/components/category-icon';
 import { VehiclePhoto } from '@/components/vehicle-photo';
@@ -101,6 +102,38 @@ interface CategoryTotal {
 
 /** Categorías de uso frecuente, para accesos rápidos al agregar un gasto. */
 const QUICK_CATEGORIES = ['Seguro', 'Patente', 'Combustible', 'Mantenimiento'] as const;
+
+/** Agrupa gastos por mes/año y calcula su subtotal en USD. */
+function buildMonthGroups(
+  expenses: VehicleExpense[],
+  dollarRate: number,
+  curMonth: number,
+  curYear: number
+): MonthGroup[] {
+  const byKey = new Map<string, VehicleExpense[]>();
+  for (const e of expenses) {
+    const key = `${e.year}-${e.month}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(e);
+  }
+  return [...byKey.entries()]
+    .map(([, items]) => {
+      const [first] = items;
+      const isPast = first.year < curYear || (first.year === curYear && first.month < curMonth);
+      return {
+        month: first.month,
+        year: first.year,
+        items,
+        subtotalUsd: items.reduce(
+          (sum, e) => sum + (e.currency === 'USD' ? e.amount : dollarRate > 0 ? e.amount / dollarRate : e.amount),
+          0
+        ),
+        allPaid: items.every((e) => e.paid),
+        isPast,
+      };
+    })
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
+}
 
 export function AutoClient({
   vehicles,
@@ -197,41 +230,34 @@ function VehicleSection({
     year: number;
     category?: string;
   }>({ open: false, expense: null, ...nowParts() });
-  const [showHistory, setShowHistory] = useState(false);
+  const [showLoanHistory, setShowLoanHistory] = useState(false);
+  const [showOtherHistory, setShowOtherHistory] = useState(false);
 
   const fmtUsd = (n: number) => formatMoney(n, 'USD', locale);
   const { month: curMonth, year: curYear } = nowParts();
 
-  const groups = useMemo<MonthGroup[]>(() => {
-    const byKey = new Map<string, VehicleExpense[]>();
-    for (const e of vehicle.expenses) {
-      const key = `${e.year}-${e.month}`;
-      if (!byKey.has(key)) byKey.set(key, []);
-      byKey.get(key)!.push(e);
-    }
-    return [...byKey.entries()]
-      .map(([, items]) => {
-        const [first] = items;
-        const isPast =
-          first.year < curYear || (first.year === curYear && first.month < curMonth);
-        return {
-          month: first.month,
-          year: first.year,
-          items,
-          subtotalUsd: items.reduce(
-            (sum, e) =>
-              sum + (e.currency === 'USD' ? e.amount : vehicle.dollarRate > 0 ? e.amount / vehicle.dollarRate : e.amount),
-            0
-          ),
-          allPaid: items.every((e) => e.paid),
-          isPast,
-        };
-      })
-      .sort((a, b) => (a.year !== b.year ? a.year - b.year : a.month - b.month));
-  }, [vehicle.expenses, vehicle.dollarRate, curMonth, curYear]);
+  const loanExpenses = useMemo(
+    () => vehicle.expenses.filter((e) => e.category === LOAN_INSTALLMENT_CATEGORY),
+    [vehicle.expenses]
+  );
+  const otherExpenses = useMemo(
+    () => vehicle.expenses.filter((e) => e.category !== LOAN_INSTALLMENT_CATEGORY),
+    [vehicle.expenses]
+  );
 
-  const pending = groups.filter((g) => !(g.isPast && g.allPaid));
-  const history = groups.filter((g) => g.isPast && g.allPaid);
+  const loanGroups = useMemo(
+    () => buildMonthGroups(loanExpenses, vehicle.dollarRate, curMonth, curYear),
+    [loanExpenses, vehicle.dollarRate, curMonth, curYear]
+  );
+  const otherGroups = useMemo(
+    () => buildMonthGroups(otherExpenses, vehicle.dollarRate, curMonth, curYear),
+    [otherExpenses, vehicle.dollarRate, curMonth, curYear]
+  );
+
+  const loanPending = loanGroups.filter((g) => !(g.isPast && g.allPaid));
+  const loanHistory = loanGroups.filter((g) => g.isPast && g.allPaid);
+  const otherPending = otherGroups.filter((g) => !(g.isPast && g.allPaid));
+  const otherHistory = otherGroups.filter((g) => g.isPast && g.allPaid);
 
   const categoryTotals = useMemo<CategoryTotal[]>(() => {
     const byCategory = new Map<string, CategoryTotal>();
@@ -375,85 +401,104 @@ function VehicleSection({
         </CardContent>
       )}
 
-      <CardContent className="flex flex-col gap-4 border-t pt-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h3 className="font-medium">Gastos mes a mes</h3>
-            <p className="text-muted-foreground text-xs">
-              Cuotas del préstamo y cualquier otro gasto del auto: seguro, patente, service,
-              combustible…
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {QUICK_CATEGORIES.map((c) => (
+      <CardContent className="border-t pt-6">
+        <Tabs defaultValue="cuotas">
+          <TabsList>
+            <TabsTrigger value="cuotas">Cuotas del préstamo</TabsTrigger>
+            <TabsTrigger value="gastos">Gastos mes a mes</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="cuotas" className="flex flex-col gap-4 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs">
+                {vehicle.loanMonths > 0
+                  ? `${fmtUsd(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
+                  : 'Este vehículo no tiene un préstamo cargado.'}
+              </p>
               <Button
-                key={c}
                 size="sm"
                 variant="outline"
                 onClick={() =>
-                  setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear, category: c })
+                  setExpenseDialog({
+                    open: true,
+                    expense: null,
+                    month: curMonth,
+                    year: curYear,
+                    category: LOAN_INSTALLMENT_CATEGORY,
+                  })
                 }
               >
-                <Plus className="size-3.5" /> {c}
+                <Plus className="size-3.5" /> Agregar cuota
               </Button>
-            ))}
-            <Button
-              size="sm"
-              onClick={() =>
-                setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
+            </div>
+            <ExpenseMonthList
+              pending={loanPending}
+              history={loanHistory}
+              vehicle={vehicle}
+              locale={locale}
+              curMonth={curMonth}
+              curYear={curYear}
+              fmtUsd={fmtUsd}
+              showHistory={showLoanHistory}
+              onShowHistoryChange={setShowLoanHistory}
+              emptyMessage="Todavía no hay cuotas cargadas para este vehículo."
+              onAddToMonth={(month, year) =>
+                setExpenseDialog({ open: true, expense: null, month, year, category: LOAN_INSTALLMENT_CATEGORY })
               }
-            >
-              <Plus className="size-4" /> Agregar gasto
-            </Button>
-          </div>
-        </div>
+              onEditExpense={(e) =>
+                setExpenseDialog({ open: true, expense: e, month: e.month, year: e.year })
+              }
+            />
+          </TabsContent>
 
-        {pending.length === 0 && history.length === 0 ? (
-          <p className="text-muted-foreground text-sm">
-            Todavía no hay gastos cargados para este vehículo.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {pending.map((g) => (
-              <MonthCard
-                key={`${g.year}-${g.month}`}
-                group={g}
-                vehicle={vehicle}
-                locale={locale}
-                isCurrent={g.month === curMonth && g.year === curYear}
-                fmtUsd={fmtUsd}
-                onAdd={() => setExpenseDialog({ open: true, expense: null, month: g.month, year: g.year })}
-                onEdit={(e) => setExpenseDialog({ open: true, expense: e, month: g.month, year: g.year })}
-              />
-            ))}
-
-            {history.length > 0 && (
-              <Collapsible open={showHistory} onOpenChange={setShowHistory}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
-                    <History className="size-4" />
-                    {showHistory ? 'Ocultar' : 'Ver'} histórico de meses pagados ({history.length})
-                    <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+          <TabsContent value="gastos" className="flex flex-col gap-4 pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-muted-foreground text-xs">
+                Seguro, patente, service, combustible y cualquier otro gasto del auto.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_CATEGORIES.map((c) => (
+                  <Button
+                    key={c}
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear, category: c })
+                    }
+                  >
+                    <Plus className="size-3.5" /> {c}
                   </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="flex flex-col gap-3 pt-3">
-                  {history.map((g) => (
-                    <MonthCard
-                      key={`${g.year}-${g.month}`}
-                      group={g}
-                      vehicle={vehicle}
-                      locale={locale}
-                      isCurrent={false}
-                      fmtUsd={fmtUsd}
-                      onAdd={() => setExpenseDialog({ open: true, expense: null, month: g.month, year: g.year })}
-                      onEdit={(e) => setExpenseDialog({ open: true, expense: e, month: g.month, year: g.year })}
-                    />
-                  ))}
-                </CollapsibleContent>
-              </Collapsible>
-            )}
-          </div>
-        )}
+                ))}
+                <Button
+                  size="sm"
+                  onClick={() =>
+                    setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
+                  }
+                >
+                  <Plus className="size-4" /> Agregar gasto
+                </Button>
+              </div>
+            </div>
+            <ExpenseMonthList
+              pending={otherPending}
+              history={otherHistory}
+              vehicle={vehicle}
+              locale={locale}
+              curMonth={curMonth}
+              curYear={curYear}
+              fmtUsd={fmtUsd}
+              showHistory={showOtherHistory}
+              onShowHistoryChange={setShowOtherHistory}
+              emptyMessage="Todavía no cargaste otros gastos para este vehículo."
+              onAddToMonth={(month, year) =>
+                setExpenseDialog({ open: true, expense: null, month, year })
+              }
+              onEditExpense={(e) =>
+                setExpenseDialog({ open: true, expense: e, month: e.month, year: e.year })
+              }
+            />
+          </TabsContent>
+        </Tabs>
       </CardContent>
 
       <VehicleExpenseDialog
@@ -546,6 +591,81 @@ function DownPaymentCard({
           </Button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ExpenseMonthList({
+  pending,
+  history,
+  vehicle,
+  locale,
+  curMonth,
+  curYear,
+  fmtUsd,
+  showHistory,
+  onShowHistoryChange,
+  emptyMessage,
+  onAddToMonth,
+  onEditExpense,
+}: {
+  pending: MonthGroup[];
+  history: MonthGroup[];
+  vehicle: VehicleWithExpenses;
+  locale: string;
+  curMonth: number;
+  curYear: number;
+  fmtUsd: (n: number) => string;
+  showHistory: boolean;
+  onShowHistoryChange: (open: boolean) => void;
+  emptyMessage: string;
+  onAddToMonth: (month: number, year: number) => void;
+  onEditExpense: (e: VehicleExpense) => void;
+}) {
+  if (pending.length === 0 && history.length === 0) {
+    return <p className="text-muted-foreground text-sm">{emptyMessage}</p>;
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {pending.map((g) => (
+        <MonthCard
+          key={`${g.year}-${g.month}`}
+          group={g}
+          vehicle={vehicle}
+          locale={locale}
+          isCurrent={g.month === curMonth && g.year === curYear}
+          fmtUsd={fmtUsd}
+          onAdd={() => onAddToMonth(g.month, g.year)}
+          onEdit={onEditExpense}
+        />
+      ))}
+
+      {history.length > 0 && (
+        <Collapsible open={showHistory} onOpenChange={onShowHistoryChange}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
+              <History className="size-4" />
+              {showHistory ? 'Ocultar' : 'Ver'} histórico de meses pagados ({history.length})
+              <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="flex flex-col gap-3 pt-3">
+            {history.map((g) => (
+              <MonthCard
+                key={`${g.year}-${g.month}`}
+                group={g}
+                vehicle={vehicle}
+                locale={locale}
+                isCurrent={false}
+                fmtUsd={fmtUsd}
+                onAdd={() => onAddToMonth(g.month, g.year)}
+                onEdit={onEditExpense}
+              />
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }
