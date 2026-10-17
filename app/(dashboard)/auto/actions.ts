@@ -49,6 +49,7 @@ export async function createVehicle(input: unknown): Promise<ActionResult<{ id: 
       loanStartYear: data.loanStartYear,
       monthlyPayment: data.monthlyPayment,
       currency: data.currency,
+      monthlyPaymentCurrency: data.monthlyPaymentCurrency,
       dollarRate: data.dollarRate,
       color: data.color,
     })
@@ -64,7 +65,7 @@ export async function createVehicle(input: unknown): Promise<ActionResult<{ id: 
         category: LOAN_INSTALLMENT_CATEGORY,
         concept: `Cuota ${i + 1}/${data.loanMonths}`,
         amount: data.monthlyPayment,
-        currency: data.currency,
+        currency: data.monthlyPaymentCurrency,
         month,
         year,
         paid: false,

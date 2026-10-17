@@ -36,6 +36,7 @@ export const createVehicleSchema = z.object({
   loanStartYear: z.number().int().min(2000).max(2100).default(2026),
   monthlyPayment: z.number().min(0).default(0),
   currency: currencyEnum.default('USD'),
+  monthlyPaymentCurrency: currencyEnum.default('USD'),
   dollarRate: z.number().min(0).default(0),
   color: z.string().max(20).default('#2563eb'),
 });
@@ -55,6 +56,7 @@ export const updateVehicleSchema = z.object({
   loanStartYear: z.number().int().min(2000).max(2100).optional(),
   monthlyPayment: z.number().min(0).optional(),
   currency: currencyEnum.optional(),
+  monthlyPaymentCurrency: currencyEnum.optional(),
   dollarRate: z.number().min(0).optional(),
   status: vehicleStatusEnum.optional(),
   color: z.string().max(20).optional(),

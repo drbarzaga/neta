@@ -46,6 +46,7 @@ export const vehicle = pgTable('vehicle', {
     .notNull()
     .default(0),
   currency: text().notNull().default('USD'), // ISO-4217 (moneda del precio/préstamo)
+  monthlyPaymentCurrency: text().notNull().default('USD'), // ISO-4217 (moneda de la cuota, puede diferir de `currency`)
   dollarRate: numeric({ precision: 14, scale: 4, mode: 'number' })
     .notNull()
     .default(0), // moneda local por 1 USD, para convertir gastos en moneda local

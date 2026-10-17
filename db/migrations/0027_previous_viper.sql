@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle" ADD COLUMN "monthly_payment_currency" text DEFAULT 'USD' NOT NULL;

@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
 import { useAnimations } from '@/components/animations-provider';
@@ -248,6 +249,9 @@ function VehicleSection({
   // crear/editar el vehículo). Los agregados cross-categoría (otros gastos,
   // totales) siguen en USD porque mezclan monedas distintas por gasto.
   const fmtVehicle = (n: number) => formatMoney(n, vehicle.currency, locale);
+  // Las cuotas del préstamo pueden estar en una moneda distinta a la del
+  // precio/préstamo (ej. préstamo en USD con cuotas fijadas en pesos).
+  const fmtInstallment = (n: number) => formatMoney(n, vehicle.monthlyPaymentCurrency, locale);
   const { month: curMonth, year: curYear } = nowParts();
 
   const loanExpenses = useMemo(
@@ -322,7 +326,7 @@ function VehicleSection({
   async function payOffDebt() {
     const ok = await confirm({
       title: 'Cancelar deuda del préstamo',
-      description: `Se van a marcar como pagadas las ${remainingInstallments} cuotas restantes (saldo de ${fmtVehicle(outstandingLoanNative)}). Usalo si liquidaste el préstamo de una sola vez.`,
+      description: `Se van a marcar como pagadas las ${remainingInstallments} cuotas restantes (saldo de ${fmtInstallment(outstandingLoanNative)}). Usalo si liquidaste el préstamo de una sola vez.`,
       confirmText: 'Cancelar deuda',
     });
     if (!ok) return;
@@ -397,7 +401,7 @@ function VehicleSection({
           label="Préstamo"
           value={fmtVehicle(vehicle.loanAmount)}
           valueClass="text-[28px]"
-          sub={`${fmtVehicle(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
+          sub={`${fmtInstallment(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
           icon={<Landmark className="size-5" />}
           accent="sky"
         />
@@ -405,7 +409,7 @@ function VehicleSection({
           label="Cuotas pagadas"
           value={`${vehicle.totals.installmentsPaid}/${vehicle.totals.installmentsTotal}`}
           valueClass="text-[28px]"
-          sub={`Saldo del préstamo: ${fmtVehicle(outstandingLoanNative)}`}
+          sub={`Saldo del préstamo: ${fmtInstallment(outstandingLoanNative)}`}
           icon={<CalendarClock className="size-5" />}
           accent="emerald"
         />
@@ -471,7 +475,7 @@ function VehicleSection({
               ) : (
                 <p className="text-muted-foreground text-xs">
                   {vehicle.loanMonths > 0
-                    ? `${fmtVehicle(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
+                    ? `${fmtInstallment(vehicle.monthlyPayment)} por mes, ${vehicle.loanMonths} cuotas en total.`
                     : 'Este vehículo no tiene un préstamo cargado.'}
                 </p>
               )}
@@ -506,7 +510,7 @@ function VehicleSection({
               locale={locale}
               curMonth={curMonth}
               curYear={curYear}
-              fmtSubtotal={(g) => fmtVehicle(g.subtotalNative)}
+              fmtSubtotal={(g) => fmtInstallment(g.subtotalNative)}
               showHistory={showLoanHistory}
               onShowHistoryChange={setShowLoanHistory}
               emptyMessage="Todavía no hay cuotas cargadas para este vehículo."
@@ -578,6 +582,11 @@ function VehicleSection({
         vehicleId={vehicle.id}
         vehicleCurrency={vehicle.currency}
         localCurrency={localCurrency}
+        defaultCurrency={
+          expenseDialog.category === LOAN_INSTALLMENT_CATEGORY
+            ? vehicle.monthlyPaymentCurrency
+            : undefined
+        }
         month={expenseDialog.month}
         year={expenseDialog.year}
         defaultCategory={expenseDialog.category}
@@ -941,6 +950,7 @@ function VehicleExpenseDialog({
   vehicleId,
   vehicleCurrency,
   localCurrency,
+  defaultCurrency,
   month,
   year,
   defaultCategory,
@@ -951,6 +961,7 @@ function VehicleExpenseDialog({
   vehicleId: string;
   vehicleCurrency: string;
   localCurrency: string;
+  defaultCurrency?: string;
   month: number;
   year: number;
   defaultCategory?: string;
@@ -961,7 +972,7 @@ function VehicleExpenseDialog({
   const [category, setCategory] = useState(expense?.category ?? defaultCategory ?? 'Otro');
   const [concept, setConcept] = useState(expense?.concept ?? '');
   const [amount, setAmount] = useState(expense ? String(expense.amount) : '');
-  const [currency, setCurrency] = useState(expense?.currency ?? localCurrency);
+  const [currency, setCurrency] = useState(expense?.currency ?? defaultCurrency ?? localCurrency);
   const [expMonth, setExpMonth] = useState(expense?.month ?? month);
   const [expYear, setExpYear] = useState(expense?.year ?? year);
   const [paid, setPaid] = useState(expense?.paid ?? false);
@@ -1134,6 +1145,9 @@ function VehicleDialog({
     String(vehicle?.monthlyPayment ?? 291.25)
   );
   const [currency, setCurrency] = useState(vehicle?.currency ?? 'USD');
+  const [monthlyPaymentCurrency, setMonthlyPaymentCurrency] = useState(
+    vehicle?.monthlyPaymentCurrency ?? 'USD'
+  );
   const [dollarRate, setDollarRate] = useState(
     vehicle ? String(vehicle.dollarRate) : defaultDollarRate ? String(defaultDollarRate) : ''
   );
@@ -1165,6 +1179,7 @@ function VehicleDialog({
       year: year === '' ? null : Number(year),
       imageUrl: imageUrl.trim() || null,
       currency,
+      monthlyPaymentCurrency,
       color,
       loanStartMonth,
       loanStartYear,
@@ -1185,7 +1200,7 @@ function VehicleDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar vehículo' : 'Configurar mi auto'}</DialogTitle>
           <DialogDescription>
@@ -1193,173 +1208,225 @@ function VehicleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4">
-          <div className="grid grid-cols-[2fr_1fr_1fr] gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-name">Nombre</Label>
-              <Input id="v-name" value={name} onChange={(e) => setName(e.target.value)} />
+        <div className="grid gap-6">
+          <div className="grid gap-4">
+            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Datos generales
+            </h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[2fr_1fr_1fr]">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-name">Nombre</Label>
+                <Input id="v-name" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-version">Versión</Label>
+                <Input
+                  id="v-version"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-year">Año</Label>
+                <Input
+                  id="v-year"
+                  inputMode="numeric"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
             </div>
+
             <div className="grid gap-1.5">
-              <Label htmlFor="v-version">Versión</Label>
-              <Input id="v-version" value={version} onChange={(e) => setVersion(e.target.value)} />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-year">Año</Label>
+              <Label htmlFor="v-image">Foto (URL, opcional)</Label>
               <Input
-                id="v-year"
-                inputMode="numeric"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                className="tabular-nums"
+                id="v-image"
+                value={imageUrl}
+                placeholder="https://…"
+                onChange={(e) => setImageUrl(e.target.value)}
               />
+              <p className="text-muted-foreground text-xs">
+                Pegá el link de una foto real del auto. Si la dejás vacía se muestra un boceto
+                genérico.
+              </p>
             </div>
           </div>
 
-          <div className="grid gap-1.5">
-            <Label htmlFor="v-image">Foto (URL, opcional)</Label>
-            <Input
-              id="v-image"
-              value={imageUrl}
-              placeholder="https://…"
-              onChange={(e) => setImageUrl(e.target.value)}
-            />
-            <p className="text-muted-foreground text-xs">
-              Pegá el link de una foto real del auto (por ejemplo, una captura del configurador
-              3D de VW). Si la dejás vacía se muestra un boceto genérico.
+          <Separator />
+
+          <div className="grid gap-4">
+            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Precio e inicial
+            </h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-price">Precio total</Label>
+                <Input
+                  id="v-price"
+                  inputMode="decimal"
+                  value={totalPrice}
+                  onChange={(e) => setTotalPrice(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-currency">Moneda</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger id="v-currency" className="w-full sm:w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    {localCurrency !== 'USD' && (
+                      <SelectItem value={localCurrency}>{localCurrency}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-muted-foreground -mt-2 text-xs">
+              Se aplica al precio y el inicial. El préstamo y los demás gastos pueden tener su
+              propia moneda cada uno.
             </p>
-          </div>
 
-          <div className="grid grid-cols-[1fr_auto] gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-price">Precio total</Label>
-              <Input
-                id="v-price"
-                inputMode="decimal"
-                value={totalPrice}
-                onChange={(e) => setTotalPrice(e.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-currency">Moneda</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="v-currency" className="w-24">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  {localCurrency !== 'USD' && (
-                    <SelectItem value={localCurrency}>{localCurrency}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <p className="text-muted-foreground -mt-2 text-xs">
-            Se aplica al precio, el inicial y el préstamo. Los demás gastos del auto pueden tener
-            su propia moneda cada uno.
-          </p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-down-target">Inicial objetivo ({currency})</Label>
-              <Input
-                id="v-down-target"
-                inputMode="decimal"
-                value={downPaymentTarget}
-                onChange={(e) => setDownPaymentTarget(e.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-down-saved">Ya ahorrado ({currency})</Label>
-              <Input
-                id="v-down-saved"
-                inputMode="decimal"
-                value={downPaymentSaved}
-                onChange={(e) => setDownPaymentSaved(e.target.value)}
-                className="tabular-nums"
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-down-target">Inicial objetivo ({currency})</Label>
+                <Input
+                  id="v-down-target"
+                  inputMode="decimal"
+                  value={downPaymentTarget}
+                  onChange={(e) => setDownPaymentTarget(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-down-saved">Ya ahorrado ({currency})</Label>
+                <Input
+                  id="v-down-saved"
+                  inputMode="decimal"
+                  value={downPaymentSaved}
+                  onChange={(e) => setDownPaymentSaved(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-loan-amount">Préstamo ({currency})</Label>
-              <Input
-                id="v-loan-amount"
-                inputMode="decimal"
-                value={loanAmount}
-                onChange={(e) => setLoanAmount(e.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-loan-months">Cuotas</Label>
-              <Input
-                id="v-loan-months"
-                inputMode="numeric"
-                value={loanMonths}
-                onChange={(e) => setLoanMonths(e.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-monthly-payment">Cuota mensual ({currency})</Label>
-              <Input
-                id="v-monthly-payment"
-                inputMode="decimal"
-                value={monthlyPayment}
-                onChange={(e) => setMonthlyPayment(e.target.value)}
-                className="tabular-nums"
-              />
-            </div>
-          </div>
+          <Separator />
 
-          {!isEdit && (
-            <div className="grid gap-1.5">
-              <Label>Primera cuota</Label>
-              <MonthYearSelect
-                month={loanStartMonth}
-                year={loanStartYear}
-                onMonthChange={setLoanStartMonth}
-                onYearChange={setLoanStartYear}
-              />
+          <div className="grid gap-4">
+            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Préstamo
+            </h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-loan-amount">Préstamo ({currency})</Label>
+                <Input
+                  id="v-loan-amount"
+                  inputMode="decimal"
+                  value={loanAmount}
+                  onChange={(e) => setLoanAmount(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-loan-months">Cantidad de cuotas</Label>
+                <Input
+                  id="v-loan-months"
+                  inputMode="numeric"
+                  value={loanMonths}
+                  onChange={(e) => setLoanMonths(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
             </div>
-          )}
 
-          <div className="flex items-end gap-4">
-            <div className="grid flex-1 gap-1.5">
-              <Label htmlFor="v-dollar-rate">
-                Cotización USD → {localCurrency} (para gastos en {localCurrency})
-              </Label>
-              <Input
-                id="v-dollar-rate"
-                inputMode="decimal"
-                value={dollarRate}
-                onChange={(e) => setDollarRate(e.target.value)}
-                className="tabular-nums"
-              />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-monthly-payment">Cuota mensual</Label>
+                <Input
+                  id="v-monthly-payment"
+                  inputMode="decimal"
+                  value={monthlyPayment}
+                  onChange={(e) => setMonthlyPayment(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-monthly-payment-currency">Moneda de la cuota</Label>
+                <Select value={monthlyPaymentCurrency} onValueChange={setMonthlyPaymentCurrency}>
+                  <SelectTrigger id="v-monthly-payment-currency" className="w-full sm:w-24">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="USD">USD</SelectItem>
+                    {localCurrency !== 'USD' && (
+                      <SelectItem value={localCurrency}>{localCurrency}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="v-color">Color</Label>
-              <Input
-                id="v-color"
-                type="color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-                className="h-10 w-16 p-1"
-              />
-            </div>
-          </div>
-
-          {!isEdit && Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
-            <p className="text-muted-foreground text-xs">
-              Se van a crear {loanMonths} cuotas de{' '}
-              {formatMoney(Number(monthlyPayment) || 0, currency)} desde{' '}
-              {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
+            <p className="text-muted-foreground -mt-2 text-xs">
+              La cuota puede ser en dólares o en {localCurrency}, sin importar la moneda del
+              precio o el préstamo (por ejemplo, un préstamo en USD con cuotas fijadas en{' '}
+              {localCurrency}).
             </p>
-          )}
+
+            {!isEdit && (
+              <div className="grid gap-1.5">
+                <Label>Primera cuota</Label>
+                <MonthYearSelect
+                  month={loanStartMonth}
+                  year={loanStartYear}
+                  onMonthChange={setLoanStartMonth}
+                  onYearChange={setLoanStartYear}
+                />
+              </div>
+            )}
+
+            {!isEdit && Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
+              <p className="text-muted-foreground text-xs">
+                Se van a crear {loanMonths} cuotas de{' '}
+                {formatMoney(Number(monthlyPayment) || 0, monthlyPaymentCurrency)} desde{' '}
+                {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
+              </p>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-4">
+            <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+              Otros ajustes
+            </h3>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-dollar-rate">
+                  Cotización USD → {localCurrency} (para gastos en {localCurrency})
+                </Label>
+                <Input
+                  id="v-dollar-rate"
+                  inputMode="decimal"
+                  value={dollarRate}
+                  onChange={(e) => setDollarRate(e.target.value)}
+                  className="tabular-nums"
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="v-color">Color</Label>
+                <Input
+                  id="v-color"
+                  type="color"
+                  value={color}
+                  onChange={(e) => setColor(e.target.value)}
+                  className="h-10 w-16 p-1"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <DialogFooter>
