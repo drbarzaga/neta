@@ -48,7 +48,22 @@ export const moveTodoSchema = z.object({
   orderedIds: z.array(z.uuid()),
 });
 
+export const createTodoItemSchema = z.object({
+  todoId: z.uuid(),
+  text: z.string().trim().min(1, 'Escribe el ítem').max(200),
+});
+
+export const updateTodoItemSchema = z.object({
+  id: z.uuid(),
+  text: z.string().trim().min(1).max(200).optional(),
+  checked: z.boolean().optional(),
+});
+
+export const deleteTodoItemSchema = z.object({ id: z.uuid() });
+
 export type CreateColumnInput = z.infer<typeof createColumnSchema>;
 export type UpdateColumnInput = z.infer<typeof updateColumnSchema>;
 export type CreateTodoInput = z.infer<typeof createTodoSchema>;
 export type UpdateTodoInput = z.infer<typeof updateTodoSchema>;
+export type CreateTodoItemInput = z.infer<typeof createTodoItemSchema>;
+export type UpdateTodoItemInput = z.infer<typeof updateTodoItemSchema>;

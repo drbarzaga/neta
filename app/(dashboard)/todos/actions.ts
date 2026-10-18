@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, todoColumn, todo } from '@/db';
+import { db, eq, and, todoColumn, todo, todoItem } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import {
@@ -11,6 +11,9 @@ import {
   createTodoSchema,
   updateTodoSchema,
   moveTodoSchema,
+  createTodoItemSchema,
+  updateTodoItemSchema,
+  deleteTodoItemSchema,
 } from './schema';
 
 function revalidate() {
@@ -187,6 +190,81 @@ export async function updateTodo(input: unknown): Promise<ActionResult> {
     .set(fields)
     .where(and(eq(todo.id, id), eq(todo.userId, session.userId)))
     .returning({ id: todo.id });
+  if (result.length === 0) return UNAUTHORIZED;
+
+  revalidate();
+  return ok();
+}
+
+/** Agrega un ítem a la lista de verificación de un todo (ej. una cuota de un plan). */
+export async function addTodoItem(input: unknown): Promise<ActionResult<{ id: string }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = createTodoItemSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const data = parsed.data;
+
+  const [owned] = await db
+    .select({ id: todo.id })
+    .from(todo)
+    .where(and(eq(todo.id, data.todoId), eq(todo.userId, session.userId)));
+  if (!owned) return fail('Tarea no encontrada');
+
+  const existing = await db
+    .select({ sortOrder: todoItem.sortOrder })
+    .from(todoItem)
+    .where(eq(todoItem.todoId, data.todoId));
+  const nextOrder = existing.reduce((m, i) => Math.max(m, i.sortOrder), -1) + 1;
+
+  const [created] = await db
+    .insert(todoItem)
+    .values({
+      userId: session.userId,
+      todoId: data.todoId,
+      text: data.text,
+      sortOrder: nextOrder,
+    })
+    .returning({ id: todoItem.id });
+
+  revalidate();
+  return ok({ id: created.id });
+}
+
+export async function updateTodoItem(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = updateTodoItemSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const { id, ...fields } = parsed.data;
+
+  const result = await db
+    .update(todoItem)
+    .set(fields)
+    .where(and(eq(todoItem.id, id), eq(todoItem.userId, session.userId)))
+    .returning({ id: todoItem.id });
+  if (result.length === 0) return UNAUTHORIZED;
+
+  revalidate();
+  return ok();
+}
+
+export async function deleteTodoItem(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = deleteTodoItemSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+
+  const result = await db
+    .delete(todoItem)
+    .where(and(eq(todoItem.id, parsed.data.id), eq(todoItem.userId, session.userId)))
+    .returning({ id: todoItem.id });
   if (result.length === 0) return UNAUTHORIZED;
 
   revalidate();

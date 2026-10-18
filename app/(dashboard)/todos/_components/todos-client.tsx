@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus,
@@ -62,7 +62,8 @@ import {
 import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { cn } from '@/lib/utils';
-import type { Todo, TodoColumn } from '@/db';
+import type { TodoColumn } from '@/db';
+import type { TodoWithItems } from '../queries';
 import {
   createColumn,
   updateColumn,
@@ -72,6 +73,9 @@ import {
   updateTodo,
   deleteTodo,
   moveTodo,
+  addTodoItem,
+  updateTodoItem,
+  deleteTodoItem,
 } from '../actions';
 
 function daysLeft(iso: string): number {
@@ -93,7 +97,7 @@ export function TodosClient({
   year,
 }: {
   columns: TodoColumn[];
-  todos: Todo[];
+  todos: TodoWithItems[];
   years: number[];
   year: number;
 }) {
@@ -109,7 +113,7 @@ export function TodosClient({
     setCols(columns);
   }
 
-  const [items, setItems] = useState<Todo[]>(todos);
+  const [items, setItems] = useState<TodoWithItems[]>(todos);
   const [prevItems, setPrevItems] = useState(todos);
   if (todos !== prevItems) {
     setPrevItems(todos);
@@ -123,7 +127,7 @@ export function TodosClient({
 
   const [todoDialog, setTodoDialog] = useState<{
     open: boolean;
-    todo: Todo | null;
+    todo: TodoWithItems | null;
     columnId: string;
   }>({ open: false, todo: null, columnId: '' });
 
@@ -132,7 +136,7 @@ export function TodosClient({
   );
 
   const grouped = useMemo(() => {
-    const map = new Map<string, Todo[]>();
+    const map = new Map<string, TodoWithItems[]>();
     for (const c of cols) map.set(c.id, []);
     for (const t of items) {
       if (!map.has(t.columnId)) map.set(t.columnId, []);
@@ -141,7 +145,7 @@ export function TodosClient({
     return map;
   }, [cols, items]);
 
-  function containerOf(list: Todo[], id: string): string | undefined {
+  function containerOf(list: TodoWithItems[], id: string): string | undefined {
     if (id.startsWith('col:')) return id.slice(4);
     if (cols.some((c) => c.id === id)) return id;
     return list.find((t) => t.id === id)?.columnId;
@@ -348,9 +352,9 @@ function ColumnView({
   onDeleteColumn,
 }: {
   column: TodoColumn;
-  todos: Todo[];
+  todos: TodoWithItems[];
   onAddTodo: () => void;
-  onEditTodo: (todo: Todo) => void;
+  onEditTodo: (todo: TodoWithItems) => void;
   onEditColumn: () => void;
   onDeleteColumn: () => void;
 }) {
@@ -452,7 +456,7 @@ function ColumnView({
   );
 }
 
-function TodoCard({ todo, onEdit }: { todo: Todo; onEdit: () => void }) {
+function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void }) {
   const confirm = useConfirm();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: todo.id });
@@ -498,17 +502,27 @@ function TodoCard({ todo, onEdit }: { todo: Todo; onEdit: () => void }) {
         {todo.note && (
           <p className="text-muted-foreground mt-0.5 line-clamp-2 text-xs">{todo.note}</p>
         )}
-        {todo.dueDate && (
-          <span
-            className={cn(
-              'text-muted-foreground mt-1.5 inline-flex items-center gap-1 text-xs',
-              !done && days !== null && days < 0 && 'text-destructive',
-              !done && days !== null && days >= 0 && days <= 7 && 'text-[var(--amber)]'
+        {(todo.dueDate || todo.items.length > 0) && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {todo.dueDate && (
+              <span
+                className={cn(
+                  'text-muted-foreground inline-flex items-center gap-1 text-xs',
+                  !done && days !== null && days < 0 && 'text-destructive',
+                  !done && days !== null && days >= 0 && days <= 7 && 'text-[var(--amber)]'
+                )}
+              >
+                <CalendarClock className="size-3.5" />
+                {formatDueDate(todo.dueDate)}
+              </span>
             )}
-          >
-            <CalendarClock className="size-3.5" />
-            {formatDueDate(todo.dueDate)}
-          </span>
+            {todo.items.length > 0 && (
+              <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
+                <ListChecks className="size-3.5" />
+                {todo.items.filter((i) => i.checked).length}/{todo.items.length}
+              </span>
+            )}
+          </div>
         )}
       </button>
 
@@ -639,7 +653,7 @@ function TodoDialog({
   onOpenChange,
 }: {
   open: boolean;
-  todo: Todo | null;
+  todo: TodoWithItems | null;
   columnId: string;
   year: number;
   onOpenChange: (open: boolean) => void;
@@ -682,7 +696,7 @@ function TodoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar tarea' : 'Nueva tarea'}</DialogTitle>
           <DialogDescription>
@@ -721,6 +735,18 @@ function TodoDialog({
               className="w-full"
             />
           </div>
+
+          {isEdit ? (
+            <div className="grid gap-1.5">
+              <Label>Lista de verificación (opcional)</Label>
+              <TodoItemsEditor todoId={todo.id} initialItems={todo.items} />
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-xs">
+              Vas a poder agregarle una lista de verificación (ej. cuotas, pasos) una
+              vez que la crees.
+            </p>
+          )}
         </div>
 
         <DialogFooter>
@@ -733,5 +759,148 @@ function TodoDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface ItemRow {
+  id: string;
+  text: string;
+  checked: boolean;
+}
+
+/**
+ * Checklist dentro de una tarea (ej. "Noviembre 500", "Diciembre 500 + 2000
+ * Aguinaldo"…). Cada acción pega al servidor al toque, sin esperar al botón
+ * "Guardar" del diálogo, para que tildar un ítem se sienta inmediato.
+ */
+function TodoItemsEditor({
+  todoId,
+  initialItems,
+}: {
+  todoId: string;
+  initialItems: { id: string; text: string; checked: boolean }[];
+}) {
+  const [items, setItems] = useState<ItemRow[]>(
+    initialItems.map((i) => ({ id: i.id, text: i.text, checked: i.checked }))
+  );
+  const [newText, setNewText] = useState('');
+  const [adding, setAdding] = useState(false);
+  // Último texto confirmado por el servidor para cada ítem, para poder
+  // revertir si el usuario deja el campo vacío al salir.
+  const savedText = useRef(new Map(initialItems.map((i) => [i.id, i.text])));
+
+  async function handleAdd() {
+    const text = newText.trim();
+    if (!text || adding) return;
+    setAdding(true);
+    const res = await addTodoItem({ todoId, text });
+    setAdding(false);
+    if (!res.ok || !res.data) {
+      toast.error(res.error ?? 'No se pudo agregar el ítem');
+      return;
+    }
+    savedText.current.set(res.data.id, text);
+    setItems((prev) => [...prev, { id: res.data!.id, text, checked: false }]);
+    setNewText('');
+  }
+
+  async function handleToggle(item: ItemRow) {
+    const checked = !item.checked;
+    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked } : i)));
+    const res = await updateTodoItem({ id: item.id, checked });
+    if (!res.ok) {
+      toast.error(res.error ?? 'No se pudo actualizar');
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked: !checked } : i)));
+    }
+  }
+
+  function handleTextChange(id: string, text: string) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, text } : i)));
+  }
+
+  async function handleTextBlur(item: ItemRow) {
+    const trimmed = item.text.trim();
+    const last = savedText.current.get(item.id) ?? '';
+    if (!trimmed) {
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, text: last } : i)));
+      return;
+    }
+    if (trimmed === last) return;
+    const res = await updateTodoItem({ id: item.id, text: trimmed });
+    if (!res.ok) {
+      toast.error(res.error ?? 'No se pudo guardar');
+      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, text: last } : i)));
+      return;
+    }
+    savedText.current.set(item.id, trimmed);
+  }
+
+  async function handleDelete(item: ItemRow) {
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    const res = await deleteTodoItem({ id: item.id });
+    if (!res.ok) {
+      toast.error(res.error ?? 'No se pudo eliminar');
+      setItems((prev) => [...prev, item]);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {items.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-lg border p-1.5">
+          {items.map((item) => (
+            <div key={item.id} className="group flex items-center gap-2 rounded-md px-1.5 py-1">
+              <Checkbox checked={item.checked} onCheckedChange={() => handleToggle(item)} />
+              <input
+                value={item.text}
+                onChange={(e) => handleTextChange(item.id, e.target.value)}
+                onBlur={() => handleTextBlur(item)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className={cn(
+                  'min-w-0 flex-1 bg-transparent text-sm outline-none',
+                  item.checked && 'text-muted-foreground line-through'
+                )}
+              />
+              <button
+                type="button"
+                onClick={() => handleDelete(item)}
+                aria-label="Eliminar ítem"
+                className="text-muted-foreground/50 hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100"
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <Input
+          value={newText}
+          placeholder="Agregar ítem…"
+          onChange={(e) => setNewText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleAdd();
+            }
+          }}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={handleAdd}
+          disabled={adding || !newText.trim()}
+          aria-label="Agregar ítem"
+        >
+          <Plus className="size-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
