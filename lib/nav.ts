@@ -29,7 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Ahorros', href: '/ahorros', icon: RiSafeLine, addedOn: '2026-07-06' },
   { title: 'Todos', href: '/todos', icon: RiTodoLine, addedOn: '2026-07-15' },
   { title: 'Viajes', href: '/viajes', icon: RiPlaneLine, addedOn: '2026-07-15' },
-  { title: 'Auto', href: '/auto', icon: RiCarLine, addedOn: '2026-10-17' },
+  { title: 'Autos', href: '/auto', icon: RiCarLine, addedOn: '2026-10-17' },
   { title: 'Analítica', href: '/analitica', icon: RiBarChartBoxLine },
   { title: 'Categorías', href: '/categorias', icon: RiPriceTag2Line },
   { title: 'Plantillas', href: '/plantillas', icon: RiBookmarkLine },
