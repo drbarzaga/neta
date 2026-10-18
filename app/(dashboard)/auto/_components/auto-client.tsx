@@ -1240,7 +1240,7 @@ function VehicleDialog({
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar vehículo' : 'Configurar mi auto'}</DialogTitle>
           <DialogDescription>
-            Precio, inicial y préstamo. Las cuotas se generan solas al crearlo.
+            Precio, inicial y financiamiento. Las cuotas se generan solas al crearlo.
           </DialogDescription>
         </DialogHeader>
 
@@ -1329,7 +1329,7 @@ function VehicleDialog({
               </div>
             </div>
             <p className="text-muted-foreground -mt-2 text-xs">
-              Se aplica al precio y el inicial. El préstamo y los demás gastos pueden tener su
+              Se aplica al precio y el inicial. El financiamiento y los demás gastos pueden tener su
               propia moneda cada uno.
             </p>
 
@@ -1359,11 +1359,11 @@ function VehicleDialog({
 
           <div className="mb-6 grid gap-4 break-inside-avoid">
             <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-              Préstamo
+              Financiamiento
             </h3>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
-                <Label htmlFor="v-loan-amount">Préstamo ({currency})</Label>
+                <Label htmlFor="v-loan-amount">Financiamiento ({currency})</Label>
                 <Input
                   id="v-loan-amount"
                   inputMode="decimal"
@@ -1411,9 +1411,7 @@ function VehicleDialog({
               </div>
             </div>
             <p className="text-muted-foreground -mt-2 text-xs">
-              La cuota puede ser en dólares o en {localCurrency}, sin importar la moneda del
-              precio o el préstamo (por ejemplo, un préstamo en USD con cuotas fijadas en{' '}
-              {localCurrency}).
+              Puede tener su propia moneda, distinta a la del precio o el financiamiento.
             </p>
           </div>
 
