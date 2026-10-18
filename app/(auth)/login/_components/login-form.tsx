@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { RiFingerprintLine, RiTimeLine } from '@remixicon/react';
+import { RiFingerprintLine, RiTimeLine, RiLoader4Line } from '@remixicon/react';
 import { authClient } from '@/lib/auth-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -110,19 +110,21 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
       email: values.email,
       password: values.password,
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error(error.message ?? 'No se pudo iniciar sesión');
       return;
     }
+    // Deja el botón en estado de carga: la navegación a "/" puede tardar
+    // unos segundos (carga los datos del resumen) y así no queda sin feedback.
     goHome();
   }
 
   async function onPasskey() {
     setPasskeyLoading(true);
     const { error } = await authClient.signIn.passkey();
-    setPasskeyLoading(false);
     if (error) {
+      setPasskeyLoading(false);
       // Si el usuario cancela el diálogo del navegador no es un fallo: no molestamos.
       if (isCancelledPasskey(error)) return;
       toast.error(translatePasskeyError(error));
@@ -192,6 +194,7 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
           </CardContent>
           <CardFooter className="mt-4 flex flex-col gap-3">
             <Button type="submit" size="lg" className="w-full" disabled={loading}>
+              {loading && <RiLoader4Line className="size-4 animate-spin" />}
               {loading ? 'Ingresando…' : 'Ingresar'}
               {lastUsed('email')}
             </Button>
@@ -210,8 +213,12 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
               onClick={onPasskey}
               disabled={passkeyLoading}
             >
-              <RiFingerprintLine className="size-4" />
-              {passkeyLoading ? 'Esperando…' : 'Ingresar con passkey'}
+              {passkeyLoading ? (
+                <RiLoader4Line className="size-4 animate-spin" />
+              ) : (
+                <RiFingerprintLine className="size-4" />
+              )}
+              {passkeyLoading ? 'Ingresando…' : 'Ingresar con passkey'}
               {lastUsed('passkey')}
             </Button>
 

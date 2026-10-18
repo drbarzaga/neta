@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { RiFingerprintLine } from '@remixicon/react';
+import { RiFingerprintLine, RiLoader4Line } from '@remixicon/react';
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +40,7 @@ export function RegisterForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   // Tras crear la cuenta ofrecemos registrar una passkey antes de entrar.
   const [step, setStep] = useState<'form' | 'passkey'>('form');
   const form = useForm<Values>({
@@ -59,25 +60,28 @@ export function RegisterForm() {
       email: values.email,
       password: values.password,
     });
-    setLoading(false);
     if (error) {
+      setLoading(false);
       toast.error(error.message ?? 'No se pudo crear la cuenta');
       return;
     }
     toast.success('Cuenta creada');
     // La sesión ya quedó iniciada: ofrecemos crear una passkey opcional.
     if (typeof window !== 'undefined' && window.PublicKeyCredential) {
+      setLoading(false);
       setStep('passkey');
       return;
     }
+    // Deja el botón en estado de carga: la navegación a "/" puede tardar
+    // unos segundos (carga los datos del resumen) y así no queda sin feedback.
     goHome();
   }
 
   async function createPasskey() {
     setPasskeyLoading(true);
     const res = await authClient.passkey.addPasskey();
-    setPasskeyLoading(false);
     if (res?.error) {
+      setPasskeyLoading(false);
       const cancelled =
         'code' in res.error && res.error.code === 'ERROR_CEREMONY_ABORTED';
       if (!cancelled)
@@ -85,6 +89,11 @@ export function RegisterForm() {
       return;
     }
     toast.success('Passkey creada');
+    goHome();
+  }
+
+  function skipPasskey() {
+    setSkipping(true);
     goHome();
   }
 
@@ -109,20 +118,25 @@ export function RegisterForm() {
             size="lg"
             className="w-full"
             onClick={createPasskey}
-            disabled={passkeyLoading}
+            disabled={passkeyLoading || skipping}
           >
-            <RiFingerprintLine className="size-4" />
-            {passkeyLoading ? 'Esperando…' : 'Crear passkey'}
+            {passkeyLoading ? (
+              <RiLoader4Line className="size-4 animate-spin" />
+            ) : (
+              <RiFingerprintLine className="size-4" />
+            )}
+            {passkeyLoading ? 'Ingresando…' : 'Crear passkey'}
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="lg"
             className="w-full"
-            onClick={goHome}
-            disabled={passkeyLoading}
+            onClick={skipPasskey}
+            disabled={passkeyLoading || skipping}
           >
-            Ahora no
+            {skipping && <RiLoader4Line className="size-4 animate-spin" />}
+            {skipping ? 'Ingresando…' : 'Ahora no'}
           </Button>
           <p className="text-muted-foreground text-center text-xs">
             Podés agregarla más tarde desde Configuración.
@@ -183,6 +197,7 @@ export function RegisterForm() {
           </CardContent>
           <CardFooter className="mt-4 flex flex-col gap-3">
             <Button type="submit" size="lg" className="w-full" disabled={loading}>
+              {loading && <RiLoader4Line className="size-4 animate-spin" />}
               {loading ? 'Creando…' : 'Crear cuenta'}
             </Button>
             <p className="text-muted-foreground text-center text-sm">
