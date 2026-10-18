@@ -12,6 +12,7 @@ export * from './advisor-message';
 export * from './purchase';
 export * from './savings';
 export * from './savings-movement';
+export * from './salary-deposit';
 export * from './todo-column';
 export * from './todo';
 export * from './todo-item';

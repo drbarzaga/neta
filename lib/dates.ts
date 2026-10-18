@@ -54,3 +54,55 @@ export function daysBetween(start: string, end: string): string[] {
   }
   return days;
 }
+
+/** { year, month, day } de "ahora" en una zona horaria IANA (ej. 'America/Montevideo'). */
+export function nowInTimezone(timeZone: string, date: Date = new Date()): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value ?? 0);
+  return { year: get('year'), month: get('month'), day: get('day') };
+}
+
+/** True si year-month-day (calendario, sin hora) cae sábado o domingo. */
+export function isWeekend(year: number, month: number, day: number): boolean {
+  const dow = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return dow === 0 || dow === 6;
+}
+
+/** Primer día hábil (lunes a viernes) del mes dado. No contempla feriados. */
+export function firstBusinessDay(year: number, month: number): number {
+  let day = 1;
+  while (isWeekend(year, month, day)) day++;
+  return day;
+}
+
+/** Cantidad de días del mes (1-12) dado. */
+export function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/**
+ * Día del mes en que corresponde depositar el sueldo: el primer día hábil, o
+ * un día fijo elegido por el usuario (corrido al día hábil siguiente si cae
+ * en fin de semana). No contempla feriados, solo fines de semana.
+ */
+export function resolveSalaryDepositDay(
+  year: number,
+  month: number,
+  dayMode: 'first_business_day' | 'fixed_day',
+  fixedDay: number
+): number {
+  if (dayMode === 'first_business_day') return firstBusinessDay(year, month);
+  const lastDay = daysInMonth(year, month);
+  let day = Math.min(Math.max(1, fixedDay), lastDay);
+  while (isWeekend(year, month, day) && day < lastDay) day++;
+  return day;
+}

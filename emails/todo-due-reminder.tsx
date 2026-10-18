@@ -18,6 +18,8 @@ export function TodoDueReminderEmail({
     <EmailLayout
       preview={`Tienes ${items.length} tarea(s) por vencer`}
       heading="Tareas por vencer"
+      eyebrow="Recordatorio"
+      showPreferencesLink
     >
       <Text style={text}>
         Hola{name ? ` ${name}` : ''}, estas tareas de tu tablero de Todos están

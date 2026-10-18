@@ -5,8 +5,10 @@ import {
   eq,
   emailPreference,
   userSettings,
+  salaryDeposit,
   type EmailPreference,
   type UserSettings,
+  type SalaryDeposit,
 } from '@/db';
 import { decryptSecret } from '@/lib/crypto';
 
@@ -43,6 +45,23 @@ export const getOrCreateUserSettings = cache(async function (
 
   const [created] = await db
     .insert(userSettings)
+    .values({ userId })
+    .returning();
+  return created;
+});
+
+/** Config de depósito automático del sueldo, creándola por defecto si falta. */
+export const getOrCreateSalaryDeposit = cache(async function (
+  userId: string
+): Promise<SalaryDeposit> {
+  const [existing] = await db
+    .select()
+    .from(salaryDeposit)
+    .where(eq(salaryDeposit.userId, userId));
+  if (existing) return existing;
+
+  const [created] = await db
+    .insert(salaryDeposit)
     .values({ userId })
     .returning();
   return created;

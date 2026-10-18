@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/cron/refresh-rate", "schedule": "0 11 * * *" },
+    { "path": "/api/cron/salary-deposit", "schedule": "0 8 * * *" },
     { "path": "/api/cron/due-reminders", "schedule": "0 12 * * *" },
     { "path": "/api/cron/todo-due-reminders", "schedule": "30 12 * * *" },
     { "path": "/api/cron/budget-alert", "schedule": "0 13 * * *" },

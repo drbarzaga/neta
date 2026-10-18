@@ -14,9 +14,14 @@ import {
   category,
   emailPreference,
   todo,
+  salaryDeposit,
+  savingsAccount,
+  savingsMovement,
+  userSettings,
 } from '@/db';
 import { periodTotals, formatUSD, formatMoney } from '@/lib/money';
-import { todayISO } from '@/lib/dates';
+import { todayISO, nowInTimezone, resolveSalaryDepositDay } from '@/lib/dates';
+import { getCountry } from '@/lib/countries';
 import { sendEmail } from '@/lib/email';
 import { DueReminderEmail, type DueItem } from '@/emails/due-reminder';
 import { MonthlySummaryEmail } from '@/emails/monthly-summary';
@@ -292,4 +297,71 @@ export async function runBudgetAlerts(): Promise<{ sent: number }> {
   }
 
   return { sent };
+}
+
+const SALARY_DEPOSIT_NOTE = 'Depósito de sueldo (automático)';
+
+/**
+ * Deposita el sueldo configurado en el apartado elegido, el día que
+ * corresponda (según la zona horaria del país de cada usuario), una sola vez
+ * por mes. Pensado para un cron diario (no hay forma de elegir una hora
+ * exacta en el plan de hosting actual).
+ */
+export async function runSalaryDeposits(): Promise<{ deposited: number }> {
+  const rows = await db
+    .select({
+      id: salaryDeposit.id,
+      userId: salaryDeposit.userId,
+      accountId: salaryDeposit.accountId,
+      amount: salaryDeposit.amount,
+      dayMode: salaryDeposit.dayMode,
+      fixedDay: salaryDeposit.fixedDay,
+      lastRunYear: salaryDeposit.lastRunYear,
+      lastRunMonth: salaryDeposit.lastRunMonth,
+      country: userSettings.country,
+      accountBalance: savingsAccount.balance,
+      accountUserId: savingsAccount.userId,
+    })
+    .from(salaryDeposit)
+    .innerJoin(userSettings, eq(userSettings.userId, salaryDeposit.userId))
+    .leftJoin(savingsAccount, eq(savingsAccount.id, salaryDeposit.accountId))
+    .where(eq(salaryDeposit.enabled, true));
+
+  let deposited = 0;
+
+  for (const row of rows) {
+    // Apartado borrado, o (por las dudas) de otro usuario: nada que depositar.
+    if (!row.accountId || row.accountBalance === null || row.accountUserId !== row.userId) {
+      continue;
+    }
+    if (row.amount <= 0) continue;
+
+    const timezone = getCountry(row.country).timezone;
+    const { year, month, day } = nowInTimezone(timezone);
+    const targetDay = resolveSalaryDepositDay(year, month, row.dayMode, row.fixedDay);
+    if (day !== targetDay) continue;
+    if (row.lastRunYear === year && row.lastRunMonth === month) continue; // ya corrió este mes
+
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    await db.insert(savingsMovement).values({
+      userId: row.userId,
+      accountId: row.accountId,
+      amount: row.amount,
+      note: SALARY_DEPOSIT_NOTE,
+      date,
+    });
+    await db
+      .update(savingsAccount)
+      .set({ balance: row.accountBalance + row.amount })
+      .where(eq(savingsAccount.id, row.accountId));
+    await db
+      .update(salaryDeposit)
+      .set({ lastRunYear: year, lastRunMonth: month, lastRunAt: new Date() })
+      .where(eq(salaryDeposit.id, row.id));
+
+    deposited++;
+  }
+
+  return { deposited };
 }

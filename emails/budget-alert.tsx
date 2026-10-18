@@ -1,5 +1,5 @@
 import { Text } from '@react-email/components';
-import { EmailLayout } from './_components';
+import { EmailLayout, ALERT_COLOR } from './_components';
 
 export function BudgetAlertEmail({
   name,
@@ -19,7 +19,10 @@ export function BudgetAlertEmail({
   return (
     <EmailLayout
       preview={`Alerta de presupuesto: ${pctLabel} usado en ${periodLabel}`}
-      heading="⚠️ Alerta de presupuesto"
+      heading="Alerta de presupuesto"
+      eyebrow="Alerta"
+      accentColor={ALERT_COLOR}
+      showPreferencesLink
     >
       <Text style={text}>
         Hola{name ? ` ${name}` : ''}, ya usaste <strong>{pctLabel}</strong> de tu

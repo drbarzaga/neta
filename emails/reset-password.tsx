@@ -6,6 +6,7 @@ export function ResetPasswordEmail({ url, name }: { url: string; name?: string }
     <EmailLayout
       preview="Restablece tu contraseña de Neta"
       heading="Restablece tu contraseña"
+      eyebrow="Seguridad"
     >
       <Text style={text}>Hola{name ? ` ${name}` : ''},</Text>
       <Text style={text}>

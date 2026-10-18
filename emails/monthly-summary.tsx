@@ -27,6 +27,8 @@ export function MonthlySummaryEmail({
     <EmailLayout
       preview={`Resumen de ${periodLabel}`}
       heading={`Resumen de ${periodLabel}`}
+      eyebrow="Resumen mensual"
+      showPreferencesLink
     >
       <Text style={text}>Hola{name ? ` ${name}` : ''}, así cerró tu mes:</Text>
       <Hr style={hr} />

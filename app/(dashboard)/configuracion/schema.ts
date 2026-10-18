@@ -38,3 +38,14 @@ export const apiKeySchema = z.object({
 });
 
 export type ApiKeyInput = z.infer<typeof apiKeySchema>;
+
+export const salaryDepositSchema = z.object({
+  enabled: z.boolean(),
+  accountId: z.uuid().nullable(),
+  amount: z.number().min(0),
+  currency: z.string().trim().toUpperCase().min(3).max(3),
+  dayMode: z.enum(['first_business_day', 'fixed_day']),
+  fixedDay: z.number().int().min(1).max(31),
+});
+
+export type SalaryDepositInput = z.infer<typeof salaryDepositSchema>;

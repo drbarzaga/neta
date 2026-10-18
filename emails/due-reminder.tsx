@@ -19,6 +19,8 @@ export function DueReminderEmail({
     <EmailLayout
       preview={`Tienes ${items.length} gasto(s) por vencer`}
       heading="Gastos por vencer"
+      eyebrow="Recordatorio"
+      showPreferencesLink
     >
       <Text style={text}>
         Hola{name ? ` ${name}` : ''}, estos gastos están próximos a vencer:

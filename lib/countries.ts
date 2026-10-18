@@ -14,17 +14,19 @@ export interface Country {
   host: string;
   /** Argentina expone varias "casas" de dólar; el resto, una sola cotización. */
   isArgentina?: boolean;
+  /** Zona horaria IANA, para calcular "hoy" en crons (ej. depósito de sueldo). */
+  timezone: string;
 }
 
 export const COUNTRIES: Record<string, Country> = {
-  UY: { code: 'UY', name: 'Uruguay', flag: '🇺🇾', currency: 'UYU', locale: 'es-UY', host: 'uy.dolarapi.com' },
-  AR: { code: 'AR', name: 'Argentina', flag: '🇦🇷', currency: 'ARS', locale: 'es-AR', host: 'dolarapi.com', isArgentina: true },
-  CL: { code: 'CL', name: 'Chile', flag: '🇨🇱', currency: 'CLP', locale: 'es-CL', host: 'cl.dolarapi.com' },
-  BR: { code: 'BR', name: 'Brasil', flag: '🇧🇷', currency: 'BRL', locale: 'pt-BR', host: 'br.dolarapi.com' },
-  MX: { code: 'MX', name: 'México', flag: '🇲🇽', currency: 'MXN', locale: 'es-MX', host: 'mx.dolarapi.com' },
-  BO: { code: 'BO', name: 'Bolivia', flag: '🇧🇴', currency: 'BOB', locale: 'es-BO', host: 'bo.dolarapi.com' },
-  CO: { code: 'CO', name: 'Colombia', flag: '🇨🇴', currency: 'COP', locale: 'es-CO', host: 'co.dolarapi.com' },
-  VE: { code: 'VE', name: 'Venezuela', flag: '🇻🇪', currency: 'VES', locale: 'es-VE', host: 've.dolarapi.com' },
+  UY: { code: 'UY', name: 'Uruguay', flag: '🇺🇾', currency: 'UYU', locale: 'es-UY', host: 'uy.dolarapi.com', timezone: 'America/Montevideo' },
+  AR: { code: 'AR', name: 'Argentina', flag: '🇦🇷', currency: 'ARS', locale: 'es-AR', host: 'dolarapi.com', isArgentina: true, timezone: 'America/Argentina/Buenos_Aires' },
+  CL: { code: 'CL', name: 'Chile', flag: '🇨🇱', currency: 'CLP', locale: 'es-CL', host: 'cl.dolarapi.com', timezone: 'America/Santiago' },
+  BR: { code: 'BR', name: 'Brasil', flag: '🇧🇷', currency: 'BRL', locale: 'pt-BR', host: 'br.dolarapi.com', timezone: 'America/Sao_Paulo' },
+  MX: { code: 'MX', name: 'México', flag: '🇲🇽', currency: 'MXN', locale: 'es-MX', host: 'mx.dolarapi.com', timezone: 'America/Mexico_City' },
+  BO: { code: 'BO', name: 'Bolivia', flag: '🇧🇴', currency: 'BOB', locale: 'es-BO', host: 'bo.dolarapi.com', timezone: 'America/La_Paz' },
+  CO: { code: 'CO', name: 'Colombia', flag: '🇨🇴', currency: 'COP', locale: 'es-CO', host: 'co.dolarapi.com', timezone: 'America/Bogota' },
+  VE: { code: 'VE', name: 'Venezuela', flag: '🇻🇪', currency: 'VES', locale: 'es-VE', host: 've.dolarapi.com', timezone: 'America/Caracas' },
 };
 
 export const DEFAULT_COUNTRY = 'UY';
