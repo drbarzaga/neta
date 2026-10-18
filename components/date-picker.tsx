@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarDays } from 'lucide-react';
+import { RiCalendarLine } from '@remixicon/react';
 import { es } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -61,7 +61,7 @@ export function DatePicker({
             className
           )}
         >
-          <CalendarDays className="size-4 shrink-0 opacity-70" />
+          <RiCalendarLine className="size-4 shrink-0 opacity-70" />
           <span className="truncate">
             {date
               ? date.toLocaleDateString('es-UY', {

@@ -1,19 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import {
-  Plus,
-  ArrowLeft,
-  ChevronDown,
-  ChevronsDownUp,
-  ChevronsUpDown,
-  GripVertical,
-  Wallet,
-  CreditCard,
-  PiggyBank,
-  PieChart,
-  RefreshCw,
-} from 'lucide-react';
+import { RiAddLine, RiArrowLeftLine, RiArrowDownSLine, RiContractUpDownLine, RiExpandUpDownLine, RiDraggable, RiWalletLine, RiBankCardLine, RiSafeLine, RiPieChartLine, RiRefreshLine } from '@remixicon/react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -369,7 +357,7 @@ export function MonthDetail({
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/meses" aria-label="Volver">
-            <ArrowLeft className="size-5" />
+            <RiArrowLeftLine className="size-5" />
           </Link>
         </Button>
         <div className="flex-1">
@@ -411,14 +399,14 @@ export function MonthDetail({
           value={<Money animateOnMount value={toDisp(liveIncome)} currency={dispCode} locale={locale} />}
           sub={<Money animateOnMount value={toAlt(liveIncome)} currency={altCode} locale={locale} />}
           accent="primary"
-          icon={<Wallet className="size-6" />}
+          icon={<RiWalletLine className="size-6" />}
         />
         <StatCard
           label="Total utilizado"
           value={<Money animateOnMount value={toDisp(totals.totalLocal)} currency={dispCode} locale={locale} />}
           sub={<Money animateOnMount value={toAlt(totals.totalLocal)} currency={altCode} locale={locale} />}
           accent="sky"
-          icon={<CreditCard className="size-6" />}
+          icon={<RiBankCardLine className="size-6" />}
         />
         <StatCard
           label="Restante"
@@ -435,7 +423,7 @@ export function MonthDetail({
           sub={<Money animateOnMount value={toAlt(totals.restante)} currency={altCode} locale={locale} />}
           valueClass={overBudget ? 'text-[var(--coral)]' : undefined}
           variant="forest"
-          icon={<PiggyBank className="size-6" />}
+          icon={<RiSafeLine className="size-6" />}
         />
         <StatCard
           label="% usado"
@@ -448,7 +436,7 @@ export function MonthDetail({
           }
           accent="amber"
           progress={pct}
-          icon={<PieChart className="size-6" />}
+          icon={<RiPieChartLine className="size-6" />}
         />
       </div>
 
@@ -490,7 +478,7 @@ export function MonthDetail({
                 onClick={loadMarketRate}
                 disabled={fetchingRate}
               >
-                <RefreshCw className={cn('size-4', fetchingRate && 'animate-spin')} />
+                <RiRefreshLine className={cn('size-4', fetchingRate && 'animate-spin')} />
                 Traer del mercado
               </Button>
             </div>
@@ -527,7 +515,7 @@ export function MonthDetail({
           {categories.length} categoría(s) · {expenses.length} gasto(s)
         </p>
         <Button variant="ghost" size="sm" onClick={toggleAll}>
-          {allOpen ? <ChevronsDownUp /> : <ChevronsUpDown />}
+          {allOpen ? <RiContractUpDownLine /> : <RiExpandUpDownLine />}
           {allOpen ? 'Colapsar todo' : 'Expandir todo'}
         </Button>
       </div>
@@ -691,7 +679,7 @@ function SortableSection({
             aria-label="Reordenar sección"
             className="text-muted-foreground/40 hover:text-muted-foreground flex shrink-0 cursor-grab touch-none items-center pl-3 active:cursor-grabbing"
           >
-            <GripVertical className="size-4" />
+            <RiDraggable className="size-4" />
           </button>
           <CollapsibleTrigger asChild>
             <button
@@ -721,7 +709,7 @@ function SortableSection({
                   locale={locale}
                   className="text-base font-semibold tabular-nums"
                 />
-                <ChevronDown className="text-muted-foreground size-4 transition-transform group-data-[state=open]:rotate-180" />
+                <RiArrowDownSLine className="text-muted-foreground size-4 transition-transform group-data-[state=open]:rotate-180" />
               </div>
             </button>
           </CollapsibleTrigger>
@@ -762,7 +750,7 @@ function SortableSection({
                 onClick={onAdd}
                 disabled={addDisabled}
               >
-                <Plus className="size-4" /> Agregar gasto
+                <RiAddLine className="size-4" /> Agregar gasto
               </Button>
             </div>
           </div>

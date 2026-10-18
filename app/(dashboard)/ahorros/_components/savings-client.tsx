@@ -1,19 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import {
-  Plus,
-  PiggyBank,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  ArrowDownCircle,
-  ArrowUpCircle,
-  ArrowRightLeft,
-  Wallet,
-  Eye,
-  EyeOff,
-} from 'lucide-react';
+import { RiAddLine, RiSafeLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiArrowDownCircleLine, RiArrowUpCircleLine, RiArrowLeftRightLine, RiWalletLine, RiEyeLine, RiEyeCloseLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   AreaChart,
@@ -205,18 +193,18 @@ export function SavingsClient({
             aria-label={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
             title={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
           >
-            {hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+            {hidden ? <RiEyeCloseLine className="size-4" /> : <RiEyeLine className="size-4" />}
           </Button>
           {accounts.length >= 2 && (
             <Button
               variant="outline"
               onClick={() => setTransfer({ open: true, fromId: null })}
             >
-              <ArrowRightLeft /> Transferir
+              <RiArrowLeftRightLine /> Transferir
             </Button>
           )}
           <Button onClick={() => setDialog({ open: true, account: null })}>
-            <Plus /> Nuevo apartado
+            <RiAddLine /> Nuevo apartado
           </Button>
         </div>
       </div>
@@ -225,7 +213,7 @@ export function SavingsClient({
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
-              <PiggyBank className="size-7" />
+              <RiSafeLine className="size-7" />
             </span>
             <div>
               <p className="font-medium">Todavía no tienes apartados</p>
@@ -235,7 +223,7 @@ export function SavingsClient({
               </p>
             </div>
             <Button onClick={() => setDialog({ open: true, account: null })}>
-              <Plus /> Crear apartado
+              <RiAddLine /> Crear apartado
             </Button>
           </CardContent>
         </Card>
@@ -246,7 +234,7 @@ export function SavingsClient({
               <div className="flex shrink-0 flex-col gap-1 lg:w-56">
                 <div className="flex items-center gap-2">
                   <span className="flex size-9 items-center justify-center rounded-xl bg-white/15 text-white">
-                    <Wallet className="size-5" />
+                    <RiWalletLine className="size-5" />
                   </span>
                   <span className="text-sm text-white/80">Total ahorrado</span>
                 </div>
@@ -405,21 +393,21 @@ function AccountCard({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="text-muted-foreground -mr-2 -mt-1 size-8">
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             {canTransfer && (
               <DropdownMenuItem onClick={onTransfer}>
-                <ArrowRightLeft className="size-4" /> Transferir
+                <RiArrowLeftRightLine className="size-4" /> Transferir
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={remove}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -442,7 +430,7 @@ function AccountCard({
             className="flex-1 text-[var(--forest)]"
             onClick={() => onMovement('deposit')}
           >
-            <ArrowDownCircle className="size-4" /> Depositar
+            <RiArrowDownCircleLine className="size-4" /> Depositar
           </Button>
           <Button
             variant="outline"
@@ -450,7 +438,7 @@ function AccountCard({
             className="flex-1"
             onClick={() => onMovement('withdraw')}
           >
-            <ArrowUpCircle className="size-4" /> Retirar
+            <RiArrowUpCircleLine className="size-4" /> Retirar
           </Button>
         </div>
       </CardContent>
@@ -660,14 +648,14 @@ function MovementSheet({
               variant={kind === 'deposit' ? 'default' : 'outline'}
               onClick={() => setKind('deposit')}
             >
-              <ArrowDownCircle className="size-4" /> Depositar
+              <RiArrowDownCircleLine className="size-4" /> Depositar
             </Button>
             <Button
               type="button"
               variant={kind === 'withdraw' ? 'default' : 'outline'}
               onClick={() => setKind('withdraw')}
             >
-              <ArrowUpCircle className="size-4" /> Retirar
+              <RiArrowUpCircleLine className="size-4" /> Retirar
             </Button>
           </div>
           <div className="flex gap-2">
@@ -727,9 +715,9 @@ function MovementSheet({
                       )}
                     >
                       {positive ? (
-                        <ArrowDownCircle className="size-4" />
+                        <RiArrowDownCircleLine className="size-4" />
                       ) : (
-                        <ArrowUpCircle className="size-4" />
+                        <RiArrowUpCircleLine className="size-4" />
                       )}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -751,7 +739,7 @@ function MovementSheet({
                       onClick={() => removeMovement(m.id)}
                       aria-label="Eliminar movimiento"
                     >
-                      <Trash2 className="size-3.5" />
+                      <RiDeleteBinLine className="size-3.5" />
                     </Button>
                   </li>
                 );

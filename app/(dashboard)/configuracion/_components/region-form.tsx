@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Globe, Coins } from 'lucide-react';
+import { RiGlobalLine, RiCoinsLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -54,7 +54,7 @@ export function RegionForm({ initial }: { initial: RegionInput }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <Field
-          icon={<Globe className="size-5" />}
+          icon={<RiGlobalLine className="size-5" />}
           label="País"
           description="Se usa para traer la cotización del dólar y la moneda local."
         >
@@ -77,7 +77,7 @@ export function RegionForm({ initial }: { initial: RegionInput }) {
           <>
             <Separator />
             <Field
-              icon={<Coins className="size-5" />}
+              icon={<RiCoinsLine className="size-5" />}
               label="Casa del dólar"
               description="Argentina tiene varias cotizaciones; elegí cuál usar."
             >
@@ -99,7 +99,7 @@ export function RegionForm({ initial }: { initial: RegionInput }) {
 
         <Separator />
         <Field
-          icon={<Coins className="size-5" />}
+          icon={<RiCoinsLine className="size-5" />}
           label="Ver dashboard en"
           description="Moneda en la que se muestran los totales."
         >

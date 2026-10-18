@@ -1,7 +1,7 @@
 'use client';
 
 import type { ComponentProps } from 'react';
-import { Sparkles } from 'lucide-react';
+import { RiSparklingLine } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
 import { useAdvisor } from './advisor-provider';
 
@@ -39,7 +39,7 @@ export function AskAdvisorButton({
       aria-label={iconOnly ? label : undefined}
       title={iconOnly ? label : undefined}
     >
-      <Sparkles />
+      <RiSparklingLine />
       {!iconOnly && label}
     </Button>
   );

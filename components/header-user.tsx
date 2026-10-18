@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LogOut, Settings, User as UserIcon } from 'lucide-react';
+import { RiLogoutBoxLine, RiSettings2Line, RiUserLine as UserIcon } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -78,12 +78,12 @@ export function HeaderUser({
           Mi perfil
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push('/configuracion')}>
-          <Settings className="size-4" />
+          <RiSettings2Line className="size-4" />
           Configuración
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={handleSignOut}>
-          <LogOut className="size-4" />
+          <RiLogoutBoxLine className="size-4" />
           Cerrar sesión
         </DropdownMenuItem>
       </DropdownMenuContent>

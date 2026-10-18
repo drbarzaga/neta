@@ -3,21 +3,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft,
-  Plus,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  MapPin,
-  CalendarDays,
-  Link2,
-  Sparkles,
-  Check,
-  Loader2,
-  Users,
-  Wallet,
-} from 'lucide-react';
+import { RiArrowLeftLine, RiAddLine, RiPencilLine, RiDeleteBinLine, RiMore2Line, RiMapPinLine, RiCalendarLine, RiLinksLine, RiSparklingLine, RiCheckLine, RiLoader4Line, RiGroupLine, RiWalletLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -181,7 +167,7 @@ export function TripDetail({
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/viajes" aria-label="Volver a viajes">
-            <ArrowLeft className="size-5" />
+            <RiArrowLeftLine className="size-5" />
           </Link>
         </Button>
         <Avatar className="size-10 shrink-0">
@@ -199,12 +185,12 @@ export function TripDetail({
           <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             {trip.destination && (
               <span className="flex items-center gap-1">
-                <MapPin className="size-3.5" /> {trip.destination}
+                <RiMapPinLine className="size-3.5" /> {trip.destination}
               </span>
             )}
             {(trip.startDate || trip.endDate) && (
               <span className="flex items-center gap-1">
-                <CalendarDays className="size-3.5" />
+                <RiCalendarLine className="size-3.5" />
                 {trip.startDate ? formatDate(trip.startDate, locale) : '—'}
                 {' – '}
                 {trip.endDate ? formatDate(trip.endDate, locale) : '—'}
@@ -212,7 +198,7 @@ export function TripDetail({
             )}
             {trip.travelers > 1 && (
               <span className="flex items-center gap-1">
-                <Users className="size-3.5" /> {trip.travelers} viajeros
+                <RiGroupLine className="size-3.5" /> {trip.travelers} viajeros
               </span>
             )}
           </div>
@@ -221,16 +207,16 @@ export function TripDetail({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Acciones">
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={removeTrip}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -271,7 +257,7 @@ export function TripDetail({
           <CardContent className="border-t pt-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <Wallet className="text-primary size-4" />
+                <RiWalletLine className="text-primary size-4" />
                 <p className="text-sm font-medium">Efectivo sugerido para llevar</p>
               </div>
               <p className="text-lg font-semibold tabular-nums">{fmt(suggestedCash)}</p>
@@ -292,7 +278,7 @@ export function TripDetail({
             size="sm"
             onClick={() => setExpenseDialog({ open: true, expense: null })}
           >
-            <Plus className="size-4" /> Agregar gasto
+            <RiAddLine className="size-4" /> Agregar gasto
           </Button>
         </CardHeader>
         <CardContent className="p-0">
@@ -509,20 +495,20 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
     <Card>
       <CardHeader className="flex items-center justify-between gap-2 space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="text-primary size-4" /> Sugerencias con IA
+          <RiSparklingLine className="text-primary size-4" /> Sugerencias con IA
         </CardTitle>
         <div className="flex items-center gap-2">
           {suggestions && pendingCount > 0 && (
             <Button size="sm" variant="secondary" onClick={addAll} disabled={pending}>
-              {addingAll ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              {addingAll ? <RiLoader4Line className="size-4 animate-spin" /> : <RiAddLine className="size-4" />}
               Agregar todo ({pendingCount})
             </Button>
           )}
           <Button size="sm" variant="outline" onClick={generate} disabled={pending || !hasDestination}>
             {pending && !addingTitle && !addingAll ? (
-              <Loader2 className="size-4 animate-spin" />
+              <RiLoader4Line className="size-4 animate-spin" />
             ) : (
-              <Sparkles className="size-4" />
+              <RiSparklingLine className="size-4" />
             )}
             {suggestions ? 'Generar otras' : 'Generar sugerencias'}
           </Button>
@@ -586,13 +572,13 @@ function TripSuggestionsCard({ trip, locale }: { trip: Trip; locale: string }) {
                         >
                           {added ? (
                             <>
-                              <Check className="size-4" /> Agregado
+                              <RiCheckLine className="size-4" /> Agregado
                             </>
                           ) : addingTitle === s.title ? (
-                            <Loader2 className="size-4 animate-spin" />
+                            <RiLoader4Line className="size-4 animate-spin" />
                           ) : (
                             <>
-                              <Plus className="size-4" /> Agregar
+                              <RiAddLine className="size-4" /> Agregar
                             </>
                           )}
                         </Button>
@@ -679,7 +665,7 @@ function TripExpenseRow({
           {expense.time && <span>{expense.time}</span>}
           {linked && (
             <span className="flex items-center gap-1" title="Viene de un gasto vinculado; edítalo desde el mes">
-              <Link2 className="size-3" /> vinculado al mes
+              <RiLinksLine className="size-3" /> vinculado al mes
             </span>
           )}
         </p>
@@ -707,16 +693,16 @@ function TripExpenseRow({
               aria-label="Acciones del gasto"
               disabled={pending}
             >
-              <MoreVertical className="size-3.5" />
+              <RiMore2Line className="size-3.5" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={remove}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

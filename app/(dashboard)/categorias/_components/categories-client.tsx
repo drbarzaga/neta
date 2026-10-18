@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { RiAddLine, RiDeleteBinLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -76,7 +76,7 @@ export function CategoriesClient({ categories }: { categories: Category[] }) {
             />
           </div>
           <Button onClick={add} disabled={pending}>
-            <Plus /> Agregar
+            <RiAddLine /> Agregar
           </Button>
         </CardContent>
       </Card>
@@ -151,7 +151,7 @@ function CategoryRow({ category }: { category: Category }) {
         disabled={pending}
         aria-label="Eliminar categoría"
       >
-        <Trash2 className="size-4" />
+        <RiDeleteBinLine className="size-4" />
       </Button>
     </div>
   );

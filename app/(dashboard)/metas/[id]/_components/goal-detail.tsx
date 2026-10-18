@@ -3,17 +3,7 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  ArrowLeft,
-  Target,
-  Check,
-  RotateCcw,
-  Plus,
-  Pencil,
-  Trash2,
-  CalendarClock,
-  MoreVertical,
-} from 'lucide-react';
+import { RiArrowLeftLine, RiTargetLine, RiCheckLine, RiArrowGoBackLine, RiAddLine, RiPencilLine, RiDeleteBinLine, RiCalendarCheckLine, RiMore2Line } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +33,7 @@ import {
 import { ProgressRing } from '@/components/progress-ring';
 import { CategoryIcon } from '@/components/category-icon';
 import { useAnimations } from '@/components/animations-provider';
-import { TrendingUp } from 'lucide-react';
+import { RiArrowRightUpLine } from '@remixicon/react';
 import { useConfirm } from '@/components/confirm-provider';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -235,7 +225,7 @@ export function GoalDetail({
       <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" asChild>
           <Link href="/metas" aria-label="Volver a metas">
-            <ArrowLeft className="size-5" />
+            <RiArrowLeftLine className="size-5" />
           </Link>
         </Button>
         <span
@@ -255,16 +245,16 @@ export function GoalDetail({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Acciones">
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={() => setEditing(true)}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={removeGoal}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -347,7 +337,7 @@ export function GoalDetail({
         <Card>
           <CardHeader className="flex items-center justify-between gap-2 space-y-0">
             <CardTitle className="flex items-center gap-2 text-base">
-              <TrendingUp className="text-primary size-4" /> Proyección
+              <RiArrowRightUpLine className="text-primary size-4" /> Proyección
             </CardTitle>
             {onTrack !== null && remaining > 0 && (
               <Badge
@@ -454,7 +444,7 @@ export function GoalDetail({
             )
           }
         >
-          <RotateCcw className="size-4" /> Reabrir meta
+          <RiArrowGoBackLine className="size-4" /> Reabrir meta
         </Button>
       ) : (
         <Card>
@@ -492,7 +482,7 @@ export function GoalDetail({
               onClick={addContribution}
               disabled={pending || amount.trim() === ''}
             >
-              <Plus className="size-4" /> Abonar
+              <RiAddLine className="size-4" /> Abonar
             </Button>
             <Button
               variant="secondary"
@@ -504,7 +494,7 @@ export function GoalDetail({
                 )
               }
             >
-              <Check className="size-4" /> Completar
+              <RiCheckLine className="size-4" /> Completar
             </Button>
           </CardContent>
         </Card>
@@ -527,9 +517,9 @@ export function GoalDetail({
                 return (
                   <li key={c.id} className="flex items-center gap-3 px-6 py-3">
                     {auto ? (
-                      <Target className="text-muted-foreground size-4 shrink-0" />
+                      <RiTargetLine className="text-muted-foreground size-4 shrink-0" />
                     ) : (
-                      <CalendarClock className="text-muted-foreground size-4 shrink-0" />
+                      <RiCalendarCheckLine className="text-muted-foreground size-4 shrink-0" />
                     )}
                     <div className="min-w-0 flex-1">
                       <p className="text-sm">
@@ -569,7 +559,7 @@ export function GoalDetail({
                           )
                         }
                       >
-                        <Trash2 className="size-4" />
+                        <RiDeleteBinLine className="size-4" />
                       </Button>
                     )}
                   </li>

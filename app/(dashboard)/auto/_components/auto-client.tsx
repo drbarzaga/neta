@@ -1,19 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import {
-  Plus,
-  Pencil,
-  Trash2,
-  MoreVertical,
-  Car,
-  Landmark,
-  Wallet,
-  CalendarClock,
-  ChevronDown,
-  History,
-  PartyPopper,
-} from 'lucide-react';
+import { RiAddLine, RiPencilLine, RiDeleteBinLine, RiMore2Line, RiCarLine, RiBankLine, RiWalletLine, RiCalendarCheckLine, RiArrowDownSLine, RiHistoryLine, RiCupLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -176,7 +164,7 @@ export function AutoClient({
         </div>
         {vehicles.length > 0 && (
           <Button variant="outline" onClick={() => setDialog({ open: true, vehicle: null })}>
-            <Plus /> Otro vehículo
+            <RiAddLine /> Otro vehículo
           </Button>
         )}
       </div>
@@ -185,7 +173,7 @@ export function AutoClient({
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
-              <Car className="size-7" />
+              <RiCarLine className="size-7" />
             </span>
             <div className="space-y-1">
               <p className="font-medium">Todavía no configuraste tu auto</p>
@@ -196,7 +184,7 @@ export function AutoClient({
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button onClick={() => setOnboardingOpen(true)}>
-                <Plus /> Empezar onboarding guiado
+                <RiAddLine /> Empezar onboarding guiado
               </Button>
               <Button variant="outline" onClick={() => setDialog({ open: true, vehicle: null })}>
                 Configurar manualmente
@@ -395,16 +383,16 @@ function VehicleSection({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Acciones del vehículo" className="self-start">
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={removeVehicle}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -415,7 +403,7 @@ function VehicleSection({
           label="Precio total"
           value={fmtVehicle(vehicle.totalPrice)}
           valueClass="text-[28px]"
-          icon={<Car className="size-5" />}
+          icon={<RiCarLine className="size-5" />}
           accent="primary"
         />
         <StatCard
@@ -423,7 +411,7 @@ function VehicleSection({
           value={fmtVehicle(vehicle.loanAmount)}
           valueClass="text-[28px]"
           sub={`${fmtInstallment(vehicle.monthlyPayment)} x ${vehicle.loanMonths} meses`}
-          icon={<Landmark className="size-5" />}
+          icon={<RiBankLine className="size-5" />}
           accent="sky"
         />
         <StatCard
@@ -431,7 +419,7 @@ function VehicleSection({
           value={`${vehicle.totals.installmentsPaid}/${vehicle.totals.installmentsTotal}`}
           valueClass="text-[28px]"
           sub={`Saldo del préstamo: ${fmtInstallment(outstandingLoanNative)}`}
-          icon={<CalendarClock className="size-5" />}
+          icon={<RiCalendarCheckLine className="size-5" />}
           accent="emerald"
         />
         <StatCard
@@ -439,7 +427,7 @@ function VehicleSection({
           value={fmtUsd(vehicle.totals.otherPaidUsd + vehicle.totals.otherPendingUsd)}
           valueClass="text-[28px]"
           sub={`Pagado: ${fmtUsd(vehicle.totals.otherPaidUsd)} · Pendiente: ${fmtUsd(vehicle.totals.otherPendingUsd)}`}
-          icon={<Wallet className="size-5" />}
+          icon={<RiWalletLine className="size-5" />}
           accent="amber"
         />
       </CardContent>
@@ -503,7 +491,7 @@ function VehicleSection({
             <div className="flex flex-wrap items-center justify-between gap-3">
               {fullyPaid ? (
                 <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--forest)]">
-                  <PartyPopper className="size-4" /> Préstamo saldado
+                  <RiCupLine className="size-4" /> Préstamo saldado
                 </p>
               ) : (
                 <p className="text-muted-foreground text-xs">
@@ -515,7 +503,7 @@ function VehicleSection({
               <div className="flex flex-wrap gap-2">
                 {remainingInstallments > 0 && (
                   <Button size="sm" variant="outline" onClick={payOffDebt}>
-                    <PartyPopper className="size-3.5" /> Cancelar deuda
+                    <RiCupLine className="size-3.5" /> Cancelar deuda
                   </Button>
                 )}
                 <Button
@@ -531,7 +519,7 @@ function VehicleSection({
                     })
                   }
                 >
-                  <Plus className="size-3.5" /> Agregar cuota
+                  <RiAddLine className="size-3.5" /> Agregar cuota
                 </Button>
               </div>
             </div>
@@ -571,7 +559,7 @@ function VehicleSection({
                       setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear, category: c })
                     }
                   >
-                    <Plus className="size-3.5" /> {c}
+                    <RiAddLine className="size-3.5" /> {c}
                   </Button>
                 ))}
                 <Button
@@ -580,7 +568,7 @@ function VehicleSection({
                     setExpenseDialog({ open: true, expense: null, month: curMonth, year: curYear })
                   }
                 >
-                  <Plus className="size-4" /> Agregar gasto
+                  <RiAddLine className="size-4" /> Agregar gasto
                 </Button>
               </div>
             </div>
@@ -697,7 +685,7 @@ function DownPaymentCard({
             onClick={addAmount}
             disabled={pending || amount.trim() === ''}
           >
-            <Plus className="size-3.5" /> Abonar
+            <RiAddLine className="size-3.5" /> Abonar
           </Button>
         </div>
       </div>
@@ -755,9 +743,9 @@ function ExpenseMonthList({
         <Collapsible open={showHistory} onOpenChange={onShowHistoryChange}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
-              <History className="size-4" />
+              <RiHistoryLine className="size-4" />
               {showHistory ? 'Ocultar' : 'Ver'} histórico de meses pagados ({history.length})
-              <ChevronDown className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
+              <RiArrowDownSLine className={cn('size-3.5 transition-transform', showHistory && 'rotate-180')} />
             </Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="flex flex-col gap-3 pt-3">
@@ -819,7 +807,7 @@ function MonthCard({
             aria-label="Agregar gasto a este mes"
             onClick={onAdd}
           >
-            <Plus className="size-4" />
+            <RiAddLine className="size-4" />
           </Button>
         </div>
       </div>
@@ -911,16 +899,16 @@ function VehicleExpenseRow({
             aria-label="Acciones del gasto"
             disabled={pending}
           >
-            <MoreVertical className="size-3.5" />
+            <RiMore2Line className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuItem onClick={onEdit}>
-            <Pencil className="size-4" /> Editar
+            <RiPencilLine className="size-4" /> Editar
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={remove}>
-            <Trash2 className="size-4" /> Eliminar
+            <RiDeleteBinLine className="size-4" /> Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

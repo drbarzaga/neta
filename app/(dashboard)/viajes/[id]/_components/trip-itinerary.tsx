@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { CalendarDays, GripVertical, Link2, CircleCheck, Pencil } from 'lucide-react';
+import { RiCalendarLine, RiDraggable, RiLinksLine, RiCheckboxCircleLine, RiPencilLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -222,7 +222,7 @@ function DayColumn({
   return (
     <div className="bg-muted/40 ring-border/60 flex w-64 shrink-0 flex-col gap-2 rounded-xl p-3 ring-1">
       <div className="flex items-center gap-2">
-        <CalendarDays className="text-muted-foreground size-3.5 shrink-0" />
+        <RiCalendarLine className="text-muted-foreground size-3.5 shrink-0" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{title}</p>
           {subtitle && <p className="text-muted-foreground text-xs capitalize">{subtitle}</p>}
@@ -310,7 +310,7 @@ function DayThemeEditor({
       ) : (
         <span>+ agregar tema del día</span>
       )}
-      <Pencil className="size-3 shrink-0 opacity-0 group-hover/theme:opacity-100" />
+      <RiPencilLine className="size-3 shrink-0 opacity-0 group-hover/theme:opacity-100" />
     </button>
   );
 }
@@ -342,7 +342,7 @@ function ItineraryCard({
           className="text-muted-foreground/40 mt-0.5 shrink-0"
           title="Viene de un gasto vinculado; edítalo desde el mes"
         >
-          <Link2 className="size-4" />
+          <RiLinksLine className="size-4" />
         </span>
       ) : (
         <button
@@ -352,7 +352,7 @@ function ItineraryCard({
           aria-label="Arrastrar para mover de día"
           className="text-muted-foreground/30 hover:text-muted-foreground mt-0.5 shrink-0 cursor-grab touch-none active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <RiDraggable className="size-4" />
         </button>
       )}
 
@@ -369,7 +369,7 @@ function ItineraryCard({
             {formatMoney(expense.amount, expense.currency, locale)}
           </span>
           {expense.paid && (
-            <CircleCheck className="size-3.5 text-[var(--forest)]" />
+            <RiCheckboxCircleLine className="size-3.5 text-[var(--forest)]" />
           )}
         </div>
       </div>

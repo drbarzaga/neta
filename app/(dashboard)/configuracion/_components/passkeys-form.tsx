@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Fingerprint, Plus, Trash2, KeyRound } from 'lucide-react';
+import { RiFingerprintLine, RiAddLine, RiDeleteBinLine, RiKey2Line } from '@remixicon/react';
 import { toast } from 'sonner';
 import { authClient } from '@/lib/auth-client';
 import {
@@ -87,7 +87,7 @@ export function PasskeysForm() {
               return (
                 <li key={pk.id} className="flex items-center gap-3 p-3">
                   <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
-                    <KeyRound className="size-4" />
+                    <RiKey2Line className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
@@ -107,7 +107,7 @@ export function PasskeysForm() {
                     onClick={() => remove(pk.id)}
                     disabled={deletingId === pk.id}
                   >
-                    <Trash2 className="text-destructive size-4" />
+                    <RiDeleteBinLine className="text-destructive size-4" />
                   </Button>
                 </li>
               );
@@ -115,7 +115,7 @@ export function PasskeysForm() {
           </ul>
         ) : (
           <div className="text-muted-foreground flex flex-col items-center gap-2 rounded-lg border border-dashed py-8 text-center text-sm">
-            <Fingerprint className="size-6" />
+            <RiFingerprintLine className="size-6" />
             Aún no tenés passkeys.
           </div>
         )}
@@ -139,7 +139,7 @@ export function PasskeysForm() {
             />
           </div>
           <Button type="button" onClick={add} disabled={adding}>
-            <Plus className="size-4" />
+            <RiAddLine className="size-4" />
             {adding ? 'Esperando…' : 'Agregar passkey'}
           </Button>
         </div>

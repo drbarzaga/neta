@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles } from 'lucide-react';
+import { RiSparklingLine } from '@remixicon/react';
 import {
   Sidebar,
   SidebarContent,
@@ -73,7 +73,7 @@ export function AppSidebar({
                     'group-data-[collapsible=icon]:!gap-1 group-data-[collapsible=icon]:!px-1 group-data-[collapsible=icon]:!py-2.5'
                   )}
                 >
-                  <Sparkles className="text-(--lime)" />
+                  <RiSparklingLine className="text-(--lime)" />
                   <span className="group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:text-center group-data-[collapsible=icon]:text-[0.65rem] group-data-[collapsible=icon]:font-medium group-data-[collapsible=icon]:leading-tight group-data-[collapsible=icon]:!whitespace-normal">
                     Asesor financiero
                   </span>

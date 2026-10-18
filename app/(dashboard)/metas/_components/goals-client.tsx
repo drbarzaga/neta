@@ -2,17 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import {
-  Plus,
-  Target,
-  Trophy,
-  Check,
-  RotateCcw,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  CalendarClock,
-} from 'lucide-react';
+import { RiAddLine, RiTargetLine, RiTrophyLine, RiCheckLine, RiArrowGoBackLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiCalendarCheckLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -115,7 +105,7 @@ export function GoalsClient({
         <div className="flex items-center gap-2">
           <AskAdvisorButton prompt="¿Voy bien con mis metas? ¿Cuál debería priorizar?" />
           <Button onClick={() => setDialog({ open: true, goal: null })}>
-            <Plus /> Nueva meta
+            <RiAddLine /> Nueva meta
           </Button>
         </div>
       </div>
@@ -149,7 +139,7 @@ export function GoalsClient({
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
-              <Target className="size-7" />
+              <RiTargetLine className="size-7" />
             </span>
             <div className="space-y-1">
               <p className="font-medium">Todavía no tienes metas</p>
@@ -161,7 +151,7 @@ export function GoalsClient({
               variant="outline"
               onClick={() => setDialog({ open: true, goal: null })}
             >
-              <Plus /> Crear meta
+              <RiAddLine /> Crear meta
             </Button>
           </CardContent>
         </Card>
@@ -184,7 +174,7 @@ export function GoalsClient({
               onKeyDown={(e) => e.key === 'Enter' && setDialog({ open: true, goal: null })}
               className="min-h-40 cursor-pointer gap-2 hover:border-(--ink-3)"
             >
-              <Plus className="size-5 text-(--ink-3)" />
+              <RiAddLine className="size-5 text-(--ink-3)" />
               <p className="text-sm font-medium text-(--ink-2)">Nueva meta</p>
             </Card>
           </div>
@@ -192,7 +182,7 @@ export function GoalsClient({
           {completed.length > 0 && (
             <div className="flex flex-col gap-3">
               <h2 className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-                <Trophy className="size-4" /> Completadas ({completed.length})
+                <RiTrophyLine className="size-4" /> Completadas ({completed.length})
               </h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {completed.map((g) => (
@@ -290,16 +280,16 @@ function GoalCard({
               className="text-muted-foreground -mr-2 -mt-1 size-8 shrink-0"
               aria-label="Acciones de la meta"
             >
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={remove}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -336,7 +326,7 @@ function GoalCard({
         {/* Fecha objetivo */}
         {goal.targetDate && (
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <CalendarClock className="size-3.5" />
+            <RiCalendarCheckLine className="size-3.5" />
             {formatDate(goal.targetDate, locale)}
             {!goal.completed && days !== null && (
               <span
@@ -372,7 +362,7 @@ function GoalCard({
               )
             }
           >
-            <RotateCcw className="size-4" /> Reabrir
+            <RiArrowGoBackLine className="size-4" /> Reabrir
           </Button>
         ) : (
           <div className="flex flex-col gap-2">
@@ -397,7 +387,7 @@ function GoalCard({
                 onClick={addContribution}
                 disabled={pending || contribution.trim() === ''}
               >
-                <Plus className="size-4" /> Abonar
+                <RiAddLine className="size-4" /> Abonar
               </Button>
             </div>
             <Button
@@ -411,7 +401,7 @@ function GoalCard({
                 )
               }
             >
-              <Check className="size-4" /> Marcar completada
+              <RiCheckLine className="size-4" /> Marcar completada
             </Button>
           </div>
         )}

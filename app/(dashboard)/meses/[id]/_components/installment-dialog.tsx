@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { CreditCard } from 'lucide-react';
+import { RiBankCardLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -114,7 +114,7 @@ export function InstallmentDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <CreditCard /> Compra en cuotas
+          <RiBankCardLine /> Compra en cuotas
         </Button>
       </DialogTrigger>
       <DialogContent>

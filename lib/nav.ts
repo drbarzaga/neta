@@ -1,40 +1,40 @@
 import {
-  LayoutDashboard,
-  CalendarDays,
-  Target,
-  PiggyBank,
-  BarChart3,
-  Tags,
-  Bookmark,
-  UploadCloud,
-  Settings,
-  ListTodo,
-  Plane,
-  Car,
-  type LucideIcon,
-} from 'lucide-react';
+  RiDashboardLine,
+  RiCalendarLine,
+  RiTargetLine,
+  RiSafeLine,
+  RiBarChartBoxLine,
+  RiPriceTag2Line,
+  RiBookmarkLine,
+  RiUploadCloudLine,
+  RiSettings2Line,
+  RiTodoLine,
+  RiPlaneLine,
+  RiCarLine,
+  type RemixiconComponentType,
+} from '@remixicon/react';
 
 export interface NavItem {
   title: string;
   href: string;
-  icon: LucideIcon;
+  icon: RemixiconComponentType;
   /** Fecha (YYYY-MM-DD) en que se agregó la sección. Muestra "Nuevo" unos días. */
   addedOn?: string;
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { title: 'Resumen', href: '/', icon: LayoutDashboard },
-  { title: 'Meses', href: '/meses', icon: CalendarDays },
-  { title: 'Metas', href: '/metas', icon: Target, addedOn: '2026-06-30' },
-  { title: 'Ahorros', href: '/ahorros', icon: PiggyBank, addedOn: '2026-07-06' },
-  { title: 'Todos', href: '/todos', icon: ListTodo, addedOn: '2026-07-15' },
-  { title: 'Viajes', href: '/viajes', icon: Plane, addedOn: '2026-07-15' },
-  { title: 'Auto', href: '/auto', icon: Car, addedOn: '2026-10-17' },
-  { title: 'Analítica', href: '/analitica', icon: BarChart3 },
-  { title: 'Categorías', href: '/categorias', icon: Tags },
-  { title: 'Plantillas', href: '/plantillas', icon: Bookmark },
-  { title: 'Importar', href: '/importar', icon: UploadCloud },
-  { title: 'Configuración', href: '/configuracion', icon: Settings },
+  { title: 'Resumen', href: '/', icon: RiDashboardLine },
+  { title: 'Meses', href: '/meses', icon: RiCalendarLine },
+  { title: 'Metas', href: '/metas', icon: RiTargetLine, addedOn: '2026-06-30' },
+  { title: 'Ahorros', href: '/ahorros', icon: RiSafeLine, addedOn: '2026-07-06' },
+  { title: 'Todos', href: '/todos', icon: RiTodoLine, addedOn: '2026-07-15' },
+  { title: 'Viajes', href: '/viajes', icon: RiPlaneLine, addedOn: '2026-07-15' },
+  { title: 'Auto', href: '/auto', icon: RiCarLine, addedOn: '2026-10-17' },
+  { title: 'Analítica', href: '/analitica', icon: RiBarChartBoxLine },
+  { title: 'Categorías', href: '/categorias', icon: RiPriceTag2Line },
+  { title: 'Plantillas', href: '/plantillas', icon: RiBookmarkLine },
+  { title: 'Importar', href: '/importar', icon: RiUploadCloudLine },
+  { title: 'Configuración', href: '/configuracion', icon: RiSettings2Line },
 ];
 
 /** Días que se muestra el badge "Nuevo" desde que se agrega una sección. */

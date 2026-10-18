@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { RiAddLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -64,7 +64,7 @@ export function CreatePeriodDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <Plus className="size-4" /> Nuevo mes
+          <RiAddLine className="size-4" /> Nuevo mes
         </Button>
       </DialogTrigger>
       <DialogContent>

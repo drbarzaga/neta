@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { DollarSign, RefreshCw } from 'lucide-react';
+import { RiMoneyDollarCircleLine, RiRefreshLine } from '@remixicon/react';
 import NumberFlow from '@number-flow/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -73,7 +73,7 @@ export function DollarRate({
           size="sm"
           className="gap-1.5 rounded-full border-(--line) font-mono font-semibold tabular-nums"
         >
-          <DollarSign className="size-4 text-(--forest)" />
+          <RiMoneyDollarCircleLine className="size-4 text-(--forest)" />
           <span className="text-(--ink-3) hidden sm:inline">USD</span>
           <NumberFlow
             value={rate}
@@ -113,7 +113,7 @@ export function DollarRate({
               disabled={refreshing}
               aria-label="Traer cotización de hoy"
             >
-              <RefreshCw className={cn(refreshing && 'animate-spin')} />
+              <RiRefreshLine className={cn(refreshing && 'animate-spin')} />
             </Button>
           </div>
           <p className="text-muted-foreground text-xs">

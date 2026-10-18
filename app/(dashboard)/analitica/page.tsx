@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { BarChart3, Coins, TrendingUp, Flame, CircleDashed } from 'lucide-react';
+import { RiBarChartBoxLine, RiCoinsLine, RiArrowRightUpLine, RiFireLine, RiCheckboxBlankCircleLine } from '@remixicon/react';
 import { Money } from '@/components/money';
 import { getCountry } from '@/lib/countries';
 import { getOrCreateUserSettings } from '../configuracion/queries';
@@ -38,7 +38,7 @@ export default async function AnalyticsPage() {
     return (
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-          <BarChart3 className="text-muted-foreground size-12" />
+          <RiBarChartBoxLine className="text-muted-foreground size-12" />
           <p className="font-medium">Sin datos para analizar</p>
           <p className="text-muted-foreground text-sm">
             Crea meses y carga gastos para ver tu evolución.
@@ -89,26 +89,26 @@ export default async function AnalyticsPage() {
           value={<Money value={totalAcumulado} currency={localCurrency} locale={locale} animateOnMount />}
           sub={`${periods.length} mes(es)`}
           accent="primary"
-          icon={<Coins className="size-6" />}
+          icon={<RiCoinsLine className="size-6" />}
         />
         <StatCard
           label="Promedio mensual"
           value={<Money value={promedio} currency={localCurrency} locale={locale} animateOnMount />}
           accent="sky"
-          icon={<TrendingUp className="size-6" />}
+          icon={<RiArrowRightUpLine className="size-6" />}
         />
         <StatCard
           label="Mes más alto"
           value={<Money value={mesMasAlto.totals.totalLocal} currency={localCurrency} locale={locale} animateOnMount />}
           sub={mesMasAlto.label}
           accent="amber"
-          icon={<Flame className="size-6" />}
+          icon={<RiFireLine className="size-6" />}
         />
         <StatCard
           label="Pendiente total"
           value={<Money value={pendienteTotal} currency={localCurrency} locale={locale} animateOnMount />}
           accent="rose"
-          icon={<CircleDashed className="size-6" />}
+          icon={<RiCheckboxBlankCircleLine className="size-6" />}
         />
       </div>
 

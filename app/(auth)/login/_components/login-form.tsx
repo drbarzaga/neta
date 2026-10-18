@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Fingerprint, Clock } from 'lucide-react';
+import { RiFingerprintLine, RiTimeLine } from '@remixicon/react';
 import { authClient } from '@/lib/auth-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -145,7 +145,7 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
         <CardDescription className="text-base">Accede a tu gestor de gastos.</CardDescription>
         {expired && (
           <Alert className="mt-2">
-            <Clock className="size-4" />
+            <RiTimeLine className="size-4" />
             <AlertDescription>
               Tu sesión se cerró por inactividad. Inicia sesión de nuevo.
             </AlertDescription>
@@ -210,7 +210,7 @@ export function LoginForm({ expired = false }: { expired?: boolean }) {
               onClick={onPasskey}
               disabled={passkeyLoading}
             >
-              <Fingerprint className="size-4" />
+              <RiFingerprintLine className="size-4" />
               {passkeyLoading ? 'Esperando…' : 'Ingresar con passkey'}
               {lastUsed('passkey')}
             </Button>

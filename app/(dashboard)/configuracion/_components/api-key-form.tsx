@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { KeyRound, Check } from 'lucide-react';
+import { RiKey2Line, RiCheckLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -81,7 +81,7 @@ export function ApiKeyForm({ configured }: { configured: boolean }) {
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--forest-soft)] text-[var(--forest)]">
-                <Check className="size-5" />
+                <RiCheckLine className="size-5" />
               </span>
               <div className="space-y-0.5">
                 <p className="text-sm font-medium">API key configurada</p>
@@ -113,7 +113,7 @@ export function ApiKeyForm({ configured }: { configured: boolean }) {
         ) : (
           <div className="flex items-end gap-2">
             <div className="relative flex-1">
-              <KeyRound className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <RiKey2Line className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
               <Input
                 type="password"
                 autoComplete="off"

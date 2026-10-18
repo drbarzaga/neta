@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
-import { Plus, Trash2, Bookmark } from 'lucide-react';
+import { RiAddLine, RiDeleteBinLine, RiBookmarkLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -83,7 +83,7 @@ export function TemplatesClient({
       {categories.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <Bookmark className="text-muted-foreground size-10" />
+            <RiBookmarkLine className="text-muted-foreground size-10" />
             <p className="font-medium">Primero crea categorías</p>
             <p className="text-muted-foreground text-sm">
               Las plantillas necesitan una categoría.
@@ -152,7 +152,7 @@ export function TemplatesClient({
                 </Select>
               </div>
               <Button onClick={add} disabled={pending}>
-                <Plus /> Agregar
+                <RiAddLine /> Agregar
               </Button>
             </CardContent>
           </Card>
@@ -289,7 +289,7 @@ function TemplateLine({
           disabled={pending}
           aria-label="Eliminar plantilla"
         >
-          <Trash2 className="size-4" />
+          <RiDeleteBinLine className="size-4" />
         </Button>
       </TableCell>
     </TableRow>

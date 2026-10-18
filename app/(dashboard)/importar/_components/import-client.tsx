@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Papa from 'papaparse';
-import { UploadCloud, Check } from 'lucide-react';
+import { RiUploadCloudLine, RiCheckLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -101,7 +101,7 @@ export function ImportClient() {
         </CardHeader>
         <CardContent>
           <label className="border-input hover:bg-muted/40 flex cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-center transition-colors">
-            <UploadCloud className="text-muted-foreground size-8" />
+            <RiUploadCloudLine className="text-muted-foreground size-8" />
             <span className="text-sm font-medium">Elige un archivo .csv</span>
             <input
               type="file"
@@ -195,7 +195,7 @@ export function ImportClient() {
 
           <div>
             <Button onClick={doImport} disabled={pending} size="lg">
-              <Check className="size-4" />
+              <RiCheckLine className="size-4" />
               {pending ? 'Importando…' : 'Importar mes'}
             </Button>
           </div>

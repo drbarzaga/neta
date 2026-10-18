@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import {
-  CalendarClock,
-  Mail,
-  TriangleAlert,
-  ListTodo,
-  type LucideIcon,
-} from 'lucide-react';
+import { RiCalendarCheckLine, RiMailLine, RiAlertLine, RiTodoLine, type RemixiconComponentType } from '@remixicon/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -51,7 +45,7 @@ export function PreferencesForm({ initial }: { initial: PreferenceInput }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         <Toggle
-          icon={CalendarClock}
+          icon={RiCalendarCheckLine}
           label="Recordatorios de vencimiento"
           description="Aviso cuando un gasto está por vencer."
           checked={prefs.dueRemindersEnabled}
@@ -74,7 +68,7 @@ export function PreferencesForm({ initial }: { initial: PreferenceInput }) {
         )}
         <Separator />
         <Toggle
-          icon={Mail}
+          icon={RiMailLine}
           label="Resumen mensual"
           description="Resumen del mes cerrado, el día 1."
           checked={prefs.monthlySummaryEnabled}
@@ -82,7 +76,7 @@ export function PreferencesForm({ initial }: { initial: PreferenceInput }) {
         />
         <Separator />
         <Toggle
-          icon={TriangleAlert}
+          icon={RiAlertLine}
           label="Alertas de presupuesto"
           description="Aviso cuando superas cierto porcentaje del ingreso."
           checked={prefs.budgetAlertEnabled}
@@ -105,7 +99,7 @@ export function PreferencesForm({ initial }: { initial: PreferenceInput }) {
         )}
         <Separator />
         <Toggle
-          icon={ListTodo}
+          icon={RiTodoLine}
           label="Recordatorios de Todos"
           description="Aviso cuando una tarea de tu tablero está por vencer."
           checked={prefs.todoDueRemindersEnabled}
@@ -143,7 +137,7 @@ function Toggle({
   checked,
   onCheckedChange,
 }: {
-  icon: LucideIcon;
+  icon: RemixiconComponentType;
   label: string;
   description: string;
   checked: boolean;

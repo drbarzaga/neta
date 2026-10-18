@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import { Bookmark } from 'lucide-react';
+import { RiBookmarkLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -67,7 +67,7 @@ export function AddFromTemplateDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <Bookmark /> Agregar desde plantilla
+          <RiBookmarkLine /> Agregar desde plantilla
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] overflow-hidden">
@@ -80,7 +80,7 @@ export function AddFromTemplateDialog({
 
         {templates.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center gap-3 py-8 text-center text-sm">
-            <Bookmark className="size-8" />
+            <RiBookmarkLine className="size-8" />
             <p>No tienes plantillas todavía.</p>
             <Button asChild variant="outline" size="sm">
               <Link href="/plantillas">Crear plantillas</Link>
@@ -88,7 +88,7 @@ export function AddFromTemplateDialog({
           </div>
         ) : available.length === 0 ? (
           <div className="text-muted-foreground flex flex-col items-center gap-3 py-8 text-center text-sm">
-            <Bookmark className="size-8" />
+            <RiBookmarkLine className="size-8" />
             <p>Ya agregaste todas tus plantillas a este mes.</p>
           </div>
         ) : (

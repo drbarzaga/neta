@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange } from 'lucide-react';
+import { RiCalendarScheduleLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -54,7 +54,7 @@ export function CreateYearDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline">
-          <CalendarRange className="size-4" /> Crear año completo
+          <RiCalendarScheduleLine className="size-4" /> Crear año completo
         </Button>
       </DialogTrigger>
       <DialogContent>

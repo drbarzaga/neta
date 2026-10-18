@@ -2,17 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import {
-  Sparkles,
-  Send,
-  SquarePen,
-  X,
-  Check,
-  Zap,
-  TriangleAlert,
-  CircleAlert,
-  CircleCheck,
-} from 'lucide-react';
+import { RiSparklingLine, RiSendPlaneLine, RiEditLine, RiCloseLine, RiCheckLine, RiFlashlightLine, RiAlertLine, RiErrorWarningLine, RiCheckboxCircleLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -367,11 +357,11 @@ function VizCard({ viz }: { viz: Viz }) {
 
 const INSIGHT_STYLE: Record<
   AdvisorInsight['level'],
-  { icon: typeof CircleCheck; className: string }
+  { icon: typeof RiCheckboxCircleLine; className: string }
 > = {
-  ok: { icon: CircleCheck, className: 'text-[var(--forest)]' },
-  warn: { icon: CircleAlert, className: 'text-[var(--amber)]' },
-  alert: { icon: TriangleAlert, className: 'text-destructive' },
+  ok: { icon: RiCheckboxCircleLine, className: 'text-[var(--forest)]' },
+  warn: { icon: RiErrorWarningLine, className: 'text-[var(--amber)]' },
+  alert: { icon: RiAlertLine, className: 'text-destructive' },
 };
 
 /** Panel proactivo con el chequeo de salud financiera al abrir. */
@@ -552,7 +542,7 @@ export function AdvisorWidget() {
         aria-label="Abrir asesor financiero"
         className="fixed bottom-5 right-5 z-40 size-14 rounded-full shadow-lg ring-4 ring-primary/15 transition-transform duration-200 hover:scale-105 active:scale-95 md:bottom-8 md:right-8"
       >
-        <Sparkles className="size-6" />
+        <RiSparklingLine className="size-6" />
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -564,7 +554,7 @@ export function AdvisorWidget() {
           <SheetHeader className="gap-1 border-b p-4">
             <div className="flex items-center gap-2.5">
               <span className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-xl">
-                <Sparkles className="size-5" />
+                <RiSparklingLine className="size-5" />
               </span>
               <SheetTitle className="text-base">Asesor financiero</SheetTitle>
               <div className="ml-auto flex items-center gap-0.5">
@@ -579,7 +569,7 @@ export function AdvisorWidget() {
                     aria-label="Nueva conversación"
                     title="Nueva conversación"
                   >
-                    <SquarePen className="size-4" />
+                    <RiEditLine className="size-4" />
                   </Button>
                 )}
                 <SheetClose asChild>
@@ -590,7 +580,7 @@ export function AdvisorWidget() {
                     className="text-muted-foreground"
                     aria-label="Cerrar"
                   >
-                    <X className="size-4" />
+                    <RiCloseLine className="size-4" />
                   </Button>
                 </SheetClose>
               </div>
@@ -607,7 +597,7 @@ export function AdvisorWidget() {
             {empty ? (
               <div className="flex flex-col items-center gap-5 pt-2 text-center">
                 <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
-                  <Sparkles className="size-7" />
+                  <RiSparklingLine className="size-7" />
                 </span>
                 <div className="space-y-1">
                   <p className="font-medium">¿En qué te ayudo hoy?</p>
@@ -649,7 +639,7 @@ export function AdvisorWidget() {
                   >
                     {!isUser && (
                       <span className="bg-primary/10 text-primary mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full">
-                        <Sparkles className="size-3.5" />
+                        <RiSparklingLine className="size-3.5" />
                       </span>
                     )}
                     <div
@@ -685,11 +675,11 @@ export function AdvisorWidget() {
                             key={ai}
                             className="bg-background flex w-full max-w-[92%] items-center gap-2 rounded-xl border px-3 py-2 text-sm shadow-sm"
                           >
-                            <Zap className="text-primary size-4 shrink-0" />
+                            <RiFlashlightLine className="text-primary size-4 shrink-0" />
                             <span className="min-w-0 flex-1">{actionLabel(a)}</span>
                             {st === 'done' ? (
                               <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--forest)]">
-                                <Check className="size-3.5" /> Hecho
+                                <RiCheckLine className="size-3.5" /> Hecho
                               </span>
                             ) : st === 'dismissed' ? (
                               <span className="text-muted-foreground shrink-0 text-xs">
@@ -718,7 +708,7 @@ export function AdvisorWidget() {
                                     }))
                                   }
                                 >
-                                  <X className="size-4" />
+                                  <RiCloseLine className="size-4" />
                                 </Button>
                               </span>
                             )}
@@ -780,7 +770,7 @@ export function AdvisorWidget() {
               disabled={streaming || input.trim() === ''}
               aria-label="Enviar"
             >
-              <Send className="size-4" />
+              <RiSendPlaneLine className="size-4" />
             </Button>
           </form>
         </SheetContent>

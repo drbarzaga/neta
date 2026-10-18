@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'sonner';
-import { Fingerprint } from 'lucide-react';
+import { RiFingerprintLine } from '@remixicon/react';
 import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,7 +100,7 @@ export function RegisterForm() {
         </CardHeader>
         <CardContent>
           <div className="bg-primary/10 text-primary mx-auto flex size-16 items-center justify-center rounded-2xl">
-            <Fingerprint className="size-8" />
+            <RiFingerprintLine className="size-8" />
           </div>
         </CardContent>
         <CardFooter className="mt-2 flex flex-col gap-3">
@@ -111,7 +111,7 @@ export function RegisterForm() {
             onClick={createPasskey}
             disabled={passkeyLoading}
           >
-            <Fingerprint className="size-4" />
+            <RiFingerprintLine className="size-4" />
             {passkeyLoading ? 'Esperando…' : 'Crear passkey'}
           </Button>
           <Button

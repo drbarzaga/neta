@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Car } from 'lucide-react';
+import { RiCarLine } from '@remixicon/react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -40,7 +40,7 @@ export function VehiclePhoto({
       className={cn('flex shrink-0 items-center justify-center rounded-2xl', className)}
       style={{ backgroundColor: `${color}1a`, color }}
     >
-      <Car className={iconClassName} />
+      <RiCarLine className={iconClassName} />
     </span>
   );
 }

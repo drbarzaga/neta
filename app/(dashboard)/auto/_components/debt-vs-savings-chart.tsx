@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronDown, TrendingDown } from 'lucide-react';
+import { RiArrowDownSLine, RiArrowRightDownLine } from '@remixicon/react';
 import {
   Area,
   CartesianGrid,
@@ -131,9 +131,9 @@ export function DebtVsSavingsChart({
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
         <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
-          <TrendingDown className="size-4" />
+          <RiArrowRightDownLine className="size-4" />
           {open ? 'Ocultar' : 'Ver'} proyección: ¿cuándo puedo cancelar a sola firma?
-          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+          <RiArrowDownSLine className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="flex flex-col gap-4 pt-4">

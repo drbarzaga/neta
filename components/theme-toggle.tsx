@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { Moon, Sun } from 'lucide-react';
+import { RiMoonLine, RiSunLine } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
 
 export function ThemeToggle() {
@@ -15,8 +15,8 @@ export function ThemeToggle() {
       aria-label="Cambiar tema"
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
-      <Sun className="size-5 dark:hidden" />
-      <Moon className="hidden size-5 dark:block" />
+      <RiSunLine className="size-5 dark:hidden" />
+      <RiMoonLine className="hidden size-5 dark:block" />
     </Button>
   );
 }

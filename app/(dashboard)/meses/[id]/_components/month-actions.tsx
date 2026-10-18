@@ -2,16 +2,7 @@
 
 import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  ChevronDown,
-  FileText,
-  Copy,
-  CopyPlus,
-  Lock,
-  LockOpen,
-  Eraser,
-  Trash2,
-} from 'lucide-react';
+import { RiArrowDownSLine, RiFileTextLine, RiFileCopyLine, RiFileCopy2Line, RiLockLine, RiLockUnlockLine, RiEraserLine, RiDeleteBinLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -58,7 +49,7 @@ export function MonthActions({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="outline" disabled={pending}>
-          Acciones <ChevronDown />
+          Acciones <RiArrowDownSLine />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
@@ -68,7 +59,7 @@ export function MonthActions({
             target="_blank"
             rel="noreferrer"
           >
-            <FileText className="size-4" /> Exportar PDF
+            <RiFileTextLine className="size-4" /> Exportar PDF
           </a>
         </DropdownMenuItem>
         <DropdownMenuItem
@@ -80,7 +71,7 @@ export function MonthActions({
             )
           }
         >
-          <Copy className="size-4" /> Duplicar al mes siguiente
+          <RiFileCopyLine className="size-4" /> Duplicar al mes siguiente
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() =>
@@ -91,19 +82,19 @@ export function MonthActions({
             )
           }
         >
-          <CopyPlus className="size-4" /> Duplicar sin montos ($0)
+          <RiFileCopy2Line className="size-4" /> Duplicar sin montos ($0)
         </DropdownMenuItem>
         {status === 'open' ? (
           <DropdownMenuItem
             onClick={() => run(() => setPeriodStatus(periodId, 'closed'), 'Mes cerrado')}
           >
-            <Lock className="size-4" /> Cerrar mes
+            <RiLockLine className="size-4" /> Cerrar mes
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
             onClick={() => run(() => setPeriodStatus(periodId, 'open'), 'Mes reabierto')}
           >
-            <LockOpen className="size-4" /> Reabrir mes
+            <RiLockUnlockLine className="size-4" /> Reabrir mes
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
@@ -126,7 +117,7 @@ export function MonthActions({
               );
           }}
         >
-          <Eraser className="size-4" /> Vaciar mes
+          <RiEraserLine className="size-4" /> Vaciar mes
         </DropdownMenuItem>
         <DropdownMenuItem
           variant="destructive"
@@ -143,7 +134,7 @@ export function MonthActions({
               );
           }}
         >
-          <Trash2 className="size-4" /> Eliminar mes
+          <RiDeleteBinLine className="size-4" /> Eliminar mes
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

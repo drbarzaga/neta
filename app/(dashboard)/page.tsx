@@ -1,15 +1,5 @@
 import Link from 'next/link';
-import {
-  Wallet,
-  ArrowRight,
-  CreditCard,
-  PieChart,
-  PiggyBank,
-  Repeat,
-  Clock,
-  Target,
-  Sparkles,
-} from 'lucide-react';
+import { RiWalletLine, RiArrowRightLine, RiBankCardLine, RiPieChartLine, RiSafeLine, RiRepeatLine, RiTimeLine, RiTargetLine, RiSparklingLine } from '@remixicon/react';
 import { requireSession } from '@/lib/auth-server';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -71,7 +61,7 @@ export default async function DashboardPage() {
       <Card className="mx-auto mt-8 w-full max-w-xl">
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
           <div className="bg-primary/10 text-primary flex size-16 items-center justify-center rounded-2xl">
-            <Wallet className="size-8" />
+            <RiWalletLine className="size-8" />
           </div>
           <h1 className="text-3xl font-semibold tracking-tight">Hola, {user.name}</h1>
           <p className="text-muted-foreground max-w-sm text-base">
@@ -80,7 +70,7 @@ export default async function DashboardPage() {
           </p>
           <Button size="lg" asChild>
             <Link href="/meses">
-              Crear primer mes <ArrowRight />
+              Crear primer mes <RiArrowRightLine />
             </Link>
           </Button>
         </CardContent>
@@ -176,7 +166,7 @@ export default async function DashboardPage() {
         </div>
         <Button variant="outline" size="lg" asChild>
           <Link href={`/meses/${current.id}`}>
-            Ver mes <ArrowRight />
+            Ver mes <RiArrowRightLine />
           </Link>
         </Button>
       </div>
@@ -186,7 +176,7 @@ export default async function DashboardPage() {
           <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-3">
               <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
-                <Sparkles className="size-5" />
+                <RiSparklingLine className="size-5" />
               </span>
               <div className="min-w-0 space-y-1">
                 <p className="text-sm font-medium">Tu asesor financiero dice</p>
@@ -214,14 +204,14 @@ export default async function DashboardPage() {
           value={<Money value={toDisp(current.incomeTotal, rate)} currency={dispCode} locale={locale} animateOnMount />}
           sub={<Money value={toAlt(current.incomeTotal, rate)} currency={altCode} locale={locale} animateOnMount />}
           accent="primary"
-          icon={<Wallet className="size-6" />}
+          icon={<RiWalletLine className="size-6" />}
         />
         <StatCard
           label="Total utilizado"
           value={<Money value={toDisp(current.totals.totalLocal, rate)} currency={dispCode} locale={locale} animateOnMount />}
           sub={<Money value={toAlt(current.totals.totalLocal, rate)} currency={altCode} locale={locale} animateOnMount />}
           accent="sky"
-          icon={<CreditCard className="size-6" />}
+          icon={<RiBankCardLine className="size-6" />}
         />
         <StatCard
           label="Restante"
@@ -238,7 +228,7 @@ export default async function DashboardPage() {
           sub={<Money value={toAlt(current.totals.restante, rate)} currency={altCode} locale={locale} animateOnMount />}
           valueClass={over ? 'text-[var(--coral)]' : undefined}
           variant="forest"
-          icon={<PiggyBank className="size-6" />}
+          icon={<RiSafeLine className="size-6" />}
         />
         <StatCard
           label="% usado"
@@ -246,7 +236,7 @@ export default async function DashboardPage() {
           sub={<><Money value={toDisp(current.totals.pagadoLocal, rate)} currency={dispCode} locale={locale} animateOnMount /> pagado</>}
           accent="amber"
           progress={current.totals.pctUsado}
-          icon={<PieChart className="size-6" />}
+          icon={<RiPieChartLine className="size-6" />}
         />
       </div>
 
@@ -274,7 +264,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Repeat className="text-muted-foreground size-5" /> Suscripciones
+              <RiRepeatLine className="text-muted-foreground size-5" /> Suscripciones
             </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
@@ -328,7 +318,7 @@ export default async function DashboardPage() {
             <Card className="lg:col-span-3">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Clock className="size-5 text-(--ink-3)" /> Pendientes de pagar
+                  <RiTimeLine className="size-5 text-(--ink-3)" /> Pendientes de pagar
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col">
@@ -381,7 +371,7 @@ export default async function DashboardPage() {
             <Card variant="ink" className={pendientes.length > 0 ? 'lg:col-span-2' : 'lg:col-span-5'}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">
-                  <Target className="size-5 text-(--lime)" /> Meta activa
+                  <RiTargetLine className="size-5 text-(--lime)" /> Meta activa
                 </CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -404,7 +394,7 @@ export default async function DashboardPage() {
                 </div>
                 <Button variant="lime" size="sm" className="mt-1 w-fit" asChild>
                   <Link href="/metas">
-                    Ver metas <ArrowRight />
+                    Ver metas <RiArrowRightLine />
                   </Link>
                 </Button>
               </CardContent>

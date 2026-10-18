@@ -1,22 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import {
-  Trash2,
-  MoreVertical,
-  Bookmark,
-  Clock,
-  CircleCheck,
-  CircleAlert,
-  GripVertical,
-  Target,
-  CalendarClock,
-  Repeat,
-  CreditCard,
-  PiggyBank,
-  Plane,
-  type LucideIcon,
-} from 'lucide-react';
+import { RiDeleteBinLine, RiMore2Line, RiBookmarkLine, RiTimeLine, RiCheckboxCircleLine, RiErrorWarningLine, RiDraggable, RiTargetLine, RiCalendarCheckLine, RiRepeatLine, RiBankCardLine, RiSafeLine, RiPlaneLine, type RemixiconComponentType } from '@remixicon/react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
@@ -67,10 +52,10 @@ const STATUS_STYLES: Record<string, string> = {
   vencido: 'text-[var(--coral)]',
 };
 
-const STATUS_ICONS: Record<string, LucideIcon> = {
-  pendiente: Clock,
-  pagado: CircleCheck,
-  vencido: CircleAlert,
+const STATUS_ICONS: Record<string, RemixiconComponentType> = {
+  pendiente: RiTimeLine,
+  pagado: RiCheckboxCircleLine,
+  vencido: RiErrorWarningLine,
 };
 
 export function ExpenseRow({
@@ -258,7 +243,7 @@ export function ExpenseRow({
             aria-label="Arrastrar para reordenar"
             className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
           >
-            <GripVertical className="size-4" />
+            <RiDraggable className="size-4" />
           </button>
           <span className="text-muted-foreground text-xs tabular-nums">
             {order}
@@ -279,7 +264,7 @@ export function ExpenseRow({
               title="Se agrega cada mes automáticamente"
               className="text-muted-foreground shrink-0"
             >
-              <Repeat className="size-3.5" aria-label="Gasto recurrente" />
+              <RiRepeatLine className="size-3.5" aria-label="Gasto recurrente" />
             </span>
           )}
           {expense.installmentNumber && expense.installmentsCount && (
@@ -287,7 +272,7 @@ export function ExpenseRow({
               title="Compra en cuotas"
               className="text-muted-foreground bg-muted flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums"
             >
-              <CreditCard className="size-3" />
+              <RiBankCardLine className="size-3" />
               {expense.installmentNumber}/{expense.installmentsCount}
             </span>
           )}
@@ -364,7 +349,7 @@ export function ExpenseRow({
                   color: linkedGoal.color,
                 }}
               >
-                <Target className="size-3 shrink-0" />
+                <RiTargetLine className="size-3 shrink-0" />
                 <span className="truncate">{linkedGoal.title}</span>
               </span>
             )}
@@ -377,7 +362,7 @@ export function ExpenseRow({
                   color: linkedSavings.color,
                 }}
               >
-                <PiggyBank className="size-3 shrink-0" />
+                <RiSafeLine className="size-3 shrink-0" />
                 <span className="truncate">{linkedSavings.name}</span>
               </span>
             )}
@@ -390,7 +375,7 @@ export function ExpenseRow({
                   color: linkedTrip.color,
                 }}
               >
-                <Plane className="size-3 shrink-0" />
+                <RiPlaneLine className="size-3 shrink-0" />
                 <span className="truncate">{linkedTrip.name}</span>
               </span>
             )}
@@ -408,13 +393,13 @@ export function ExpenseRow({
               className="text-muted-foreground size-8"
               aria-label="Acciones del gasto"
             >
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <Target className="size-4" />
+                <RiTargetLine className="size-4" />
                 {linkedGoal ? 'Meta vinculada' : 'Vincular a meta'}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -439,7 +424,7 @@ export function ExpenseRow({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <PiggyBank className="size-4" />
+                <RiSafeLine className="size-4" />
                 {linkedSavings ? 'Ahorro vinculado' : 'Aportar a ahorro'}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -464,7 +449,7 @@ export function ExpenseRow({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <Plane className="size-4" />
+                <RiPlaneLine className="size-4" />
                 {linkedTrip ? 'Viaje vinculado' : 'Vincular a viaje'}
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -489,7 +474,7 @@ export function ExpenseRow({
             </DropdownMenuSub>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
-                <CalendarClock className="size-4" />
+                <RiCalendarCheckLine className="size-4" />
                 Mover a mes
               </DropdownMenuSubTrigger>
               <DropdownMenuSubContent>
@@ -510,25 +495,25 @@ export function ExpenseRow({
               </DropdownMenuSubContent>
             </DropdownMenuSub>
             <DropdownMenuItem onClick={toggleRecurring}>
-              <Repeat className="size-4" />
+              <RiRepeatLine className="size-4" />
               {expense.recurring ? 'Quitar de recurrentes' : 'Marcar como recurrente'}
             </DropdownMenuItem>
             {!expense.purchaseId && (
               <DropdownMenuItem onClick={() => setConvertOpen(true)}>
-                <CreditCard className="size-4" /> Convertir en cuotas…
+                <RiBankCardLine className="size-4" /> Convertir en cuotas…
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={handleSaveTemplate}>
-              <Bookmark className="size-4" /> Guardar como plantilla
+              <RiBookmarkLine className="size-4" /> Guardar como plantilla
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {expense.purchaseId && (
               <DropdownMenuItem variant="destructive" onClick={handleDeletePurchase}>
-                <CreditCard className="size-4" /> Eliminar compra (todas las cuotas)
+                <RiBankCardLine className="size-4" /> Eliminar compra (todas las cuotas)
               </DropdownMenuItem>
             )}
             <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-              <Trash2 className="size-4" /> {expense.purchaseId ? 'Eliminar esta cuota' : 'Eliminar'}
+              <RiDeleteBinLine className="size-4" /> {expense.purchaseId ? 'Eliminar esta cuota' : 'Eliminar'}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

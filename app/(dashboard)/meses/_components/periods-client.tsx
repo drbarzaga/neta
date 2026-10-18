@@ -3,16 +3,7 @@
 import { useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import {
-  MoreVertical,
-  FolderOpen,
-  Copy,
-  CopyPlus,
-  Lock,
-  Unlock,
-  Trash2,
-  CalendarDays,
-} from 'lucide-react';
+import { RiMore2Line, RiFolderOpenLine, RiFileCopyLine, RiFileCopy2Line, RiLockLine, RiLockUnlockLine, RiDeleteBinLine, RiCalendarLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -103,7 +94,7 @@ export function PeriodsClient({
       {periods.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <CalendarDays className="text-muted-foreground size-10" />
+            <RiCalendarLine className="text-muted-foreground size-10" />
             <p className="font-medium">Todavía no tienes meses en {year}</p>
             <p className="text-muted-foreground text-sm">
               Crea el primero de {year} o importa tu planilla desde la sección Importar.
@@ -162,30 +153,30 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="-mr-2 -mt-1 size-8">
-                <MoreVertical className="size-4" />
+                <RiMore2Line className="size-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem onClick={() => router.push(`/meses/${period.id}`)}>
-                <FolderOpen className="size-4" /> Abrir
+                <RiFolderOpenLine className="size-4" /> Abrir
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => duplicate(false)}>
-                <Copy className="size-4" /> Duplicar al mes siguiente
+                <RiFileCopyLine className="size-4" /> Duplicar al mes siguiente
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => duplicate(true)}>
-                <CopyPlus className="size-4" /> Duplicar sin montos ($0)
+                <RiFileCopy2Line className="size-4" /> Duplicar sin montos ($0)
               </DropdownMenuItem>
               {period.status === 'open' ? (
                 <DropdownMenuItem
                   onClick={() => act(() => setPeriodStatus(period.id, 'closed'), 'Mes cerrado')}
                 >
-                  <Lock className="size-4" /> Cerrar mes
+                  <RiLockLine className="size-4" /> Cerrar mes
                 </DropdownMenuItem>
               ) : (
                 <DropdownMenuItem
                   onClick={() => act(() => setPeriodStatus(period.id, 'open'), 'Mes reabierto')}
                 >
-                  <Unlock className="size-4" /> Reabrir mes
+                  <RiLockUnlockLine className="size-4" /> Reabrir mes
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -201,7 +192,7 @@ function PeriodGridCard({ period }: { period: PeriodCard }) {
                   if (ok) act(() => deletePeriod(period.id), 'Mes eliminado');
                 }}
               >
-                <Trash2 className="size-4" /> Eliminar
+                <RiDeleteBinLine className="size-4" /> Eliminar
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

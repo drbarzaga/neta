@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { LogOut, Settings, ChevronsUpDown } from 'lucide-react';
+import { RiLogoutBoxLine, RiSettings2Line, RiExpandUpDownLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -64,7 +64,7 @@ export function NavUser({
                   {user.email}
                 </span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4 text-(--sb-mute) group-data-[collapsible=icon]:hidden" />
+              <RiExpandUpDownLine className="ml-auto size-4 text-(--sb-mute) group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -80,11 +80,11 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push('/configuracion')}>
-              <Settings className="size-4" />
+              <RiSettings2Line className="size-4" />
               Configuración
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="size-4" />
+              <RiLogoutBoxLine className="size-4" />
               Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>

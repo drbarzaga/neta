@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Check, CircleAlert } from 'lucide-react';
+import { RiLoader4Line, RiCheckLine, RiErrorWarningLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -139,10 +139,10 @@ export function ProfileForm({
 function EmailHint({ status }: { status: EmailStatus }) {
   if (status === 'idle') return null;
   const map = {
-    checking: { icon: Loader2, text: 'Comprobando…', cls: 'text-muted-foreground', spin: true },
-    available: { icon: Check, text: 'Disponible', cls: 'text-[var(--forest)]', spin: false },
-    taken: { icon: CircleAlert, text: 'Este correo ya está en uso', cls: 'text-destructive', spin: false },
-    invalid: { icon: CircleAlert, text: 'Correo inválido', cls: 'text-destructive', spin: false },
+    checking: { icon: RiLoader4Line, text: 'Comprobando…', cls: 'text-muted-foreground', spin: true },
+    available: { icon: RiCheckLine, text: 'Disponible', cls: 'text-[var(--forest)]', spin: false },
+    taken: { icon: RiErrorWarningLine, text: 'Este correo ya está en uso', cls: 'text-destructive', spin: false },
+    invalid: { icon: RiErrorWarningLine, text: 'Correo inválido', cls: 'text-destructive', spin: false },
   }[status];
   const Icon = map.icon;
   return (

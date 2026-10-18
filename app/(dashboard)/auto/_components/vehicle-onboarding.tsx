@@ -2,18 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Landmark,
-  ShieldCheck,
-  FileCheck2,
-  ShieldAlert,
-  PartyPopper,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  Check,
-  Sparkles,
-} from 'lucide-react';
+import { RiBankLine, RiShieldCheckLine, RiFileCheckLine, RiShieldFlashLine, RiCupLine, RiArrowLeftSLine, RiArrowRightSLine, RiExternalLinkLine, RiCheckLine, RiSparklingLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -34,11 +23,11 @@ import { MONTHS_ES } from '@/lib/dates';
 import { completeVehicleOnboarding } from '../actions';
 
 const STEPS = [
-  { title: 'Financiación', icon: Landmark },
-  { title: 'Seguro', icon: ShieldCheck },
-  { title: 'Matrícula', icon: FileCheck2 },
-  { title: 'Pack de seguridad', icon: ShieldAlert },
-  { title: 'Confirmación', icon: PartyPopper },
+  { title: 'Financiación', icon: RiBankLine },
+  { title: 'Seguro', icon: RiShieldCheckLine },
+  { title: 'Matrícula', icon: RiFileCheckLine },
+  { title: 'Pack de seguridad', icon: RiShieldFlashLine },
+  { title: 'Confirmación', icon: RiCupLine },
 ] as const;
 
 function nowParts() {
@@ -211,15 +200,15 @@ export function VehicleOnboarding({
 
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
           <Button variant="ghost" onClick={() => go(step - 1)} disabled={step === 0 || pending}>
-            <ChevronLeft className="size-4" /> Atrás
+            <RiArrowLeftSLine className="size-4" /> Atrás
           </Button>
           {step < STEPS.length - 1 ? (
             <Button onClick={() => go(step + 1)} disabled={!canAdvance() || pending}>
-              Continuar <ChevronRight className="size-4" />
+              Continuar <RiArrowRightSLine className="size-4" />
             </Button>
           ) : (
             <Button onClick={submit} disabled={pending}>
-              <Sparkles className="size-4" /> Finalizar onboarding
+              <RiSparklingLine className="size-4" /> Finalizar onboarding
             </Button>
           )}
         </div>
@@ -260,7 +249,7 @@ function OnboardingProgress({
                   state === 'upcoming' && 'text-muted-foreground border-border'
                 )}
               >
-                {state === 'done' ? <Check className="size-4" /> : <Icon className="size-4" />}
+                {state === 'done' ? <RiCheckLine className="size-4" /> : <Icon className="size-4" />}
               </span>
               <span
                 className={cn(
@@ -526,7 +515,7 @@ function StepRegistration({
           </p>
           <Button variant="outline" size="sm" className="mt-3 w-fit" type="button" asChild>
             <a href="https://tramites.montevideo.gub.uy" target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="size-4" /> Ver trámite en el sitio de la IM
+              <RiExternalLinkLine className="size-4" /> Ver trámite en el sitio de la IM
             </a>
           </Button>
         </div>

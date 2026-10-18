@@ -2,15 +2,7 @@
 
 import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  GripVertical,
-  CalendarClock,
-  ListChecks,
-} from 'lucide-react';
+import { RiAddLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiDraggable, RiCalendarCheckLine, RiListCheck2 } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   DndContext,
@@ -262,7 +254,7 @@ export function TodosClient({
             </SelectContent>
           </Select>
           <Button onClick={() => setColumnDialog({ open: true, column: null })}>
-            <Plus /> Columna
+            <RiAddLine /> Columna
           </Button>
         </div>
       </div>
@@ -285,7 +277,7 @@ export function TodosClient({
             <div>
               <p className="text-sm text-(--sb-mute)">Progreso en {year}</p>
               <p className="font-heading mt-1 flex items-center gap-2 text-[32px] leading-none font-bold tabular-nums text-(--lime) [letter-spacing:-0.025em]">
-                <ListChecks className="size-6" />
+                <RiListCheck2 className="size-6" />
                 {donePct}%
               </p>
             </div>
@@ -391,7 +383,7 @@ function ColumnView({
           aria-label="Reordenar columna"
           className="text-muted-foreground/40 hover:text-muted-foreground -ml-1 flex shrink-0 cursor-grab touch-none items-center active:cursor-grabbing"
         >
-          <GripVertical className="size-4" />
+          <RiDraggable className="size-4" />
         </button>
         <span
           className="ring-background size-3 shrink-0 rounded-full ring-2"
@@ -411,16 +403,16 @@ function ColumnView({
               className="text-muted-foreground -mr-1 shrink-0"
               aria-label="Acciones de la columna"
             >
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onEditColumn}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={handleDeleteColumn}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -450,7 +442,7 @@ function ColumnView({
       </div>
 
       <Button variant="ghost" size="sm" className="justify-start" onClick={onAddTodo}>
-        <Plus className="size-4" /> Agregar tarea
+        <RiAddLine className="size-4" /> Agregar tarea
       </Button>
     </div>
   );
@@ -492,7 +484,7 @@ function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void })
         aria-label="Arrastrar para reordenar"
         className="text-muted-foreground/30 hover:text-muted-foreground mt-0.5 shrink-0 cursor-grab touch-none active:cursor-grabbing"
       >
-        <GripVertical className="size-4" />
+        <RiDraggable className="size-4" />
       </button>
 
       <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-left">
@@ -512,13 +504,13 @@ function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void })
                   !done && days !== null && days >= 0 && days <= 7 && 'text-[var(--amber)]'
                 )}
               >
-                <CalendarClock className="size-3.5" />
+                <RiCalendarCheckLine className="size-3.5" />
                 {formatDueDate(todo.dueDate)}
               </span>
             )}
             {todo.items.length > 0 && (
               <span className="text-muted-foreground inline-flex items-center gap-1 text-xs tabular-nums">
-                <ListChecks className="size-3.5" />
+                <RiListCheck2 className="size-3.5" />
                 {todo.items.filter((i) => i.checked).length}/{todo.items.length}
               </span>
             )}
@@ -534,16 +526,16 @@ function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void })
             className="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100"
             aria-label="Acciones de la tarea"
           >
-            <MoreVertical className="size-3.5" />
+            <RiMore2Line className="size-3.5" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-40">
           <DropdownMenuItem onClick={onEdit}>
-            <Pencil className="size-4" /> Editar
+            <RiPencilLine className="size-4" /> Editar
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onClick={handleDelete}>
-            <Trash2 className="size-4" /> Eliminar
+            <RiDeleteBinLine className="size-4" /> Eliminar
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -872,7 +864,7 @@ function TodoItemsEditor({
                 aria-label="Eliminar ítem"
                 className="text-muted-foreground/50 hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100"
               >
-                <Trash2 className="size-3.5" />
+                <RiDeleteBinLine className="size-3.5" />
               </button>
             </div>
           ))}
@@ -898,7 +890,7 @@ function TodoItemsEditor({
           disabled={adding || !newText.trim()}
           aria-label="Agregar ítem"
         >
-          <Plus className="size-4" />
+          <RiAddLine className="size-4" />
         </Button>
       </div>
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Wand2 } from 'lucide-react';
+import { RiMagicLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import {
@@ -51,7 +51,7 @@ export function AppearanceForm({ initialEnabled }: { initialEnabled: boolean }) 
                 enabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               )}
             >
-              <Wand2 className="size-5" />
+              <RiMagicLine className="size-5" />
             </span>
             <div className="space-y-0.5">
               <Label>Animaciones</Label>

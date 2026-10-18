@@ -2,15 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
-import {
-  Plus,
-  Plane,
-  MoreVertical,
-  Pencil,
-  Trash2,
-  CalendarDays,
-  MapPin,
-} from 'lucide-react';
+import { RiAddLine, RiPlaneLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiCalendarLine, RiMapPinLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -92,7 +84,7 @@ export function TripsClient({
           </p>
         </div>
         <Button onClick={() => setDialog({ open: true, trip: null })}>
-          <Plus /> Nuevo viaje
+          <RiAddLine /> Nuevo viaje
         </Button>
       </div>
 
@@ -100,7 +92,7 @@ export function TripsClient({
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <span className="bg-primary/10 text-primary flex size-14 items-center justify-center rounded-2xl">
-              <Plane className="size-7" />
+              <RiPlaneLine className="size-7" />
             </span>
             <div className="space-y-1">
               <p className="font-medium">Todavía no tienes viajes</p>
@@ -112,7 +104,7 @@ export function TripsClient({
               variant="outline"
               onClick={() => setDialog({ open: true, trip: null })}
             >
-              <Plus /> Crear viaje
+              <RiAddLine /> Crear viaje
             </Button>
           </CardContent>
         </Card>
@@ -204,16 +196,16 @@ function TripCard({
               className="text-muted-foreground -mr-2 -mt-1 size-8 shrink-0"
               aria-label="Acciones del viaje"
             >
-              <MoreVertical className="size-4" />
+              <RiMore2Line className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             <DropdownMenuItem onClick={onEdit}>
-              <Pencil className="size-4" /> Editar
+              <RiPencilLine className="size-4" /> Editar
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={remove}>
-              <Trash2 className="size-4" /> Eliminar
+              <RiDeleteBinLine className="size-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -226,14 +218,14 @@ function TripCard({
           </Badge>
           {trip.destination && (
             <span className="text-muted-foreground flex items-center gap-1 text-xs">
-              <MapPin className="size-3.5" /> {trip.destination}
+              <RiMapPinLine className="size-3.5" /> {trip.destination}
             </span>
           )}
         </div>
 
         {(trip.startDate || trip.endDate) && (
           <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-            <CalendarDays className="size-3.5" />
+            <RiCalendarLine className="size-3.5" />
             {trip.startDate ? formatDate(trip.startDate, locale) : '—'}
             {' – '}
             {trip.endDate ? formatDate(trip.endDate, locale) : '—'}
