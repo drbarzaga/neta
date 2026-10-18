@@ -6,7 +6,6 @@ import {
   Area,
   CartesianGrid,
   ComposedChart,
-  Line,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -97,6 +96,22 @@ function CrossoverDot({
   }
   return (
     <circle cx={cx} cy={cy} r={5.5} fill={SAVINGS_COLOR} stroke="var(--background)" strokeWidth={2} />
+  );
+}
+
+/** Insignia flotante "Mes N" sobre la línea de referencia del cruce, en vez de una etiqueta de texto suelta. */
+function CrossoverBadge(props: { x?: number; y?: number; crossoverMonth: number }) {
+  const { x, y, crossoverMonth } = props;
+  if (x == null || y == null) return null;
+  const text = `Mes ${crossoverMonth}`;
+  const width = text.length * 6.5 + 18;
+  return (
+    <g transform={`translate(${x - width / 2}, ${y - 24})`}>
+      <rect width={width} height={20} rx={10} fill={SAVINGS_COLOR} />
+      <text x={width / 2} y={14} textAnchor="middle" fontSize={11} fontWeight={600} fill="#06281d">
+        {text}
+      </text>
+    </g>
   );
 }
 
@@ -232,22 +247,26 @@ export function DebtVsSavingsChart({
 
         <div className="flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: DEBT_COLOR }} />
+            <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: DEBT_COLOR }} />
             <span className="text-muted-foreground">Saldo del préstamo</span>
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: SAVINGS_COLOR }} />
+            <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: SAVINGS_COLOR }} />
             <span className="text-muted-foreground">Tu ahorro</span>
           </span>
         </div>
 
         <div className="h-[280px] -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 28, right: 16, left: 0, bottom: 0 }}>
               <defs>
-                <linearGradient id="debtVsSavingsGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={SAVINGS_COLOR} stopOpacity={0.1} />
-                  <stop offset="100%" stopColor={SAVINGS_COLOR} stopOpacity={0} />
+                <linearGradient id="debtAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={DEBT_COLOR} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={DEBT_COLOR} stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="savingsAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={SAVINGS_COLOR} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={SAVINGS_COLOR} stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -283,39 +302,35 @@ export function DebtVsSavingsChart({
                 <ReferenceLine
                   x={crossoverMonth}
                   stroke={SAVINGS_COLOR}
+                  strokeOpacity={0.5}
                   strokeDasharray="4 4"
-                  label={{
-                    value: `Mes ${crossoverMonth}`,
-                    position: 'top',
-                    fill: SAVINGS_COLOR,
-                    fontSize: 11,
-                  }}
+                  label={(props: { viewBox?: { x?: number; y?: number } }) => (
+                    <CrossoverBadge
+                      x={props.viewBox?.x}
+                      y={props.viewBox?.y}
+                      crossoverMonth={crossoverMonth}
+                    />
+                  )}
                 />
               )}
               <Area
                 type="monotone"
-                dataKey="ahorro"
-                stroke="none"
-                fill="url(#debtVsSavingsGradient)"
-                isAnimationActive={false}
-              />
-              <Line
-                type="monotone"
                 dataKey="deuda"
                 name="Deuda"
                 stroke={DEBT_COLOR}
-                strokeWidth={2}
-                strokeDasharray="5 3"
+                strokeWidth={2.5}
+                fill="url(#debtAreaGradient)"
                 dot={false}
                 activeDot={{ r: 4 }}
                 isAnimationActive={false}
               />
-              <Line
+              <Area
                 type="monotone"
                 dataKey="ahorro"
                 name="Ahorro"
                 stroke={SAVINGS_COLOR}
                 strokeWidth={2.5}
+                fill="url(#savingsAreaGradient)"
                 dot={(props: { cx?: number; cy?: number; payload?: ChartRow }) => (
                   <CrossoverDot {...props} crossoverMonth={crossoverMonth} key={props.payload?.month} />
                 )}

@@ -157,9 +157,9 @@ export function AutoClient({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Auto</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Autos</h1>
           <p className="text-muted-foreground mt-1 text-base">
-            Inicial, préstamo y gastos del auto, mes a mes.
+            Seguí el financiamiento y los gastos de tus vehículos, mes a mes.
           </p>
         </div>
         {vehicles.length > 0 && (
