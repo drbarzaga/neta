@@ -7,6 +7,7 @@ import {
   getCategories,
   getExpenses,
   getOtherPeriods,
+  getAdjacentPeriods,
 } from './queries';
 import { getTemplatesWithCategory } from '../../plantillas/queries';
 import { getGoals } from '../../metas/queries';
@@ -36,6 +37,7 @@ export default async function MonthPage({
     savingsAccounts,
     trips,
     vehicleInstallments,
+    adjacentPeriods,
   ] = await Promise.all([
     getCategories(userId),
     getExpenses(userId, id),
@@ -46,6 +48,7 @@ export default async function MonthPage({
     getSavingsAccounts(userId),
     listTripsForLinking(userId),
     listVehicleInstallmentsForLinking(userId),
+    getAdjacentPeriods(userId, period.year, period.month),
   ]);
   const locale = getCountry(settings.country).locale;
 
@@ -60,6 +63,8 @@ export default async function MonthPage({
       savingsAccounts={savingsAccounts}
       trips={trips}
       vehicleInstallments={vehicleInstallments}
+      prevPeriod={adjacentPeriods.prev}
+      nextPeriod={adjacentPeriods.next}
       locale={locale}
       displayCurrency={settings.displayCurrency === 'usd' ? 'usd' : 'local'}
     />

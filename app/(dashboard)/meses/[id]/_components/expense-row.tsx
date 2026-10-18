@@ -245,15 +245,20 @@ export function ExpenseRow({
     >
       <TableCell className="w-12">
         <div className="flex items-center justify-center gap-1.5">
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            aria-label="Arrastrar para reordenar"
-            className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
-          >
-            <RiDraggable className="size-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                {...attributes}
+                {...listeners}
+                aria-label="Arrastrar para reordenar"
+                className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab touch-none active:cursor-grabbing"
+              >
+                <RiDraggable className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Arrastrar para reordenar</TooltipContent>
+          </Tooltip>
           <span className="text-muted-foreground text-xs tabular-nums">
             {order}
           </span>
@@ -425,16 +430,21 @@ export function ExpenseRow({
       </TableCell>
       <TableCell className="w-10">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground size-8"
-              aria-label="Acciones del gasto"
-            >
-              <RiMore2Line className="size-4" />
-            </Button>
-          </DropdownMenuTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground size-8"
+                  aria-label="Acciones del gasto"
+                >
+                  <RiMore2Line className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>Acciones del gasto</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent align="end" className="w-52">
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>

@@ -1,5 +1,5 @@
 import 'server-only';
-import { db, eq, and, ne, asc, desc, period, category, expense } from '@/db';
+import { db, eq, and, or, ne, lt, gt, asc, desc, period, category, expense } from '@/db';
 
 export async function getPeriod(userId: string, periodId: string) {
   const [p] = await db
@@ -7,6 +7,35 @@ export async function getPeriod(userId: string, periodId: string) {
     .from(period)
     .where(and(eq(period.id, periodId), eq(period.userId, userId)));
   return p ?? null;
+}
+
+/** Mes inmediatamente anterior/siguiente en el tiempo (año/mes), para navegar entre meses. */
+export async function getAdjacentPeriods(userId: string, year: number, month: number) {
+  const [[prev], [next]] = await Promise.all([
+    db
+      .select({ id: period.id, label: period.label })
+      .from(period)
+      .where(
+        and(
+          eq(period.userId, userId),
+          or(lt(period.year, year), and(eq(period.year, year), lt(period.month, month)))
+        )
+      )
+      .orderBy(desc(period.year), desc(period.month))
+      .limit(1),
+    db
+      .select({ id: period.id, label: period.label })
+      .from(period)
+      .where(
+        and(
+          eq(period.userId, userId),
+          or(gt(period.year, year), and(eq(period.year, year), gt(period.month, month)))
+        )
+      )
+      .orderBy(asc(period.year), asc(period.month))
+      .limit(1),
+  ]);
+  return { prev: prev ?? null, next: next ?? null };
 }
 
 /** Otros meses del usuario (para mover/posponer un gasto), del más reciente. */

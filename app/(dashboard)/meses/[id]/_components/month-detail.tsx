@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
-import { RiAddLine, RiArrowLeftLine, RiArrowDownSLine, RiContractUpDownLine, RiExpandUpDownLine, RiDraggable, RiWalletLine, RiBankCardLine, RiSafeLine, RiPieChartLine, RiRefreshLine } from '@remixicon/react';
+import { RiAddLine, RiArrowLeftLine, RiArrowRightLine, RiArrowDownSLine, RiContractUpDownLine, RiExpandUpDownLine, RiDraggable, RiWalletLine, RiBankCardLine, RiSafeLine, RiPieChartLine, RiRefreshLine } from '@remixicon/react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -39,6 +39,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { CategoryIcon } from '@/components/category-icon';
 import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
@@ -75,6 +76,8 @@ export function MonthDetail({
   savingsAccounts = [],
   trips = [],
   vehicleInstallments = [],
+  prevPeriod = null,
+  nextPeriod = null,
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -87,6 +90,8 @@ export function MonthDetail({
   savingsAccounts?: SavingsAccount[];
   trips?: { id: string; name: string; icon: string; color: string }[];
   vehicleInstallments?: VehicleInstallmentOption[];
+  prevPeriod?: { id: string; label: string } | null;
+  nextPeriod?: { id: string; label: string } | null;
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -358,11 +363,52 @@ export function MonthDetail({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" size="icon" asChild>
-          <Link href="/meses" aria-label="Volver">
-            <RiArrowLeftLine className="size-5" />
-          </Link>
-        </Button>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" asChild>
+              <Link href="/meses" aria-label="Volver a Meses">
+                <RiArrowLeftLine className="size-5" />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Volver a Meses</TooltipContent>
+        </Tooltip>
+
+        <div className="flex items-center gap-1">
+          {prevPeriod ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link href={`/meses/${prevPeriod.id}`} aria-label={`Ir a ${prevPeriod.label}`}>
+                    <RiArrowLeftLine className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{prevPeriod.label}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button variant="ghost" size="icon" disabled aria-label="No hay mes anterior">
+              <RiArrowLeftLine className="size-4" />
+            </Button>
+          )}
+          {nextPeriod ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link href={`/meses/${nextPeriod.id}`} aria-label={`Ir a ${nextPeriod.label}`}>
+                    <RiArrowRightLine className="size-4" />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{nextPeriod.label}</TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button variant="ghost" size="icon" disabled aria-label="No hay mes siguiente">
+              <RiArrowRightLine className="size-4" />
+            </Button>
+          )}
+        </div>
+
         <div className="flex-1">
           <h1 className="font-heading text-[32px] leading-none font-bold tracking-tight [letter-spacing:-0.025em]">
             {period.label}
@@ -682,14 +728,19 @@ function SortableSection({
         )}
       >
         <div className="flex items-stretch">
-          <button
-            type="button"
-            {...listeners}
-            aria-label="Reordenar sección"
-            className="text-muted-foreground/40 hover:text-muted-foreground flex shrink-0 cursor-grab touch-none items-center pl-3 active:cursor-grabbing"
-          >
-            <RiDraggable className="size-4" />
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                {...listeners}
+                aria-label="Reordenar sección"
+                className="text-muted-foreground/40 hover:text-muted-foreground flex shrink-0 cursor-grab touch-none items-center pl-3 active:cursor-grabbing"
+              >
+                <RiDraggable className="size-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Arrastrar para reordenar la sección</TooltipContent>
+          </Tooltip>
           <CollapsibleTrigger asChild>
             <button
               type="button"
