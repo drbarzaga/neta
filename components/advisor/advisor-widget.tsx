@@ -14,6 +14,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   executeAdvisorAction,
@@ -559,18 +560,22 @@ export function AdvisorWidget() {
               <SheetTitle className="text-base">Asesor financiero</SheetTitle>
               <div className="ml-auto flex items-center gap-0.5">
                 {!empty && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground"
-                    onClick={reset}
-                    disabled={streaming}
-                    aria-label="Nueva conversación"
-                    title="Nueva conversación"
-                  >
-                    <RiEditLine className="size-4" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        onClick={reset}
+                        disabled={streaming}
+                        aria-label="Nueva conversación"
+                      >
+                        <RiEditLine className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Nueva conversación</TooltipContent>
+                  </Tooltip>
                 )}
                 <SheetClose asChild>
                   <Button

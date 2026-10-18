@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { CategoryIcon } from '@/components/category-icon';
@@ -664,9 +665,14 @@ function TripExpenseRow({
           {expense.date && formatDate(expense.date, locale)}
           {expense.time && <span>{expense.time}</span>}
           {linked && (
-            <span className="flex items-center gap-1" title="Viene de un gasto vinculado; edítalo desde el mes">
-              <RiLinksLine className="size-3" /> vinculado al mes
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="flex items-center gap-1">
+                  <RiLinksLine className="size-3" /> vinculado al mes
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Viene de un gasto vinculado; edítalo desde el mes</TooltipContent>
+            </Tooltip>
           )}
         </p>
       </div>

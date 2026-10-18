@@ -27,6 +27,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { useConfirm } from '@/components/confirm-provider';
 import { BrandLogo } from '@/components/brand-logo';
@@ -260,21 +261,25 @@ export function ExpenseRow({
             className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 hover:border-input focus-visible:border-input"
           />
           {expense.recurring && (
-            <span
-              title="Se agrega cada mes automáticamente"
-              className="text-muted-foreground shrink-0"
-            >
-              <RiRepeatLine className="size-3.5" aria-label="Gasto recurrente" />
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground shrink-0">
+                  <RiRepeatLine className="size-3.5" aria-label="Gasto recurrente" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Se agrega cada mes automáticamente</TooltipContent>
+            </Tooltip>
           )}
           {expense.installmentNumber && expense.installmentsCount && (
-            <span
-              title="Compra en cuotas"
-              className="text-muted-foreground bg-muted flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums"
-            >
-              <RiBankCardLine className="size-3" />
-              {expense.installmentNumber}/{expense.installmentsCount}
-            </span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground bg-muted flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium tabular-nums">
+                  <RiBankCardLine className="size-3" />
+                  {expense.installmentNumber}/{expense.installmentsCount}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Compra en cuotas</TooltipContent>
+            </Tooltip>
           )}
         </div>
       </TableCell>
@@ -341,43 +346,55 @@ export function ExpenseRow({
         {linkedGoal || linkedSavings || linkedTrip ? (
           <div className="flex flex-wrap items-center gap-1">
             {linkedGoal && (
-              <span
-                title={`Este gasto aporta a la meta: ${linkedGoal.title}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: `${linkedGoal.color}1a`,
-                  color: linkedGoal.color,
-                }}
-              >
-                <RiTargetLine className="size-3 shrink-0" />
-                <span className="truncate">{linkedGoal.title}</span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      backgroundColor: `${linkedGoal.color}1a`,
+                      color: linkedGoal.color,
+                    }}
+                  >
+                    <RiTargetLine className="size-3 shrink-0" />
+                    <span className="truncate">{linkedGoal.title}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Este gasto aporta a la meta: {linkedGoal.title}</TooltipContent>
+              </Tooltip>
             )}
             {linkedSavings && (
-              <span
-                title={`Este gasto aporta al ahorro: ${linkedSavings.name}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: `${linkedSavings.color}1a`,
-                  color: linkedSavings.color,
-                }}
-              >
-                <RiSafeLine className="size-3 shrink-0" />
-                <span className="truncate">{linkedSavings.name}</span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      backgroundColor: `${linkedSavings.color}1a`,
+                      color: linkedSavings.color,
+                    }}
+                  >
+                    <RiSafeLine className="size-3 shrink-0" />
+                    <span className="truncate">{linkedSavings.name}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Este gasto aporta al ahorro: {linkedSavings.name}</TooltipContent>
+              </Tooltip>
             )}
             {linkedTrip && (
-              <span
-                title={`Este gasto pertenece al viaje: ${linkedTrip.name}`}
-                className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{
-                  backgroundColor: `${linkedTrip.color}1a`,
-                  color: linkedTrip.color,
-                }}
-              >
-                <RiPlaneLine className="size-3 shrink-0" />
-                <span className="truncate">{linkedTrip.name}</span>
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    style={{
+                      backgroundColor: `${linkedTrip.color}1a`,
+                      color: linkedTrip.color,
+                    }}
+                  >
+                    <RiPlaneLine className="size-3 shrink-0" />
+                    <span className="truncate">{linkedTrip.name}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Este gasto pertenece al viaje: {linkedTrip.name}</TooltipContent>
+              </Tooltip>
             )}
           </div>
         ) : (

@@ -50,6 +50,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfirm } from '@/components/confirm-provider';
 import { IconPicker } from '@/components/icon-picker';
 import { CategoryIcon } from '@/components/category-icon';
@@ -215,15 +216,19 @@ export function SavingsClient({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={toggleHidden}
-            aria-label={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
-            title={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
-          >
-            {hidden ? <RiEyeCloseLine className="size-4" /> : <RiEyeLine className="size-4" />}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={toggleHidden}
+                aria-label={hidden ? 'Mostrar saldos' : 'Ocultar saldos'}
+              >
+                {hidden ? <RiEyeCloseLine className="size-4" /> : <RiEyeLine className="size-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{hidden ? 'Mostrar saldos' : 'Ocultar saldos'}</TooltipContent>
+          </Tooltip>
           {accounts.length >= 2 && (
             <Button
               variant="outline"

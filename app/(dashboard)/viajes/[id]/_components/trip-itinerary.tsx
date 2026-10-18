@@ -17,6 +17,7 @@ import { SortableContext, useSortable, arrayMove, verticalListSortingStrategy } 
 import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import { daysBetween } from '@/lib/dates';
@@ -338,12 +339,14 @@ function ItineraryCard({
       )}
     >
       {linked ? (
-        <span
-          className="text-muted-foreground/40 mt-0.5 shrink-0"
-          title="Viene de un gasto vinculado; edítalo desde el mes"
-        >
-          <RiLinksLine className="size-4" />
-        </span>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="text-muted-foreground/40 mt-0.5 shrink-0">
+              <RiLinksLine className="size-4" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>Viene de un gasto vinculado; edítalo desde el mes</TooltipContent>
+        </Tooltip>
       ) : (
         <button
           type="button"

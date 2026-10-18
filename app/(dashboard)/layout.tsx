@@ -6,6 +6,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { HeaderUser } from '@/components/header-user';
 import { AnimationsProvider } from '@/components/animations-provider';
@@ -29,6 +30,7 @@ export default async function DashboardLayout({
 
   return (
     <AnimationsProvider enabled={settings.animationsEnabled}>
+    <TooltipProvider delayDuration={100}>
     <AdvisorProvider>
     <SidebarProvider
       defaultOpen={defaultOpen}
@@ -58,6 +60,7 @@ export default async function DashboardLayout({
       <IdleLogout />
     </SidebarProvider>
     </AdvisorProvider>
+    </TooltipProvider>
     </AnimationsProvider>
   );
 }

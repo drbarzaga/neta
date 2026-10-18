@@ -3,6 +3,7 @@
 import type { ComponentProps } from 'react';
 import { RiSparklingLine } from '@remixicon/react';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAdvisor } from './advisor-provider';
 
 type ButtonProps = ComponentProps<typeof Button>;
@@ -29,7 +30,7 @@ export function AskAdvisorButton({
 }) {
   const { ask } = useAdvisor();
 
-  return (
+  const button = (
     <Button
       type="button"
       variant={variant}
@@ -37,10 +38,18 @@ export function AskAdvisorButton({
       className={className}
       onClick={() => ask(prompt)}
       aria-label={iconOnly ? label : undefined}
-      title={iconOnly ? label : undefined}
     >
       <RiSparklingLine />
       {!iconOnly && label}
     </Button>
+  );
+
+  if (!iconOnly) return button;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
   );
 }
