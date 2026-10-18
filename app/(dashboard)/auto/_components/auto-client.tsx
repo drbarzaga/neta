@@ -1244,7 +1244,7 @@ function VehicleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="sm:columns-2 sm:gap-x-10">
+        <div className="sm:columns-2 sm:gap-x-10 sm:[column-rule:1px_solid_var(--border)]">
           <div className="mb-6 grid gap-4 break-inside-avoid">
             <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Datos generales
@@ -1298,7 +1298,7 @@ function VehicleDialog({
             </div>
           </div>
 
-          <div className="mb-6 grid gap-4 break-inside-avoid border-t pt-6">
+          <div className="mb-6 grid gap-4 break-inside-avoid">
             <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Precio e inicial
             </h3>
@@ -1357,7 +1357,7 @@ function VehicleDialog({
             </div>
           </div>
 
-          <div className="mb-6 grid gap-4 break-inside-avoid border-t pt-6">
+          <div className="mb-6 grid gap-4 break-inside-avoid">
             <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Préstamo
             </h3>
@@ -1415,29 +1415,30 @@ function VehicleDialog({
               precio o el préstamo (por ejemplo, un préstamo en USD con cuotas fijadas en{' '}
               {localCurrency}).
             </p>
-
-            {!isEdit && (
-              <div className="grid gap-1.5">
-                <Label>Primera cuota</Label>
-                <MonthYearSelect
-                  month={loanStartMonth}
-                  year={loanStartYear}
-                  onMonthChange={setLoanStartMonth}
-                  onYearChange={setLoanStartYear}
-                />
-              </div>
-            )}
-
-            {!isEdit && Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
-              <p className="text-muted-foreground text-xs">
-                Se van a crear {loanMonths} cuotas de{' '}
-                {formatMoney(Number(monthlyPayment) || 0, monthlyPaymentCurrency)} desde{' '}
-                {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
-              </p>
-            )}
           </div>
 
-          <div className="mb-6 grid gap-4 break-inside-avoid border-t pt-6">
+          {!isEdit && (
+            <div className="mb-6 grid gap-4 break-inside-avoid">
+              <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                Primera cuota
+              </h3>
+              <MonthYearSelect
+                month={loanStartMonth}
+                year={loanStartYear}
+                onMonthChange={setLoanStartMonth}
+                onYearChange={setLoanStartYear}
+              />
+              {Number(loanAmount) > 0 && Number(loanMonths) > 0 && (
+                <p className="text-muted-foreground -mt-2 text-xs">
+                  Se van a crear {loanMonths} cuotas de{' '}
+                  {formatMoney(Number(monthlyPayment) || 0, monthlyPaymentCurrency)} desde{' '}
+                  {MONTHS_ES[loanStartMonth - 1]} de {loanStartYear}.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="mb-6 grid gap-4 break-inside-avoid">
             <h3 className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
               Otros ajustes
             </h3>
