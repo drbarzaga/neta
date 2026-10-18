@@ -5,17 +5,22 @@ import { db, eq, and, savingsAccount, savingsMovement } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { todayISO } from '@/lib/dates';
+import { getLatestRate } from '@/lib/exchange-rate';
+import { getOrCreateUserSettings } from '../configuracion/queries';
 import {
   createAccountSchema,
   updateAccountSchema,
   addMovementSchema,
   deleteMovementSchema,
+  transferSchema,
 } from './schema';
 
 function revalidate() {
   revalidatePath('/ahorros');
   revalidatePath('/');
 }
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export async function createSavingsAccount(
   input: unknown
@@ -131,6 +136,69 @@ export async function addSavingsMovement(input: unknown): Promise<ActionResult> 
     .update(savingsAccount)
     .set({ balance: acc.balance + delta })
     .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, session.userId)));
+
+  revalidate();
+  return ok();
+}
+
+/**
+ * Mueve plata entre dos apartados propios: resta del origen, suma al
+ * destino (convertido a su moneda si difiere de la del origen) y deja un
+ * movimiento en cada uno.
+ */
+export async function transferBetweenSavings(input: unknown): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = transferSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const { fromAccountId, toAccountId, amount, note, date } = parsed.data;
+
+  const [from] = await db
+    .select()
+    .from(savingsAccount)
+    .where(and(eq(savingsAccount.id, fromAccountId), eq(savingsAccount.userId, session.userId)));
+  const [to] = await db
+    .select()
+    .from(savingsAccount)
+    .where(and(eq(savingsAccount.id, toAccountId), eq(savingsAccount.userId, session.userId)));
+  if (!from || !to) return UNAUTHORIZED;
+  if (amount > from.balance) return fail('No tienes saldo suficiente para esa transferencia');
+
+  let credited = amount;
+  if (from.currency !== to.currency) {
+    const settings = await getOrCreateUserSettings(session.userId);
+    const rate = await getLatestRate(settings.country, settings.arCasa);
+    const local = from.currency === 'USD' ? amount * rate : amount;
+    credited = round2(to.currency === 'USD' ? (rate > 0 ? local / rate : 0) : local);
+  }
+
+  await db.insert(savingsMovement).values([
+    {
+      userId: session.userId,
+      accountId: fromAccountId,
+      amount: -amount,
+      note: note ? `A ${to.name}: ${note}` : `Transferencia a ${to.name}`,
+      date,
+    },
+    {
+      userId: session.userId,
+      accountId: toAccountId,
+      amount: credited,
+      note: note ? `De ${from.name}: ${note}` : `Transferencia de ${from.name}`,
+      date,
+    },
+  ]);
+  await db
+    .update(savingsAccount)
+    .set({ balance: round2(from.balance - amount) })
+    .where(eq(savingsAccount.id, fromAccountId));
+  await db
+    .update(savingsAccount)
+    .set({ balance: round2(to.balance + credited) })
+    .where(eq(savingsAccount.id, toAccountId));
 
   revalidate();
   return ok();

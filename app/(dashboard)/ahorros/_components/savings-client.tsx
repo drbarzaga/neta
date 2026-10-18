@@ -9,6 +9,7 @@ import {
   Trash2,
   ArrowDownCircle,
   ArrowUpCircle,
+  ArrowRightLeft,
   Wallet,
   Eye,
   EyeOff,
@@ -74,6 +75,7 @@ import {
   deleteSavingsAccount,
   addSavingsMovement,
   deleteSavingsMovement,
+  transferBetweenSavings,
 } from '../actions';
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -138,6 +140,10 @@ export function SavingsClient({
     account: SavingsAccount | null;
     kind: 'deposit' | 'withdraw';
   }>({ open: false, account: null, kind: 'deposit' });
+  const [transfer, setTransfer] = useState<{ open: boolean; fromId: string | null }>({
+    open: false,
+    fromId: null,
+  });
   const [hidden, setHidden] = useState(false);
 
   // Preferencia de ocultar saldos (se lee tras montar para no romper hidratación).
@@ -201,6 +207,14 @@ export function SavingsClient({
           >
             {hidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
           </Button>
+          {accounts.length >= 2 && (
+            <Button
+              variant="outline"
+              onClick={() => setTransfer({ open: true, fromId: null })}
+            >
+              <ArrowRightLeft /> Transferir
+            </Button>
+          )}
           <Button onClick={() => setDialog({ open: true, account: null })}>
             <Plus /> Nuevo apartado
           </Button>
@@ -293,8 +307,10 @@ export function SavingsClient({
                 locale={locale}
                 rate={rate}
                 hidden={hidden}
+                canTransfer={accounts.length >= 2}
                 onEdit={() => setDialog({ open: true, account: acc })}
                 onMovement={(kind) => setSheet({ open: true, account: acc, kind })}
+                onTransfer={() => setTransfer({ open: true, fromId: acc.id })}
               />
             ))}
           </div>
@@ -321,6 +337,16 @@ export function SavingsClient({
           onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
         />
       )}
+
+      <TransferDialog
+        key={transfer.fromId ?? 'none'}
+        open={transfer.open}
+        accounts={accounts}
+        defaultFromId={transfer.fromId}
+        rate={rate}
+        locale={locale}
+        onOpenChange={(open) => setTransfer((t) => ({ ...t, open }))}
+      />
     </div>
   );
 }
@@ -330,15 +356,19 @@ function AccountCard({
   locale,
   rate,
   hidden,
+  canTransfer,
   onEdit,
   onMovement,
+  onTransfer,
 }: {
   account: SavingsAccount;
   locale: string;
   rate: number;
   hidden: boolean;
+  canTransfer: boolean;
   onEdit: () => void;
   onMovement: (kind: 'deposit' | 'withdraw') => void;
+  onTransfer: () => void;
 }) {
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
@@ -382,6 +412,11 @@ function AccountCard({
             <DropdownMenuItem onClick={onEdit}>
               <Pencil className="size-4" /> Editar
             </DropdownMenuItem>
+            {canTransfer && (
+              <DropdownMenuItem onClick={onTransfer}>
+                <ArrowRightLeft className="size-4" /> Transferir
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={remove}>
               <Trash2 className="size-4" /> Eliminar
@@ -726,5 +761,175 @@ function MovementSheet({
         </div>
       </SheetContent>
     </Sheet>
+  );
+}
+
+function TransferDialog({
+  open,
+  accounts,
+  defaultFromId,
+  rate,
+  locale,
+  onOpenChange,
+}: {
+  open: boolean;
+  accounts: SavingsAccount[];
+  defaultFromId: string | null;
+  rate: number;
+  locale: string;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  const initialFromId = defaultFromId ?? accounts[0]?.id ?? '';
+  const [fromId, setFromId] = useState(initialFromId);
+  const [toId, setToId] = useState(
+    accounts.find((a) => a.id !== initialFromId)?.id ?? ''
+  );
+  const [amount, setAmount] = useState('');
+  const [date, setDate] = useState(todayISO);
+  const [note, setNote] = useState('');
+
+  const fromAccount = accounts.find((a) => a.id === fromId) ?? null;
+  const toAccount = accounts.find((a) => a.id === toId) ?? null;
+  const value = amount.trim() === '' ? 0 : Number(amount.replace(',', '.'));
+
+  const toLocalAmt = (n: number, cur: string) => (cur === 'USD' ? n * rate : n);
+  const converted =
+    fromAccount && toAccount && fromAccount.currency !== toAccount.currency && value > 0
+      ? round2(
+          toAccount.currency === 'USD'
+            ? rate > 0
+              ? toLocalAmt(value, fromAccount.currency) / rate
+              : 0
+            : toLocalAmt(value, fromAccount.currency)
+        )
+      : null;
+
+  const insufficientFunds = fromAccount !== null && value > fromAccount.balance;
+  const canSubmit = fromId !== '' && toId !== '' && fromId !== toId && value > 0 && !insufficientFunds;
+
+  function submit() {
+    if (!canSubmit) return;
+    startTransition(async () => {
+      const res = await transferBetweenSavings({
+        fromAccountId: fromId,
+        toAccountId: toId,
+        amount: value,
+        date,
+        note: note.trim() || null,
+      });
+      if (!res.ok) {
+        toast.error(res.error ?? 'Error al transferir');
+        return;
+      }
+      toast.success('Transferencia registrada');
+      onOpenChange(false);
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Transferir entre apartados</DialogTitle>
+          <DialogDescription>Mové plata de un apartado a otro.</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid gap-1.5">
+              <Label>Origen</Label>
+              <Select value={fromId} onValueChange={setFromId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id} disabled={a.id === toId}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fromAccount && (
+                <p className="text-muted-foreground text-xs tabular-nums">
+                  Saldo: {formatMoney(fromAccount.balance, fromAccount.currency, locale)}
+                </p>
+              )}
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Destino</Label>
+              <Select value={toId} onValueChange={setToId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id} disabled={a.id === fromId}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {toAccount && (
+                <p className="text-muted-foreground text-xs tabular-nums">
+                  Saldo: {formatMoney(toAccount.balance, toAccount.currency, locale)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <div className="grid flex-1 gap-1.5">
+              <Label htmlFor="tr-amount">Monto ({fromAccount?.currency ?? ''})</Label>
+              <Input
+                id="tr-amount"
+                inputMode="decimal"
+                value={amount}
+                placeholder="0"
+                onChange={(e) => setAmount(e.target.value)}
+                className="tabular-nums"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Fecha</Label>
+              <DatePicker value={date} onChange={(iso) => setDate(iso ?? todayISO())} />
+            </div>
+          </div>
+
+          {converted !== null && toAccount && (
+            <p className="text-muted-foreground text-xs">
+              Se acreditan ≈ {formatMoney(converted, toAccount.currency, locale)} en {toAccount.name}
+              , según la cotización actual.
+            </p>
+          )}
+
+          {insufficientFunds && fromAccount && (
+            <p className="text-destructive text-xs">
+              {fromAccount.name} no tiene saldo suficiente para ese monto.
+            </p>
+          )}
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="tr-note">Nota (opcional)</Label>
+            <Input
+              id="tr-note"
+              value={note}
+              placeholder="Ej. reorganizando ahorros"
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={submit} disabled={pending || !canSubmit}>
+            {pending ? 'Transfiriendo…' : 'Transferir'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

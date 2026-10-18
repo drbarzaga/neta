@@ -33,5 +33,21 @@ export const deleteMovementSchema = z.object({
   id: z.uuid(),
 });
 
+// Transferencia entre dos apartados propios. `amount` siempre está en la
+// moneda del apartado de origen; si el destino tiene otra moneda, el monto
+// acreditado se convierte con la cotización vigente.
+export const transferSchema = z
+  .object({
+    fromAccountId: z.uuid(),
+    toAccountId: z.uuid(),
+    amount: z.number().min(0.01, 'El monto debe ser mayor a 0'),
+    note: z.string().trim().max(140).nullable().optional(),
+    date: dateField,
+  })
+  .refine((d) => d.fromAccountId !== d.toAccountId, {
+    message: 'Elegí dos apartados distintos',
+    path: ['toAccountId'],
+  });
+
 export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type UpdateAccountInput = z.infer<typeof updateAccountSchema>;
