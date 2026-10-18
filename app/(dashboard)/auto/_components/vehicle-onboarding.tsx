@@ -506,11 +506,30 @@ function StepRegistration({
           </span>
         </p>
 
-        <Button variant="outline" className="w-fit" type="button" asChild>
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            <ExternalLink className="size-4" /> Agendar cita en la IM
-          </a>
-        </Button>
+        <div className="bg-muted/50 rounded-xl border p-4">
+          <p className="text-sm font-medium">Agendar cita en la IM</p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Los particulares reservan hora llamando al{' '}
+            <a href="tel:19504000" className="text-foreground underline underline-offset-2">
+              1950 4000
+            </a>{' '}
+            (opción 2) o por WhatsApp al{' '}
+            <a
+              href="https://wa.me/59899019500"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-foreground underline underline-offset-2"
+            >
+              099 019 500
+            </a>
+            . La agenda web es solo para gestorías y automotoras.
+          </p>
+          <Button variant="outline" size="sm" className="mt-3 w-fit" type="button" asChild>
+            <a href="https://tramites.montevideo.gub.uy" target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="size-4" /> Ver trámite en el sitio de la IM
+            </a>
+          </Button>
+        </div>
 
         <div className="bg-muted/50 flex items-start gap-3 rounded-xl border p-4">
           <Checkbox
