@@ -42,20 +42,13 @@ export function AppSidebar({
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              size="lg"
-              asChild
-              className="hover:bg-transparent group-data-[collapsible=icon]:!w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
-            >
-              <Link href="/">
-                <NetaMarkDark className="hidden size-[32px]! shrink-0 group-data-[collapsible=icon]:block" />
-                <NetaWordmarkDark className="h-[32px]! w-auto! group-data-[collapsible=icon]:hidden" />
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        <Link
+          href="/"
+          className="flex h-12 w-full items-center gap-2 overflow-hidden rounded-[calc(var(--radius-sm)+2px)] p-2 outline-hidden ring-sidebar-ring focus-visible:ring-2 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!"
+        >
+          <NetaMarkDark className="hidden size-[32px]! shrink-0 group-data-[collapsible=icon]:block" />
+          <NetaWordmarkDark className="h-[32px]! w-auto! group-data-[collapsible=icon]:hidden" />
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
