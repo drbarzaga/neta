@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useTransition } from 'react';
-import { RiWalletLine } from '@remixicon/react';
+import { useMemo, useState, useTransition } from 'react';
+import { RiWalletLine, RiCalendarCheckLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
   Card,
@@ -21,8 +21,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { resolveSalaryDepositDay } from '@/lib/dates';
 import type { SalaryDepositInput } from '../schema';
 import { updateSalaryDeposit } from '../actions';
+
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, i) => i + 1);
+
+/** Próxima fecha (a partir de hoy, reloj del navegador) en que cae el depósito. */
+function nextDepositDate(
+  dayMode: SalaryDepositInput['dayMode'],
+  fixedDay: number
+): Date {
+  const now = new Date();
+  let year = now.getFullYear();
+  let month = now.getMonth() + 1;
+  let day = resolveSalaryDepositDay(year, month, dayMode, fixedDay);
+  if (day < now.getDate()) {
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+    day = resolveSalaryDepositDay(year, month, dayMode, fixedDay);
+  }
+  return new Date(Date.UTC(year, month - 1, day));
+}
 
 export interface SalaryDepositAccountOption {
   id: string;
@@ -40,6 +63,18 @@ export function SalaryDepositForm({
   const [pending, startTransition] = useTransition();
   const [form, setForm] = useState<SalaryDepositInput>(initial);
   const [amountText, setAmountText] = useState(String(initial.amount || ''));
+
+  const preview = useMemo(() => {
+    const date = nextDepositDate(form.dayMode, form.fixedDay);
+    const label = date.toLocaleDateString('es-UY', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+    return label.charAt(0).toUpperCase() + label.slice(1);
+  }, [form.dayMode, form.fixedDay]);
 
   function set<K extends keyof SalaryDepositInput>(key: K, value: SalaryDepositInput[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -150,20 +185,33 @@ export function SalaryDepositForm({
             {form.dayMode === 'fixed_day' && (
               <div className="grid max-w-[160px] gap-1.5">
                 <Label htmlFor="salary-day">Día del mes</Label>
-                <Input
-                  id="salary-day"
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={form.fixedDay}
-                  onChange={(e) => set('fixedDay', Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
-                  className="tabular-nums"
-                />
+                <Select
+                  value={String(form.fixedDay)}
+                  onValueChange={(v) => set('fixedDay', Number(v))}
+                >
+                  <SelectTrigger id="salary-day" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DAY_OPTIONS.map((d) => (
+                      <SelectItem key={d} value={String(d)}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <p className="text-muted-foreground text-xs">
                   Si cae sábado o domingo, se deposita el siguiente día hábil.
                 </p>
               </div>
             )}
+
+            <div className="bg-primary/5 border-primary/20 flex items-center gap-3 rounded-xl border px-4 py-3">
+              <RiCalendarCheckLine className="text-primary size-5 shrink-0" />
+              <p className="text-sm">
+                Próximo depósito: <strong>{preview}</strong>
+              </p>
+            </div>
 
             <p className="text-muted-foreground text-xs">
               No contempla feriados, solo fines de semana. Al correr, deja un movimiento en el
