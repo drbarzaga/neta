@@ -436,6 +436,7 @@ function VehicleSection({
       {outstandingLoanNative > 0 && vehicle.monthlyPayment > 0 && remainingInstallments > 0 && (
         <CardContent className="border-t pt-6">
           <DebtVsSavingsChart
+            vehicleId={vehicle.id}
             outstandingLoan={outstandingLoanNative}
             monthlyPayment={vehicle.monthlyPayment}
             remainingInstallments={remainingInstallments}

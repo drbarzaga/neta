@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { RiArrowDownSLine, RiArrowRightDownLine } from '@remixicon/react';
 import {
   Area,
@@ -129,7 +129,11 @@ function convertCurrency(
   return amount;
 }
 
+/** Clave de localStorage para recordar el monto/moneda de ahorro simulado, por vehículo. */
+const savingsStorageKey = (vehicleId: string) => `dvs-savings:${vehicleId}`;
+
 export function DebtVsSavingsChart({
+  vehicleId,
   outstandingLoan,
   monthlyPayment,
   remainingInstallments,
@@ -138,6 +142,7 @@ export function DebtVsSavingsChart({
   localCurrency,
   locale = 'es-UY',
 }: {
+  vehicleId: string;
   outstandingLoan: number;
   monthlyPayment: number;
   remainingInstallments: number;
@@ -149,6 +154,39 @@ export function DebtVsSavingsChart({
   const [open, setOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(monthlyPayment || ''));
   const [savingsCurrency, setSavingsCurrency] = useState(currency);
+
+  // Se lee tras montar (no en el estado inicial) para no romper la hidratación.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const raw = localStorage.getItem(savingsStorageKey(vehicleId));
+        if (!raw) return;
+        const saved = JSON.parse(raw) as { amount?: string; currency?: string };
+        if (typeof saved.amount === 'string') setSavingsInput(saved.amount);
+        if (typeof saved.currency === 'string') setSavingsCurrency(saved.currency);
+      } catch {}
+    })();
+  }, [vehicleId]);
+
+  function updateSavingsInput(value: string) {
+    setSavingsInput(value);
+    try {
+      localStorage.setItem(
+        savingsStorageKey(vehicleId),
+        JSON.stringify({ amount: value, currency: savingsCurrency })
+      );
+    } catch {}
+  }
+
+  function updateSavingsCurrency(value: string) {
+    setSavingsCurrency(value);
+    try {
+      localStorage.setItem(
+        savingsStorageKey(vehicleId),
+        JSON.stringify({ amount: savingsInput, currency: value })
+      );
+    } catch {}
+  }
 
   const savingsCurrencyOptions = useMemo(() => {
     const alt = currency === 'USD' ? localCurrency : 'USD';
@@ -199,11 +237,11 @@ export function DebtVsSavingsChart({
                 inputMode="decimal"
                 value={savingsInput}
                 placeholder="0"
-                onChange={(e) => setSavingsInput(e.target.value)}
+                onChange={(e) => updateSavingsInput(e.target.value)}
                 className="w-40 tabular-nums"
               />
               {savingsCurrencyOptions.length > 1 ? (
-                <Select value={savingsCurrency} onValueChange={setSavingsCurrency}>
+                <Select value={savingsCurrency} onValueChange={updateSavingsCurrency}>
                   <SelectTrigger className="w-20">
                     <SelectValue />
                   </SelectTrigger>
