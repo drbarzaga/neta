@@ -33,6 +33,7 @@ import { useConfirm } from '@/components/confirm-provider';
 import { BrandLogo } from '@/components/brand-logo';
 import { DatePicker } from '@/components/date-picker';
 import { ConvertToInstallmentsDialog } from './convert-to-installments-dialog';
+import { LinkInstallmentDialog } from './link-installment-dialog';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal, SavingsAccount } from '@/db';
@@ -44,7 +45,6 @@ import {
   setExpenseGoal,
   setExpenseSavings,
   setExpenseTrip,
-  setExpenseVehicleInstallment,
   moveExpenseToPeriod,
   deletePurchase,
 } from '../actions';
@@ -97,6 +97,7 @@ export function ExpenseRow({
   const [concept, setConcept] = useState(expense.concept);
   const [amount, setAmount] = useState(expense.amount ? String(expense.amount) : '');
   const [convertOpen, setConvertOpen] = useState(false);
+  const [installmentDialogOpen, setInstallmentDialogOpen] = useState(false);
 
   function save(fields: Parameters<typeof updateExpense>[0]) {
     startTransition(async () => {
@@ -172,15 +173,6 @@ export function ExpenseRow({
       const res = await setExpenseTrip({ id: expense.id, tripId });
       if (!res.ok) toast.error(res.error ?? 'Error al vincular');
       else toast.success(tripId ? 'Gasto vinculado al viaje' : 'Gasto desvinculado');
-    });
-  }
-
-  function linkVehicleInstallment(vehicleExpenseId: string | null) {
-    if (vehicleExpenseId === (expense.vehicleExpenseId ?? null)) return;
-    startTransition(async () => {
-      const res = await setExpenseVehicleInstallment({ id: expense.id, vehicleExpenseId });
-      if (!res.ok) toast.error(res.error ?? 'Error al vincular');
-      else toast.success(vehicleExpenseId ? 'Gasto vinculado a la cuota' : 'Gasto desvinculado');
     });
   }
 
@@ -519,32 +511,10 @@ export function ExpenseRow({
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <RiCarLine className="size-4" />
-                {linkedInstallment ? 'Cuota vinculada' : 'Vincular a cuota de auto'}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {vehicleInstallments.length === 0 ? (
-                  <DropdownMenuItem disabled>
-                    No tienes cuotas de préstamo cargadas
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuRadioGroup
-                    value={expense.vehicleExpenseId ?? ''}
-                    onValueChange={(v) => linkVehicleInstallment(v || null)}
-                  >
-                    <DropdownMenuRadioItem value="">Ninguna</DropdownMenuRadioItem>
-                    {vehicleInstallments.map((v) => (
-                      <DropdownMenuRadioItem key={v.id} value={v.id}>
-                        {v.vehicleName} — {v.concept}
-                        {v.paid ? ' (pagada)' : ''}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+            <DropdownMenuItem onClick={() => setInstallmentDialogOpen(true)}>
+              <RiCarLine className="size-4" />
+              {linkedInstallment ? 'Cuota vinculada' : 'Vincular a cuota de auto'}
+            </DropdownMenuItem>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
                 <RiCalendarCheckLine className="size-4" />
@@ -601,6 +571,13 @@ export function ExpenseRow({
             locale={locale}
           />
         )}
+        <LinkInstallmentDialog
+          open={installmentDialogOpen}
+          onOpenChange={setInstallmentDialogOpen}
+          expenseId={expense.id}
+          currentInstallmentId={expense.vehicleExpenseId ?? null}
+          installments={vehicleInstallments}
+        />
       </TableCell>
     </TableRow>
   );

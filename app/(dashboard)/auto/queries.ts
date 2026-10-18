@@ -6,6 +6,7 @@ import {
   asc,
   vehicle,
   vehicleExpense,
+  expense,
   type Vehicle,
   type VehicleExpense,
 } from '@/db';
@@ -20,12 +21,17 @@ export interface VehicleInstallmentOption {
   amount: number;
   currency: string;
   paid: boolean;
+  /** Si ya hay OTRO gasto vinculado a esta cuota, su id y concepto (para deshabilitarla). */
+  linkedExpenseId: string | null;
+  linkedExpenseConcept: string | null;
 }
 
 /**
  * Cuotas de préstamo de todos los vehículos, para vincular un gasto del mes.
  * Incluye las ya pagadas (igual que goals/savingsAccounts/trips no se
  * filtran): si no, una cuota vinculada y pagada desaparecería de la lista.
+ * También informa si alguna otra fila de gasto ya la tiene vinculada, para
+ * que la UI pueda deshabilitarla y evitar que dos gastos "peleen" por una cuota.
  */
 export async function listVehicleInstallmentsForLinking(
   userId: string
@@ -40,9 +46,12 @@ export async function listVehicleInstallmentsForLinking(
       currency: vehicleExpense.currency,
       paid: vehicleExpense.paid,
       vehicleName: vehicle.name,
+      linkedExpenseId: expense.id,
+      linkedExpenseConcept: expense.concept,
     })
     .from(vehicleExpense)
     .innerJoin(vehicle, eq(vehicle.id, vehicleExpense.vehicleId))
+    .leftJoin(expense, eq(expense.vehicleExpenseId, vehicleExpense.id))
     .where(
       and(eq(vehicleExpense.userId, userId), eq(vehicleExpense.category, LOAN_INSTALLMENT_CATEGORY))
     )
