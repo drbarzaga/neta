@@ -444,9 +444,17 @@ function VehicleSection({
         />
       </CardContent>
 
-      <CardContent className="border-t pt-6">
-        <DebtVsSavingsChart vehicleName={`${vehicle.name}${vehicle.version ? ` ${vehicle.version}` : ''}`} locale={locale} />
-      </CardContent>
+      {outstandingLoanNative > 0 && vehicle.monthlyPayment > 0 && remainingInstallments > 0 && (
+        <CardContent className="border-t pt-6">
+          <DebtVsSavingsChart
+            outstandingLoan={outstandingLoanNative}
+            monthlyPayment={vehicle.monthlyPayment}
+            remainingInstallments={remainingInstallments}
+            currency={vehicle.monthlyPaymentCurrency}
+            locale={locale}
+          />
+        </CardContent>
+      )}
 
       <CardContent className="border-t pt-6">
         <DownPaymentCard

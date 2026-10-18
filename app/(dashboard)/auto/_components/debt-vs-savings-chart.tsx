@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { ChevronDown, TrendingDown } from 'lucide-react';
 import {
   Area,
   CartesianGrid,
@@ -13,16 +14,17 @@ import {
   YAxis,
   type TooltipContentProps,
 } from 'recharts';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 
 const DEBT_COLOR = '#ef4444';
 const SAVINGS_COLOR = '#10b981';
 
-export interface DebtAnchor {
-  month: number;
-  deuda: number;
-}
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 interface ChartRow {
   month: number;
@@ -30,50 +32,27 @@ interface ChartRow {
   ahorro: number;
 }
 
-// Puntos de control reales de la amortización (no es un decremento lineal:
-// la cuota fija cubre interés + capital, así que la deuda baja cada vez más
-// rápido). El resto de los meses se interpola entre estos.
-const DEFAULT_ANCHORS: DebtAnchor[] = [
-  { month: 0, deuda: 288337 },
-  { month: 3, deuda: 258115 },
-  { month: 6, deuda: 226702 },
-  { month: 9, deuda: 193916 },
-  { month: 10, deuda: 182491 },
-  { month: 14, deuda: 134767 },
-  { month: 24, deuda: 0 },
-];
-
-function interpolateDebt(anchors: DebtAnchor[], month: number): number {
-  for (let i = 0; i < anchors.length - 1; i++) {
-    const a = anchors[i];
-    const b = anchors[i + 1];
-    if (month >= a.month && month <= b.month) {
-      const t = (month - a.month) / (b.month - a.month);
-      return a.deuda + (b.deuda - a.deuda) * t;
-    }
-  }
-  return anchors[anchors.length - 1].deuda;
-}
-
-function buildData(anchors: DebtAnchor[], monthlySavings: number, months: number): ChartRow[] {
+/** Saldo real del préstamo (cuotas fijas, sin interés) y ahorro acumulado a un ritmo constante. */
+function buildData(outstandingLoan: number, monthlyPayment: number, monthlySavings: number, months: number): ChartRow[] {
   return Array.from({ length: months + 1 }, (_, month) => ({
     month,
-    deuda: Math.round(interpolateDebt(anchors, month)),
-    ahorro: Math.round(monthlySavings * month),
+    deuda: round2(Math.max(0, outstandingLoan - monthlyPayment * month)),
+    ahorro: round2(monthlySavings * month),
   }));
 }
 
 /** Primer mes en que el ahorro acumulado alcanza o supera el saldo pendiente. */
 function findCrossoverMonth(data: ChartRow[]): number | null {
-  return data.find((row) => row.ahorro >= row.deuda)?.month ?? null;
+  return data.find((row) => row.ahorro >= row.deuda && row.deuda > 0)?.month ?? null;
 }
 
 function ChartTooltipContent({
   active,
   payload,
   crossoverMonth,
+  currency,
   locale,
-}: TooltipContentProps & { crossoverMonth: number | null; locale: string }) {
+}: TooltipContentProps & { crossoverMonth: number | null; currency: string; locale: string }) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload as ChartRow;
   const readyForPayoff = crossoverMonth !== null && row.month >= crossoverMonth;
@@ -84,13 +63,13 @@ function ChartTooltipContent({
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Deuda</span>
         <span className="font-medium tabular-nums" style={{ color: DEBT_COLOR }}>
-          {formatMoney(row.deuda, 'UYU', locale)}
+          {formatMoney(row.deuda, currency, locale)}
         </span>
       </div>
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Ahorro</span>
         <span className="font-medium tabular-nums" style={{ color: SAVINGS_COLOR }}>
-          {formatMoney(row.ahorro, 'UYU', locale)}
+          {formatMoney(row.ahorro, currency, locale)}
         </span>
       </div>
       {readyForPayoff && (
@@ -122,109 +101,169 @@ function CrossoverDot({
 }
 
 export function DebtVsSavingsChart({
-  anchors = DEFAULT_ANCHORS,
-  monthlySavings = 20625,
-  months = 24,
+  outstandingLoan,
+  monthlyPayment,
+  remainingInstallments,
+  currency,
   locale = 'es-UY',
-  vehicleName = 'tu auto',
 }: {
-  anchors?: DebtAnchor[];
-  monthlySavings?: number;
-  months?: number;
+  outstandingLoan: number;
+  monthlyPayment: number;
+  remainingInstallments: number;
+  currency: string;
   locale?: string;
-  vehicleName?: string;
 }) {
-  const data = useMemo(() => buildData(anchors, monthlySavings, months), [anchors, monthlySavings, months]);
+  const [open, setOpen] = useState(false);
+  const [savingsInput, setSavingsInput] = useState(String(monthlyPayment || ''));
+  const monthlySavings = Math.max(0, Number(savingsInput.replace(',', '.')) || 0);
+
+  const data = useMemo(
+    () => buildData(outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments),
+    [outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments]
+  );
   const crossoverMonth = useMemo(() => findCrossoverMonth(data), [data]);
 
+  if (outstandingLoan <= 0 || monthlyPayment <= 0 || remainingInstallments <= 0) return null;
+
+  const fmt = (n: number) => formatMoney(n, currency, locale);
+
   return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle className="text-base">Ahorro vs. deuda — cancelación anticipada</CardTitle>
-        <CardDescription>
-          Proyección ilustrativa a {months} meses de {vehicleName}: cuándo el fondo de ahorro
-          supera el saldo pendiente del préstamo y se puede cancelar a sola firma.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="h-[320px] px-2 sm:px-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id="debtVsSavingsGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={SAVINGS_COLOR} stopOpacity={0.1} />
-                <stop offset="100%" stopColor={SAVINGS_COLOR} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="month"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={(m: number) => `Mes ${m}`}
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-              interval={2}
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
+          <TrendingDown className="size-4" />
+          {open ? 'Ocultar' : 'Ver'} proyección: ¿cuándo puedo cancelar a sola firma?
+          <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="flex flex-col gap-4 pt-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="dvs-savings">Cuánto ahorrás por mes para esto ({currency})</Label>
+            <Input
+              id="dvs-savings"
+              inputMode="decimal"
+              value={savingsInput}
+              placeholder="0"
+              onChange={(e) => setSavingsInput(e.target.value)}
+              className="w-40 tabular-nums"
             />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              width={56}
-              tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
-              tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-            />
-            <Tooltip
-              cursor={{ stroke: 'var(--border)' }}
-              content={(props) => (
-                <ChartTooltipContent {...props} crossoverMonth={crossoverMonth} locale={locale} />
-              )}
-            />
-            {crossoverMonth !== null && (
-              <ReferenceLine
-                x={crossoverMonth}
-                stroke={SAVINGS_COLOR}
-                strokeDasharray="4 4"
-                label={{
-                  value: `Mes ${crossoverMonth}`,
-                  position: 'top',
-                  fill: SAVINGS_COLOR,
-                  fontSize: 11,
-                }}
+          </div>
+        </div>
+
+        <p className="text-sm">
+          {monthlySavings <= 0 ? (
+            <span className="text-muted-foreground">Cargá un monto para ver la proyección.</span>
+          ) : crossoverMonth !== null ? (
+            <>
+              Ahorrando {fmt(monthlySavings)} por mes, en el <strong>mes {crossoverMonth}</strong>{' '}
+              tu fondo supera el saldo pendiente ({fmt(outstandingLoan)}) y podrías cancelar el
+              préstamo a sola firma.
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              A ese ritmo no le sacás ventaja a la cancelación anticipada: terminás de pagar las
+              cuotas igual, en el mes {remainingInstallments}.
+            </span>
+          )}
+        </p>
+
+        <div className="flex items-center gap-4 text-xs">
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: DEBT_COLOR }} />
+            <span className="text-muted-foreground">Saldo del préstamo</span>
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded-full" style={{ backgroundColor: SAVINGS_COLOR }} />
+            <span className="text-muted-foreground">Tu ahorro</span>
+          </span>
+        </div>
+
+        <div className="h-[280px] -ml-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="debtVsSavingsGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={SAVINGS_COLOR} stopOpacity={0.1} />
+                  <stop offset="100%" stopColor={SAVINGS_COLOR} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(m: number) => `Mes ${m}`}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+                interval={Math.max(0, Math.ceil(remainingInstallments / 8) - 1)}
               />
-            )}
-            <Area
-              type="monotone"
-              dataKey="ahorro"
-              stroke="none"
-              fill="url(#debtVsSavingsGradient)"
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="deuda"
-              name="Deuda"
-              stroke={DEBT_COLOR}
-              strokeWidth={2}
-              strokeDasharray="5 3"
-              dot={false}
-              activeDot={{ r: 4 }}
-              isAnimationActive={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="ahorro"
-              name="Ahorro"
-              stroke={SAVINGS_COLOR}
-              strokeWidth={2.5}
-              dot={(props: { cx?: number; cy?: number; payload?: ChartRow }) => (
-                <CrossoverDot {...props} crossoverMonth={crossoverMonth} key={props.payload?.month} />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={56}
+                tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
+                tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+              />
+              <Tooltip
+                cursor={{ stroke: 'var(--border)' }}
+                content={(props) => (
+                  <ChartTooltipContent
+                    {...props}
+                    crossoverMonth={crossoverMonth}
+                    currency={currency}
+                    locale={locale}
+                  />
+                )}
+              />
+              {crossoverMonth !== null && (
+                <ReferenceLine
+                  x={crossoverMonth}
+                  stroke={SAVINGS_COLOR}
+                  strokeDasharray="4 4"
+                  label={{
+                    value: `Mes ${crossoverMonth}`,
+                    position: 'top',
+                    fill: SAVINGS_COLOR,
+                    fontSize: 11,
+                  }}
+                />
               )}
-              activeDot={{ r: 5 }}
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+              <Area
+                type="monotone"
+                dataKey="ahorro"
+                stroke="none"
+                fill="url(#debtVsSavingsGradient)"
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="deuda"
+                name="Deuda"
+                stroke={DEBT_COLOR}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                dot={false}
+                activeDot={{ r: 4 }}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="ahorro"
+                name="Ahorro"
+                stroke={SAVINGS_COLOR}
+                strokeWidth={2.5}
+                dot={(props: { cx?: number; cy?: number; payload?: ChartRow }) => (
+                  <CrossoverDot {...props} crossoverMonth={crossoverMonth} key={props.payload?.month} />
+                )}
+                activeDot={{ r: 5 }}
+                isAnimationActive={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
