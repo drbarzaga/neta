@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { RiAddLine, RiSafeLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiArrowDownCircleLine, RiArrowUpCircleLine, RiArrowLeftRightLine, RiWalletLine, RiEyeLine, RiEyeCloseLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import {
@@ -128,10 +129,38 @@ export function SavingsClient({
     account: SavingsAccount | null;
     kind: 'deposit' | 'withdraw';
   }>({ open: false, account: null, kind: 'deposit' });
-  const [transfer, setTransfer] = useState<{ open: boolean; fromId: string | null }>({
-    open: false,
-    fromId: null,
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Si se recarga la página con ?transfer=1 (porque el diálogo estaba
+  // abierto), lo volvemos a abrir en vez de perderlo.
+  const [transfer, setTransfer] = useState<{ open: boolean; fromId: string | null }>(() => {
+    const fromId = searchParams.get('from');
+    return {
+      open: searchParams.get('transfer') === '1',
+      fromId: fromId && accounts.some((a) => a.id === fromId) ? fromId : null,
+    };
   });
+
+  function openTransfer(fromId: string | null) {
+    setTransfer({ open: true, fromId });
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('transfer', '1');
+    if (fromId) params.set('from', fromId);
+    else params.delete('from');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function closeTransfer() {
+    setTransfer((t) => ({ ...t, open: false }));
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('transfer');
+    params.delete('from');
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
   const [hidden, setHidden] = useState(false);
 
   // Preferencia de ocultar saldos (se lee tras montar para no romper hidratación).
@@ -198,7 +227,7 @@ export function SavingsClient({
           {accounts.length >= 2 && (
             <Button
               variant="outline"
-              onClick={() => setTransfer({ open: true, fromId: null })}
+              onClick={() => openTransfer(null)}
             >
               <RiArrowLeftRightLine /> Transferir
             </Button>
@@ -298,7 +327,7 @@ export function SavingsClient({
                 canTransfer={accounts.length >= 2}
                 onEdit={() => setDialog({ open: true, account: acc })}
                 onMovement={(kind) => setSheet({ open: true, account: acc, kind })}
-                onTransfer={() => setTransfer({ open: true, fromId: acc.id })}
+                onTransfer={() => openTransfer(acc.id)}
               />
             ))}
           </div>
@@ -333,7 +362,9 @@ export function SavingsClient({
         defaultFromId={transfer.fromId}
         rate={rate}
         locale={locale}
-        onOpenChange={(open) => setTransfer((t) => ({ ...t, open }))}
+        onOpenChange={(open) => {
+          if (!open) closeTransfer();
+        }}
       />
     </div>
   );
@@ -831,7 +862,7 @@ function TransferDialog({
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {accounts.map((a) => (
                     <SelectItem key={a.id} value={a.id} disabled={a.id === toId}>
                       {a.name}
@@ -851,7 +882,7 @@ function TransferDialog({
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {accounts.map((a) => (
                     <SelectItem key={a.id} value={a.id} disabled={a.id === fromId}>
                       {a.name}
