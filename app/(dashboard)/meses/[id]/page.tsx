@@ -12,6 +12,7 @@ import { getTemplatesWithCategory } from '../../plantillas/queries';
 import { getGoals } from '../../metas/queries';
 import { getSavingsAccounts } from '../../ahorros/queries';
 import { listTripsForLinking } from '../../viajes/queries';
+import { listVehicleInstallmentsForLinking } from '../../auto/queries';
 import { MonthDetail } from './_components/month-detail';
 
 export default async function MonthPage({
@@ -34,6 +35,7 @@ export default async function MonthPage({
     otherPeriods,
     savingsAccounts,
     trips,
+    vehicleInstallments,
   ] = await Promise.all([
     getCategories(userId),
     getExpenses(userId, id),
@@ -43,6 +45,7 @@ export default async function MonthPage({
     getOtherPeriods(userId, id),
     getSavingsAccounts(userId),
     listTripsForLinking(userId),
+    listVehicleInstallmentsForLinking(userId),
   ]);
   const locale = getCountry(settings.country).locale;
 
@@ -56,6 +59,7 @@ export default async function MonthPage({
       otherPeriods={otherPeriods}
       savingsAccounts={savingsAccounts}
       trips={trips}
+      vehicleInstallments={vehicleInstallments}
       locale={locale}
       displayCurrency={settings.displayCurrency === 'usd' ? 'usd' : 'local'}
     />

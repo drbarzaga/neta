@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { RiDeleteBinLine, RiMore2Line, RiBookmarkLine, RiTimeLine, RiCheckboxCircleLine, RiErrorWarningLine, RiDraggable, RiTargetLine, RiCalendarCheckLine, RiRepeatLine, RiBankCardLine, RiSafeLine, RiPlaneLine, type RemixiconComponentType } from '@remixicon/react';
+import { RiDeleteBinLine, RiMore2Line, RiBookmarkLine, RiTimeLine, RiCheckboxCircleLine, RiErrorWarningLine, RiDraggable, RiTargetLine, RiCalendarCheckLine, RiRepeatLine, RiBankCardLine, RiSafeLine, RiPlaneLine, RiCarLine, type RemixiconComponentType } from '@remixicon/react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ import { ConvertToInstallmentsDialog } from './convert-to-installments-dialog';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal, SavingsAccount } from '@/db';
+import type { VehicleInstallmentOption } from '../../../auto/queries';
 import {
   updateExpense,
   deleteExpense,
@@ -43,6 +44,7 @@ import {
   setExpenseGoal,
   setExpenseSavings,
   setExpenseTrip,
+  setExpenseVehicleInstallment,
   moveExpenseToPeriod,
   deletePurchase,
 } from '../actions';
@@ -68,6 +70,7 @@ export function ExpenseRow({
   goals = [],
   savingsAccounts = [],
   trips = [],
+  vehicleInstallments = [],
   otherPeriods = [],
 }: {
   expense: Expense;
@@ -78,6 +81,7 @@ export function ExpenseRow({
   goals?: Goal[];
   savingsAccounts?: SavingsAccount[];
   trips?: { id: string; name: string; icon: string; color: string }[];
+  vehicleInstallments?: VehicleInstallmentOption[];
   otherPeriods?: { id: string; label: string }[];
 }) {
   const [pending, startTransition] = useTransition();
@@ -171,6 +175,15 @@ export function ExpenseRow({
     });
   }
 
+  function linkVehicleInstallment(vehicleExpenseId: string | null) {
+    if (vehicleExpenseId === (expense.vehicleExpenseId ?? null)) return;
+    startTransition(async () => {
+      const res = await setExpenseVehicleInstallment({ id: expense.id, vehicleExpenseId });
+      if (!res.ok) toast.error(res.error ?? 'Error al vincular');
+      else toast.success(vehicleExpenseId ? 'Gasto vinculado a la cuota' : 'Gasto desvinculado');
+    });
+  }
+
   async function handleDeletePurchase() {
     if (!expense.purchaseId) return;
     const ok = await confirm({
@@ -224,6 +237,9 @@ export function ExpenseRow({
     : null;
   const linkedTrip = expense.tripId
     ? trips.find((t) => t.id === expense.tripId) ?? null
+    : null;
+  const linkedInstallment = expense.vehicleExpenseId
+    ? vehicleInstallments.find((v) => v.id === expense.vehicleExpenseId) ?? null
     : null;
 
   return (
@@ -343,7 +359,7 @@ export function ExpenseRow({
         />
       </TableCell>
       <TableCell className="w-44 px-4">
-        {linkedGoal || linkedSavings || linkedTrip ? (
+        {linkedGoal || linkedSavings || linkedTrip || linkedInstallment ? (
           <div className="flex flex-wrap items-center gap-1">
             {linkedGoal && (
               <Tooltip>
@@ -394,6 +410,20 @@ export function ExpenseRow({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Este gasto pertenece al viaje: {linkedTrip.name}</TooltipContent>
+              </Tooltip>
+            )}
+            {linkedInstallment && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="text-muted-foreground bg-muted inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium">
+                    <RiCarLine className="size-3 shrink-0" />
+                    <span className="truncate">{linkedInstallment.concept}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Este gasto paga la cuota: {linkedInstallment.vehicleName} —{' '}
+                  {linkedInstallment.concept}
+                </TooltipContent>
               </Tooltip>
             )}
           </div>
@@ -483,6 +513,32 @@ export function ExpenseRow({
                     {trips.map((t) => (
                       <DropdownMenuRadioItem key={t.id} value={t.id}>
                         {t.name}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <RiCarLine className="size-4" />
+                {linkedInstallment ? 'Cuota vinculada' : 'Vincular a cuota de auto'}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {vehicleInstallments.length === 0 ? (
+                  <DropdownMenuItem disabled>
+                    No tienes cuotas de préstamo cargadas
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuRadioGroup
+                    value={expense.vehicleExpenseId ?? ''}
+                    onValueChange={(v) => linkVehicleInstallment(v || null)}
+                  >
+                    <DropdownMenuRadioItem value="">Ninguna</DropdownMenuRadioItem>
+                    {vehicleInstallments.map((v) => (
+                      <DropdownMenuRadioItem key={v.id} value={v.id}>
+                        {v.vehicleName} — {v.concept}
+                        {v.paid ? ' (pagada)' : ''}
                       </DropdownMenuRadioItem>
                     ))}
                   </DropdownMenuRadioGroup>

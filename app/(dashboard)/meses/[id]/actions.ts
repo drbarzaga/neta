@@ -17,6 +17,7 @@ import {
   savingsMovement,
   trip,
   tripExpense,
+  vehicleExpense,
 } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
@@ -36,6 +37,7 @@ import {
   convertToInstallmentsSchema,
   setExpenseSavingsSchema,
   setExpenseTripSchema,
+  setExpenseVehicleInstallmentSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -44,6 +46,7 @@ function revalidate(periodId: string) {
   revalidatePath('/');
   revalidatePath('/analitica');
   revalidatePath('/metas');
+  revalidatePath('/auto');
 }
 
 async function ownsPeriod(userId: string, periodId: string) {
@@ -354,6 +357,24 @@ async function syncExpenseTripExpense(userId: string, expenseId: string) {
       paid,
     })
     .where(eq(tripExpense.id, existing.id));
+}
+
+/**
+ * Reconcilia el estado "pagado" de la cuota de auto vinculada: mientras el
+ * gasto esté vinculado, su estado manda sobre el de la cuota (pagado el
+ * gasto, pagada la cuota; y viceversa). No crea/borra filas, solo marca.
+ */
+async function syncExpenseVehicleInstallment(userId: string, expenseId: string) {
+  const [e] = await db
+    .select({ status: expense.status, vehicleExpenseId: expense.vehicleExpenseId })
+    .from(expense)
+    .where(and(eq(expense.id, expenseId), eq(expense.userId, userId)));
+  if (!e || !e.vehicleExpenseId) return;
+
+  await db
+    .update(vehicleExpense)
+    .set({ paid: e.status === 'pagado' })
+    .where(and(eq(vehicleExpense.id, e.vehicleExpenseId), eq(vehicleExpense.userId, userId)));
 }
 
 export async function addExpense(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -800,6 +821,7 @@ export async function updateExpense(input: unknown): Promise<ActionResult> {
   await syncExpenseGoalContribution(session.userId, id);
   await syncExpenseSavingsMovement(session.userId, id);
   await syncExpenseTripExpense(session.userId, id);
+  await syncExpenseVehicleInstallment(session.userId, id);
 
   revalidate(current.periodId);
   return ok();
@@ -920,6 +942,54 @@ export async function setExpenseTrip(input: unknown): Promise<ActionResult> {
   return ok();
 }
 
+/**
+ * Vincula (o desvincula con null) un gasto a una cuota de préstamo de un
+ * vehículo. Mientras esté vinculado, el estado del gasto manda sobre el de
+ * la cuota; al cambiar de cuota o desvincular, la anterior vuelve a quedar
+ * pendiente (se asume que el pago "se mudó" a la nueva, o a ninguna).
+ */
+export async function setExpenseVehicleInstallment(
+  input: unknown
+): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = setExpenseVehicleInstallmentSchema.safeParse(input);
+  if (!parsed.success) return fail('Datos inválidos');
+  const { id, vehicleExpenseId } = parsed.data;
+
+  const [current] = await db
+    .select({ periodId: expense.periodId, previousId: expense.vehicleExpenseId })
+    .from(expense)
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  if (!current) return UNAUTHORIZED;
+
+  if (vehicleExpenseId) {
+    const [ve] = await db
+      .select({ id: vehicleExpense.id })
+      .from(vehicleExpense)
+      .where(and(eq(vehicleExpense.id, vehicleExpenseId), eq(vehicleExpense.userId, session.userId)));
+    if (!ve) return fail('Cuota no encontrada');
+  }
+
+  if (current.previousId && current.previousId !== vehicleExpenseId) {
+    await db
+      .update(vehicleExpense)
+      .set({ paid: false })
+      .where(and(eq(vehicleExpense.id, current.previousId), eq(vehicleExpense.userId, session.userId)));
+  }
+
+  await db
+    .update(expense)
+    .set({ vehicleExpenseId })
+    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+
+  await syncExpenseVehicleInstallment(session.userId, id);
+
+  revalidate(current.periodId);
+  return ok();
+}
+
 export async function saveExpenseAsTemplate(
   expenseId: string
 ): Promise<ActionResult> {
@@ -956,10 +1026,18 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
   if (!session) return UNAUTHORIZED;
 
   const [current] = await db
-    .select({ periodId: expense.periodId })
+    .select({ periodId: expense.periodId, vehicleExpenseId: expense.vehicleExpenseId })
     .from(expense)
     .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
   if (!current) return UNAUTHORIZED;
+
+  // Si tenía vinculada una cuota de auto, la vuelve a dejar pendiente.
+  if (current.vehicleExpenseId) {
+    await db
+      .update(vehicleExpense)
+      .set({ paid: false })
+      .where(and(eq(vehicleExpense.id, current.vehicleExpenseId), eq(vehicleExpense.userId, session.userId)));
+  }
 
   // Si tenía un aporte automático a una meta, revierte el monto antes de borrar.
   const [contrib] = await db
@@ -1011,11 +1089,23 @@ export async function clearPeriodExpenses(
   if (!(await ownsPeriod(session.userId, periodId))) return UNAUTHORIZED;
 
   const exps = await db
-    .select({ id: expense.id })
+    .select({ id: expense.id, vehicleExpenseId: expense.vehicleExpenseId })
     .from(expense)
     .where(and(eq(expense.userId, session.userId), eq(expense.periodId, periodId)));
   if (exps.length === 0) return ok({ count: 0 });
   const ids = exps.map((e) => e.id);
+
+  const linkedInstallmentIds = exps
+    .map((e) => e.vehicleExpenseId)
+    .filter((v): v is string => v !== null);
+  if (linkedInstallmentIds.length > 0) {
+    await db
+      .update(vehicleExpense)
+      .set({ paid: false })
+      .where(
+        and(eq(vehicleExpense.userId, session.userId), inArray(vehicleExpense.id, linkedInstallmentIds))
+      );
+  }
 
   const contribs = await db
     .select({ goalId: goalContribution.goalId, amount: goalContribution.amount })

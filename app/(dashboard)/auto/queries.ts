@@ -2,6 +2,7 @@ import 'server-only';
 import {
   db,
   eq,
+  and,
   asc,
   vehicle,
   vehicleExpense,
@@ -9,6 +10,44 @@ import {
   type VehicleExpense,
 } from '@/db';
 import { LOAN_INSTALLMENT_CATEGORY } from './schema';
+
+export interface VehicleInstallmentOption {
+  id: string;
+  vehicleName: string;
+  concept: string;
+  month: number;
+  year: number;
+  amount: number;
+  currency: string;
+  paid: boolean;
+}
+
+/**
+ * Cuotas de préstamo de todos los vehículos, para vincular un gasto del mes.
+ * Incluye las ya pagadas (igual que goals/savingsAccounts/trips no se
+ * filtran): si no, una cuota vinculada y pagada desaparecería de la lista.
+ */
+export async function listVehicleInstallmentsForLinking(
+  userId: string
+): Promise<VehicleInstallmentOption[]> {
+  return db
+    .select({
+      id: vehicleExpense.id,
+      concept: vehicleExpense.concept,
+      month: vehicleExpense.month,
+      year: vehicleExpense.year,
+      amount: vehicleExpense.amount,
+      currency: vehicleExpense.currency,
+      paid: vehicleExpense.paid,
+      vehicleName: vehicle.name,
+    })
+    .from(vehicleExpense)
+    .innerJoin(vehicle, eq(vehicle.id, vehicleExpense.vehicleId))
+    .where(
+      and(eq(vehicleExpense.userId, userId), eq(vehicleExpense.category, LOAN_INSTALLMENT_CATEGORY))
+    )
+    .orderBy(asc(vehicle.createdAt), asc(vehicleExpense.year), asc(vehicleExpense.month), asc(vehicleExpense.sortOrder));
+}
 
 export interface VehicleTotals {
   paidUsd: number;

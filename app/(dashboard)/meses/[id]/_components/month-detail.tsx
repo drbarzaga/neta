@@ -46,6 +46,7 @@ import { periodTotals } from '@/lib/money';
 import { Money, Pct } from '@/components/money';
 import type { Category, Expense, Period, Goal, SavingsAccount } from '@/db';
 import type { TemplateRow } from '../../../plantillas/queries';
+import type { VehicleInstallmentOption } from '../../../auto/queries';
 import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
@@ -73,6 +74,7 @@ export function MonthDetail({
   otherPeriods = [],
   savingsAccounts = [],
   trips = [],
+  vehicleInstallments = [],
   locale = 'es-UY',
   displayCurrency = 'local',
 }: {
@@ -84,6 +86,7 @@ export function MonthDetail({
   otherPeriods?: { id: string; label: string }[];
   savingsAccounts?: SavingsAccount[];
   trips?: { id: string; name: string; icon: string; color: string }[];
+  vehicleInstallments?: VehicleInstallmentOption[];
   locale?: string;
   displayCurrency?: 'local' | 'usd';
 }) {
@@ -549,6 +552,7 @@ export function MonthDetail({
               goals={goals}
               savingsAccounts={savingsAccounts}
               trips={trips}
+              vehicleInstallments={vehicleInstallments}
               otherPeriods={otherPeriods}
               onAdd={() => handleAdd(cat.id)}
               addDisabled={pending}
@@ -571,6 +575,7 @@ function CategoryRows({
   goals,
   savingsAccounts,
   trips,
+  vehicleInstallments,
   otherPeriods,
 }: {
   categoryId: string;
@@ -581,6 +586,7 @@ function CategoryRows({
   goals: Goal[];
   savingsAccounts: SavingsAccount[];
   trips: { id: string; name: string; icon: string; color: string }[];
+  vehicleInstallments: VehicleInstallmentOption[];
   otherPeriods: { id: string; label: string }[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: categoryId });
@@ -611,6 +617,7 @@ function CategoryRows({
               goals={goals}
               savingsAccounts={savingsAccounts}
               trips={trips}
+              vehicleInstallments={vehicleInstallments}
               otherPeriods={otherPeriods}
             />
           ))
@@ -634,6 +641,7 @@ function SortableSection({
   goals,
   savingsAccounts,
   trips,
+  vehicleInstallments,
   otherPeriods,
   onAdd,
   addDisabled,
@@ -650,6 +658,7 @@ function SortableSection({
   goals: Goal[];
   savingsAccounts: SavingsAccount[];
   trips: { id: string; name: string; icon: string; color: string }[];
+  vehicleInstallments: VehicleInstallmentOption[];
   otherPeriods: { id: string; label: string }[];
   onAdd: () => void;
   addDisabled: boolean;
@@ -739,6 +748,7 @@ function SortableSection({
                 goals={goals}
                 savingsAccounts={savingsAccounts}
                 trips={trips}
+                vehicleInstallments={vehicleInstallments}
                 otherPeriods={otherPeriods}
               />
             </Table>

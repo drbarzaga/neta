@@ -59,6 +59,11 @@ export const setExpenseTripSchema = z.object({
   tripId: z.uuid().nullable(),
 });
 
+export const setExpenseVehicleInstallmentSchema = z.object({
+  id: z.uuid(),
+  vehicleExpenseId: z.uuid().nullable(),
+});
+
 // Mover un gasto a otra categoría (o reordenar dentro de la misma) y fijar el
 // orden de la categoría destino con la lista de ids.
 export const moveExpenseSchema = z.object({
