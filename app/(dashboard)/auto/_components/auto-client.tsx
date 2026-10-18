@@ -53,6 +53,7 @@ import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { VehiclePhoto } from '@/components/vehicle-photo';
 import { InstallmentGrid } from '@/components/installment-grid';
 import { VehicleOnboarding } from './vehicle-onboarding';
+import { DebtVsSavingsChart } from './debt-vs-savings-chart';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -442,6 +443,10 @@ function VehicleSection({
           icon={<Wallet className="size-5" />}
           accent="amber"
         />
+      </CardContent>
+
+      <CardContent className="border-t pt-6">
+        <DebtVsSavingsChart vehicleName={`${vehicle.name}${vehicle.version ? ` ${vehicle.version}` : ''}`} locale={locale} />
       </CardContent>
 
       <CardContent className="border-t pt-6">
