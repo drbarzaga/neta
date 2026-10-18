@@ -225,7 +225,16 @@ export default async function DashboardPage() {
         />
         <StatCard
           label="Restante"
-          value={<Money value={toDisp(current.totals.restante, rate)} currency={dispCode} locale={locale} animateOnMount />}
+          value={
+            <Money
+              key={over ? 'over' : 'under'}
+              value={toDisp(current.totals.restante, rate)}
+              currency={dispCode}
+              locale={locale}
+              animateOnMount
+              className={over ? 'text-[var(--coral)]' : undefined}
+            />
+          }
           sub={<Money value={toAlt(current.totals.restante, rate)} currency={altCode} locale={locale} animateOnMount />}
           valueClass={over ? 'text-[var(--coral)]' : undefined}
           variant="forest"

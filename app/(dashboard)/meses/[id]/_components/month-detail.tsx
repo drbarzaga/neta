@@ -422,7 +422,16 @@ export function MonthDetail({
         />
         <StatCard
           label="Restante"
-          value={<Money animateOnMount value={toDisp(totals.restante)} currency={dispCode} locale={locale} />}
+          value={
+            <Money
+              key={overBudget ? 'over' : 'under'}
+              animateOnMount
+              value={toDisp(totals.restante)}
+              currency={dispCode}
+              locale={locale}
+              className={overBudget ? 'text-[var(--coral)]' : undefined}
+            />
+          }
           sub={<Money animateOnMount value={toAlt(totals.restante)} currency={altCode} locale={locale} />}
           valueClass={overBudget ? 'text-[var(--coral)]' : undefined}
           variant="forest"
