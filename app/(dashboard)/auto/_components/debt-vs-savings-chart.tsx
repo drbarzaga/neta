@@ -14,7 +14,6 @@ import {
   YAxis,
   type TooltipContentProps,
 } from 'recharts';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -130,11 +129,23 @@ export function DebtVsSavingsChart({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <Button variant="ghost" size="sm" className="text-muted-foreground w-fit gap-1.5">
-          <RiArrowRightDownLine className="size-4" />
-          {open ? 'Ocultar' : 'Ver'} proyección: ¿cuándo puedo cancelar a sola firma?
-          <RiArrowDownSLine className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
-        </Button>
+        <button
+          type="button"
+          className="hover:bg-muted/60 border-border flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors"
+        >
+          <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
+            <RiArrowRightDownLine className="size-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium">¿Cuándo puedo cancelar a sola firma?</p>
+            <p className="text-muted-foreground text-xs">
+              Proyectá tu ahorro contra el saldo pendiente del préstamo
+            </p>
+          </div>
+          <RiArrowDownSLine
+            className={cn('text-muted-foreground size-4 shrink-0 transition-transform', open && 'rotate-180')}
+          />
+        </button>
       </CollapsibleTrigger>
       <CollapsibleContent className="flex flex-col gap-4 pt-4">
         <div className="flex flex-wrap items-end gap-3">

@@ -304,6 +304,7 @@ function VehicleSection({
   const pctDown = pctOf(vehicle.downPaymentSaved, vehicle.downPaymentTarget);
   const remainingDown = Math.max(0, vehicle.downPaymentTarget - vehicle.downPaymentSaved);
   const remainingInstallments = vehicle.totals.installmentsTotal - vehicle.totals.installmentsPaid;
+  const pctInstallmentsPaid = pctOf(vehicle.totals.installmentsPaid, vehicle.totals.installmentsTotal);
   // Saldo del préstamo en vehicle.currency (no en USD): las cuotas se crean
   // todas en esa moneda, así que sumar el monto crudo es correcto y evita
   // mostrar un monto en una moneda distinta a la del resto de la tarjeta.
@@ -523,6 +524,20 @@ function VehicleSection({
                 </Button>
               </div>
             </div>
+            {vehicle.totals.installmentsTotal > 0 && (
+              <div className="flex flex-col gap-1.5">
+                <div className="bg-muted h-2.5 w-full overflow-hidden rounded-full">
+                  <div
+                    className="h-full rounded-full bg-[var(--forest)] transition-all"
+                    style={{ width: `${pctInstallmentsPaid}%` }}
+                  />
+                </div>
+                <p className="text-muted-foreground text-xs tabular-nums">
+                  {Math.round(pctInstallmentsPaid)}% pagado · {vehicle.totals.installmentsPaid}/
+                  {vehicle.totals.installmentsTotal} cuotas
+                </p>
+              </div>
+            )}
             <InstallmentGrid paid={loanExpenses.map((e) => e.paid)} />
             <ExpenseMonthList
               pending={loanPending}
