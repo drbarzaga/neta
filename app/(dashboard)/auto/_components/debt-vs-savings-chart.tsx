@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -99,22 +100,48 @@ function CrossoverDot({
   );
 }
 
+/** Convierte un monto entre la moneda local y USD usando la cotización del vehículo. */
+function convertCurrency(
+  amount: number,
+  from: string,
+  to: string,
+  localCurrency: string,
+  dollarRate: number
+): number {
+  if (from === to || dollarRate <= 0) return amount;
+  if (from === 'USD' && to === localCurrency) return amount * dollarRate;
+  if (from === localCurrency && to === 'USD') return amount / dollarRate;
+  return amount;
+}
+
 export function DebtVsSavingsChart({
   outstandingLoan,
   monthlyPayment,
   remainingInstallments,
   currency,
+  dollarRate,
+  localCurrency,
   locale = 'es-UY',
 }: {
   outstandingLoan: number;
   monthlyPayment: number;
   remainingInstallments: number;
   currency: string;
+  dollarRate: number;
+  localCurrency: string;
   locale?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(monthlyPayment || ''));
-  const monthlySavings = Math.max(0, Number(savingsInput.replace(',', '.')) || 0);
+  const [savingsCurrency, setSavingsCurrency] = useState(currency);
+
+  const savingsCurrencyOptions = useMemo(() => {
+    const alt = currency === 'USD' ? localCurrency : 'USD';
+    return Array.from(new Set([currency, alt]));
+  }, [currency, localCurrency]);
+
+  const rawSavings = Math.max(0, Number(savingsInput.replace(',', '.')) || 0);
+  const monthlySavings = convertCurrency(rawSavings, savingsCurrency, currency, localCurrency, dollarRate);
 
   const data = useMemo(
     () => buildData(outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments),
@@ -150,17 +177,41 @@ export function DebtVsSavingsChart({
       <CollapsibleContent className="flex flex-col gap-4 pt-4">
         <div className="flex flex-wrap items-end gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="dvs-savings">Cuánto ahorrás por mes para esto ({currency})</Label>
-            <Input
-              id="dvs-savings"
-              inputMode="decimal"
-              value={savingsInput}
-              placeholder="0"
-              onChange={(e) => setSavingsInput(e.target.value)}
-              className="w-40 tabular-nums"
-            />
+            <Label htmlFor="dvs-savings">Cuánto ahorrás por mes para esto</Label>
+            <div className="flex gap-2">
+              <Input
+                id="dvs-savings"
+                inputMode="decimal"
+                value={savingsInput}
+                placeholder="0"
+                onChange={(e) => setSavingsInput(e.target.value)}
+                className="w-40 tabular-nums"
+              />
+              {savingsCurrencyOptions.length > 1 ? (
+                <Select value={savingsCurrency} onValueChange={setSavingsCurrency}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {savingsCurrencyOptions.map((opt) => (
+                      <SelectItem key={opt} value={opt}>
+                        {opt}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <span className="text-muted-foreground flex items-center text-sm">{currency}</span>
+              )}
+            </div>
           </div>
         </div>
+
+        {savingsCurrency !== currency && rawSavings > 0 && (
+          <p className="text-muted-foreground -mt-2 text-xs">
+            Equivale a {fmt(monthlySavings)} por mes, al tipo de cambio actual.
+          </p>
+        )}
 
         <p className="text-sm">
           {monthlySavings <= 0 ? (

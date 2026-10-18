@@ -440,6 +440,8 @@ function VehicleSection({
             monthlyPayment={vehicle.monthlyPayment}
             remainingInstallments={remainingInstallments}
             currency={vehicle.monthlyPaymentCurrency}
+            dollarRate={vehicle.dollarRate}
+            localCurrency={localCurrency}
             locale={locale}
           />
         </CardContent>
