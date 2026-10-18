@@ -32,6 +32,7 @@ import {
   clearAdvisorHistory,
 } from '@/app/api/advisor/actions';
 import type { AdvisorInsight } from '@/lib/advisor-context';
+import { useAdvisor } from './advisor-provider';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -415,7 +416,7 @@ function TypingDots({ className }: { className?: string }) {
 }
 
 export function AdvisorWidget() {
-  const [open, setOpen] = useState(false);
+  const { open, setOpen, pending, clearPending } = useAdvisor();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -435,24 +436,42 @@ export function AdvisorWidget() {
   }, [messages, streaming]);
 
   // Al abrir por primera vez, recupera la conversación guardada y el chequeo.
+  // Si vino con una pregunta pendiente (ej. un botón "Preguntarle al asesor"
+  // en otra página), la dispara una vez que la conversación ya cargó, para no
+  // pisarla con setMessages(history) llegando después.
   useEffect(() => {
-    if (!open || loadedRef.current) return;
-    loadedRef.current = true;
+    if (!open) return;
     void (async () => {
-      const [history, ins] = await Promise.all([
-        getAdvisorHistory(),
-        getAdvisorInsights(),
-      ]);
-      if (history.length > 0) setMessages(history);
-      setInsights(ins);
+      let base = messages;
+      if (!loadedRef.current) {
+        loadedRef.current = true;
+        const [history, ins] = await Promise.all([
+          getAdvisorHistory(),
+          getAdvisorInsights(),
+        ]);
+        if (history.length > 0) {
+          setMessages(history);
+          base = history;
+        }
+        setInsights(ins);
+      }
+      if (pending && !streaming) {
+        if (pending.autoSend) {
+          await send(pending.prompt, base);
+        } else {
+          setInput(pending.prompt);
+        }
+        clearPending();
+      }
     })();
-  }, [open]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pending?.id]);
 
-  async function send(text: string) {
+  async function send(text: string, baseHistory?: Message[]) {
     const content = text.trim();
     if (!content || streaming) return;
 
-    const history: Message[] = [...messages, { role: 'user', content }];
+    const history: Message[] = [...(baseHistory ?? messages), { role: 'user', content }];
     setMessages([...history, { role: 'assistant', content: '' }]);
     setInput('');
     setStreaming(true);

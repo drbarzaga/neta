@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { CategoryIcon } from '@/components/category-icon';
+import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { periodTotals } from '@/lib/money';
 import { Money, Pct } from '@/components/money';
 import type { Category, Expense, Period, Goal, SavingsAccount } from '@/db';
@@ -390,6 +391,11 @@ export function MonthDetail({
           startMonth={period.month}
           startYear={period.year}
           locale={locale}
+        />
+        <AskAdvisorButton
+          prompt={`Analiza ${period.label}: ¿cómo voy y dónde puedo recortar?`}
+          label="Preguntarle al asesor"
+          iconOnly
         />
         <MonthActions
           periodId={period.id}

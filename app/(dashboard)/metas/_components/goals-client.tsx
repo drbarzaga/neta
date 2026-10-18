@@ -50,6 +50,7 @@ import { useConfirm } from '@/components/confirm-provider';
 import { DatePicker } from '@/components/date-picker';
 import { IconPicker } from '@/components/icon-picker';
 import { CategoryIcon } from '@/components/category-icon';
+import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import type { Goal } from '@/db';
@@ -111,9 +112,12 @@ export function GoalsClient({
             Metas
           </h1>
         </div>
-        <Button onClick={() => setDialog({ open: true, goal: null })}>
-          <Plus /> Nueva meta
-        </Button>
+        <div className="flex items-center gap-2">
+          <AskAdvisorButton prompt="¿Voy bien con mis metas? ¿Cuál debería priorizar?" />
+          <Button onClick={() => setDialog({ open: true, goal: null })}>
+            <Plus /> Nueva meta
+          </Button>
+        </div>
       </div>
 
       {goals.length > 0 && (

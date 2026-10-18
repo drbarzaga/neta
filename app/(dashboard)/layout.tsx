@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { HeaderUser } from '@/components/header-user';
 import { AnimationsProvider } from '@/components/animations-provider';
 import { AdvisorWidget } from '@/components/advisor/advisor-widget';
+import { AdvisorProvider } from '@/components/advisor/advisor-provider';
 import { IdleLogout } from '@/components/idle-logout';
 import { AppSidebar } from './_components/app-sidebar';
 import { HeaderRate, HeaderRateFallback } from './_components/header-rate';
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <AnimationsProvider enabled={settings.animationsEnabled}>
+    <AdvisorProvider>
     <SidebarProvider
       defaultOpen={defaultOpen}
       style={
@@ -55,6 +57,7 @@ export default async function DashboardLayout({
       <AdvisorWidget />
       <IdleLogout />
     </SidebarProvider>
+    </AdvisorProvider>
     </AnimationsProvider>
   );
 }

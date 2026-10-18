@@ -49,6 +49,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirm-provider';
 import { useAnimations } from '@/components/animations-provider';
 import { CategoryIcon } from '@/components/category-icon';
+import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { VehiclePhoto } from '@/components/vehicle-photo';
 import { InstallmentGrid } from '@/components/installment-grid';
 import { StatCard } from '../../_components/stat-card';
@@ -371,6 +372,12 @@ function VehicleSection({
             {fmtVehicle(vehicle.loanAmount)} en {vehicle.loanMonths} cuotas
           </p>
         </div>
+        <AskAdvisorButton
+          prompt={`¿Cómo voy con el préstamo y los gastos de mi ${vehicle.name}?`}
+          label="Preguntarle al asesor"
+          iconOnly
+          className="self-start"
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Acciones del vehículo" className="self-start">

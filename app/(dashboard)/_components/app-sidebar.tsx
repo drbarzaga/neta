@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Sparkles } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -17,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { NAV_ITEMS, isNewNavItem, type NavItem } from '@/lib/nav';
 import { NetaMarkDark, NetaWordmarkDark } from '@/components/brand/neta-wordmark';
+import { useAdvisor } from '@/components/advisor/advisor-provider';
 import { NavUser } from './nav-user';
 
 // Primer ítem de "Herramientas" (el resto de NAV_ITEMS, en orden, es "Mes").
@@ -35,6 +37,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const { month, tools } = splitNavGroups(NAV_ITEMS);
+  const { openAdvisor } = useAdvisor();
 
   return (
     <Sidebar collapsible="icon" className="border-sidebar-border">
@@ -55,6 +58,30 @@ export function AppSidebar({
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  size="lg"
+                  onClick={openAdvisor}
+                  className={cn(
+                    'h-auto gap-3 rounded-[12px] px-3 py-2.5 text-[15px] font-semibold [&>svg]:size-[18px]',
+                    'bg-(--lime)/15 text-(--sb-ink) hover:bg-(--lime)/25',
+                    'group-data-[collapsible=icon]:!h-auto group-data-[collapsible=icon]:!w-full',
+                    'group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center',
+                    'group-data-[collapsible=icon]:!gap-1 group-data-[collapsible=icon]:!px-1 group-data-[collapsible=icon]:!py-2.5'
+                  )}
+                >
+                  <Sparkles className="text-(--lime)" />
+                  <span className="group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:text-center group-data-[collapsible=icon]:text-[0.65rem] group-data-[collapsible=icon]:font-medium group-data-[collapsible=icon]:leading-tight group-data-[collapsible=icon]:!whitespace-normal">
+                    Asesor financiero
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <NavGroup label="Mes" items={month} pathname={pathname} />
         <NavGroup label="Herramientas" items={tools} pathname={pathname} />
       </SidebarContent>

@@ -8,6 +8,7 @@ import {
   Repeat,
   Clock,
   Target,
+  Sparkles,
 } from 'lucide-react';
 import { requireSession } from '@/lib/auth-server';
 import { Button } from '@/components/ui/button';
@@ -27,9 +28,11 @@ import {
 import { Money, Pct } from '@/components/money';
 import { BrandLogo } from '@/components/brand-logo';
 import { CategoryIcon } from '@/components/category-icon';
+import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { detectBrand } from '@/lib/brands';
 import { formatMoney } from '@/lib/money';
 import { getCountry } from '@/lib/countries';
+import { buildAdvisorInsights, type AdvisorInsight } from '@/lib/advisor-context';
 import { getOrCreateUserSettings } from './configuracion/queries';
 import { getPeriodsWithTotals } from './meses/queries';
 import { getCategories, getExpenses } from './meses/[id]/queries';
@@ -39,11 +42,25 @@ import { CategoryStack } from './_components/category-stack';
 import type { PieDatum } from './_components/category-pie';
 import { TrendBar, type TrendDatum } from './_components/trend-bar';
 
+/** El insight más relevante primero: alerta > advertencia > todo en orden. */
+const LEVEL_PRIORITY: Record<AdvisorInsight['level'], number> = {
+  alert: 0,
+  warn: 1,
+  ok: 2,
+};
+
+function topInsights(insights: AdvisorInsight[], n: number): AdvisorInsight[] {
+  return [...insights]
+    .sort((a, b) => LEVEL_PRIORITY[a.level] - LEVEL_PRIORITY[b.level])
+    .slice(0, n);
+}
+
 export default async function DashboardPage() {
   const { userId, user } = await requireSession();
-  const [periods, settings] = await Promise.all([
+  const [periods, settings, insights] = await Promise.all([
     getPeriodsWithTotals(userId),
     getOrCreateUserSettings(userId),
+    buildAdvisorInsights(userId),
   ]);
   const country = getCountry(settings.country);
   const locale = country.locale;
@@ -146,6 +163,7 @@ export default async function DashboardPage() {
     }));
 
   const over = current.totals.restante < 0;
+  const shownInsights = topInsights(insights, 2);
 
   return (
     <div className="flex flex-col gap-6">
@@ -162,6 +180,33 @@ export default async function DashboardPage() {
           </Link>
         </Button>
       </div>
+
+      {shownInsights.length > 0 && (
+        <Card className="border-primary/20 bg-primary/5">
+          <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className="bg-primary/10 text-primary flex size-10 shrink-0 items-center justify-center rounded-xl">
+                <Sparkles className="size-5" />
+              </span>
+              <div className="min-w-0 space-y-1">
+                <p className="text-sm font-medium">Tu asesor financiero dice</p>
+                <ul className="text-muted-foreground space-y-0.5 text-sm">
+                  {shownInsights.map((ins, i) => (
+                    <li key={i} className="leading-snug">
+                      {ins.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <AskAdvisorButton
+              prompt="Dame un resumen de mi situación financiera actual"
+              label="Hablar con el asesor"
+              className="shrink-0 self-start sm:self-auto"
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
