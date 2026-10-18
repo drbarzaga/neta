@@ -100,5 +100,31 @@ export const contributeDownPaymentSchema = z.object({
 
 export const payOffLoanSchema = z.object({ id: z.uuid() });
 
+// Flujo guiado de alta (financiación + seguro + matrícula + pack de
+// seguridad opcional), pensado para el proceso real de compra 0km en
+// Uruguay. Los valores son defaults editables, no montos fijos.
+export const onboardingVehicleSchema = z.object({
+  name: z.string().trim().min(1, 'Ponle un nombre al vehículo').max(120),
+  version: z.string().trim().max(60).nullable().optional(),
+  year: z.number().int().min(1990).max(2100).nullable().optional(),
+  downPaymentGiven: z.number().min(0).default(0),
+  loanAmount: z.number().min(0).default(0),
+  loanMonths: z.number().int().min(1).max(120).default(1),
+  monthlyPayment: z.number().min(0).default(0),
+  monthlyPaymentCurrency: currencyEnum.default('USD'),
+  loanStartMonth: z.number().int().min(1).max(12).default(1),
+  loanStartYear: z.number().int().min(2000).max(2100).default(2026),
+  dollarRate: z.number().min(0).default(0),
+  insuranceMonthly: z.number().min(0).default(0),
+  localCurrency: currencyEnum.default('UYU'),
+  registrationFee: z.number().min(0).default(0),
+  patenteProportional: z.number().min(0).default(0),
+  wantsSecurityPack: z.boolean().default(false),
+  securityPackAmount: z.number().min(0).default(0),
+  securityPackInstallments: z.number().int().min(1).max(12).default(6),
+});
+
+export type OnboardingVehicleInput = z.infer<typeof onboardingVehicleSchema>;
+
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;

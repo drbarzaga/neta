@@ -14,6 +14,7 @@ import {
   toggleVehicleExpensePaidSchema,
   contributeDownPaymentSchema,
   payOffLoanSchema,
+  onboardingVehicleSchema,
   LOAN_INSTALLMENT_CATEGORY,
 } from './schema';
 
@@ -74,6 +75,143 @@ export async function createVehicle(input: unknown): Promise<ActionResult<{ id: 
     });
     await db.insert(vehicleExpense).values(rows);
   }
+
+  revalidate();
+  return ok({ id: v.id });
+}
+
+/**
+ * Alta guiada de un vehículo: crea el vehículo y precarga de una las cuotas
+ * del préstamo, el seguro mensual (mismo rango que el préstamo), la
+ * matrícula (pago único en el mes de inicio) y, si se aceptó, el pack de
+ * seguridad diferido al mes siguiente en cuotas.
+ */
+export async function completeVehicleOnboarding(
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = onboardingVehicleSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const data = parsed.data;
+  const totalPrice = data.downPaymentGiven + data.loanAmount;
+
+  const [v] = await db
+    .insert(vehicle)
+    .values({
+      userId: session.userId,
+      name: data.name,
+      version: data.version ?? null,
+      year: data.year ?? null,
+      totalPrice,
+      downPaymentTarget: data.downPaymentGiven,
+      downPaymentSaved: data.downPaymentGiven,
+      loanAmount: data.loanAmount,
+      loanMonths: data.loanMonths,
+      loanStartMonth: data.loanStartMonth,
+      loanStartYear: data.loanStartYear,
+      monthlyPayment: data.monthlyPayment,
+      currency: 'USD',
+      monthlyPaymentCurrency: data.monthlyPaymentCurrency,
+      dollarRate: data.dollarRate,
+      status: 'financiando',
+    })
+    .returning({ id: vehicle.id });
+
+  const rows: (typeof vehicleExpense.$inferInsert)[] = [];
+  let sortOrder = 0;
+
+  for (let i = 0; i < data.loanMonths; i++) {
+    const { month, year } = addMonths(data.loanStartMonth, data.loanStartYear, i);
+    rows.push({
+      userId: session.userId,
+      vehicleId: v.id,
+      category: LOAN_INSTALLMENT_CATEGORY,
+      concept: `Cuota ${i + 1}/${data.loanMonths}`,
+      amount: data.monthlyPayment,
+      currency: data.monthlyPaymentCurrency,
+      month,
+      year,
+      paid: false,
+      sortOrder: sortOrder++,
+    });
+  }
+
+  if (data.insuranceMonthly > 0) {
+    for (let i = 0; i < data.loanMonths; i++) {
+      const { month, year } = addMonths(data.loanStartMonth, data.loanStartYear, i);
+      rows.push({
+        userId: session.userId,
+        vehicleId: v.id,
+        category: 'Seguro',
+        concept: 'Seguro BSE (convenio automotora)',
+        amount: data.insuranceMonthly,
+        currency: data.localCurrency,
+        month,
+        year,
+        paid: false,
+        sortOrder: sortOrder++,
+      });
+    }
+  }
+
+  if (data.registrationFee > 0) {
+    rows.push({
+      userId: session.userId,
+      vehicleId: v.id,
+      category: 'Patente',
+      concept: 'Tasa de empadronamiento',
+      amount: data.registrationFee,
+      currency: data.localCurrency,
+      month: data.loanStartMonth,
+      year: data.loanStartYear,
+      paid: false,
+      sortOrder: sortOrder++,
+    });
+  }
+  if (data.patenteProportional > 0) {
+    rows.push({
+      userId: session.userId,
+      vehicleId: v.id,
+      category: 'Patente',
+      concept: 'Patente proporcional',
+      amount: data.patenteProportional,
+      currency: data.localCurrency,
+      month: data.loanStartMonth,
+      year: data.loanStartYear,
+      paid: false,
+      sortOrder: sortOrder++,
+    });
+  }
+
+  if (data.wantsSecurityPack && data.securityPackAmount > 0) {
+    const perInstallment = data.securityPackAmount / data.securityPackInstallments;
+    const { month: startMonth, year: startYear } = addMonths(
+      data.loanStartMonth,
+      data.loanStartYear,
+      1
+    );
+    for (let i = 0; i < data.securityPackInstallments; i++) {
+      const { month, year } = addMonths(startMonth, startYear, i);
+      rows.push({
+        userId: session.userId,
+        vehicleId: v.id,
+        category: 'Otro',
+        concept: `Pack de seguridad ${i + 1}/${data.securityPackInstallments}`,
+        amount: perInstallment,
+        currency: 'USD',
+        month,
+        year,
+        paid: false,
+        sortOrder: sortOrder++,
+      });
+    }
+  }
+
+  if (rows.length > 0) await db.insert(vehicleExpense).values(rows);
 
   revalidate();
   return ok({ id: v.id });

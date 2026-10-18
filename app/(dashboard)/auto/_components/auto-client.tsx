@@ -52,6 +52,7 @@ import { CategoryIcon } from '@/components/category-icon';
 import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { VehiclePhoto } from '@/components/vehicle-photo';
 import { InstallmentGrid } from '@/components/installment-grid';
+import { VehicleOnboarding } from './vehicle-onboarding';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
@@ -162,6 +163,7 @@ export function AutoClient({
     open: false,
     vehicle: null,
   });
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-6">
@@ -188,13 +190,18 @@ export function AutoClient({
             <div className="space-y-1">
               <p className="font-medium">Todavía no configuraste tu auto</p>
               <p className="text-muted-foreground max-w-sm text-sm">
-                Cargá el precio, el inicial y el préstamo una vez y seguí las cuotas y gastos mes
-                a mes desde acá.
+                Seguí el proceso guiado de financiación, seguro y matrícula, o cargalo a mano si
+                ya tenés todos los números.
               </p>
             </div>
-            <Button onClick={() => setDialog({ open: true, vehicle: null })}>
-              <Plus /> Configurar mi auto
-            </Button>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button onClick={() => setOnboardingOpen(true)}>
+                <Plus /> Empezar onboarding guiado
+              </Button>
+              <Button variant="outline" onClick={() => setDialog({ open: true, vehicle: null })}>
+                Configurar manualmente
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -218,6 +225,13 @@ export function AutoClient({
         localCurrency={localCurrency}
         defaultDollarRate={defaultDollarRate}
         onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
+      />
+
+      <VehicleOnboarding
+        open={onboardingOpen}
+        localCurrency={localCurrency}
+        defaultDollarRate={defaultDollarRate}
+        onOpenChange={setOnboardingOpen}
       />
     </div>
   );
