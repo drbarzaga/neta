@@ -4,6 +4,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Preview,
   Section,
   Text,
@@ -29,7 +30,12 @@ export function EmailLayout({
       <Body style={body}>
         <Container style={container}>
           <Section style={{ marginBottom: 24 }}>
-            <Text style={brand}>Neta</Text>
+            <Img
+              src={`${APP_URL}/brand/neta-logo-email.png`}
+              alt="Neta"
+              width="130"
+              height="50"
+            />
           </Section>
           <Heading style={h1}>{heading}</Heading>
           {children}
@@ -52,7 +58,6 @@ const container = {
   maxWidth: 560,
   padding: 32,
 };
-const brand = { color: PRIMARY_COLOR, fontSize: 20, fontWeight: 700, margin: 0 };
 const h1 = { color: '#111827', fontSize: 22, fontWeight: 700, margin: '0 0 16px' };
 const footer = { color: '#9ca3af', fontSize: 12, margin: 0 };
 const link = { color: PRIMARY_COLOR };
