@@ -100,10 +100,10 @@ export const convertToInstallmentsSchema = z.object({
   amountIsTotal: z.boolean(),
 });
 
-// Repartir el aguinaldo entre metas y/o apartados de ahorro propios. `amount`
-// de cada destino está en `currency` y se convierte a la moneda del destino.
+// Repartir el aguinaldo entre metas y/o apartados de ahorro propios. Cada
+// destino tiene su propio monto y moneda (se puede repartir parte en USD y
+// parte en UYU), y se convierte a la moneda del destino.
 export const distributeAguinaldoSchema = z.object({
-  currency: currencyEnum,
   dollarRate: z.number().min(0),
   allocations: z
     .array(
@@ -111,6 +111,7 @@ export const distributeAguinaldoSchema = z.object({
         kind: z.enum(['goal', 'savings']),
         targetId: z.uuid(),
         amount: z.number().min(0.01, 'El monto debe ser mayor a 0'),
+        currency: currencyEnum,
       })
     )
     .min(1, 'Agregá al menos un destino'),

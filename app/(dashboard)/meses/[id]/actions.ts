@@ -1262,7 +1262,8 @@ export async function addExpensesFromTemplates(
 /**
  * Reparte un monto (ej. aguinaldo) entre metas y/o apartados de ahorro
  * propios. Cada destino recibe un abono/movimiento normal (mismo historial
- * que uno manual), convertido de `currency` a la moneda del destino.
+ * que uno manual), convertido de su propia moneda (puede variar por destino)
+ * a la moneda del destino.
  */
 export async function distributeAguinaldo(
   input: unknown
@@ -1274,7 +1275,7 @@ export async function distributeAguinaldo(
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
   }
-  const { currency, dollarRate, allocations } = parsed.data;
+  const { dollarRate, allocations } = parsed.data;
 
   const goalIds = allocations.filter((a) => a.kind === 'goal').map((a) => a.targetId);
   const savingsIds = allocations.filter((a) => a.kind === 'savings').map((a) => a.targetId);
@@ -1305,7 +1306,7 @@ export async function distributeAguinaldo(
   for (const a of allocations) {
     if (a.kind === 'goal') {
       const g = goalMap.get(a.targetId)!;
-      const credited = convertAmount(a.amount, currency, g.currency, dollarRate);
+      const credited = convertAmount(a.amount, a.currency, g.currency, dollarRate);
       await db.insert(goalContribution).values({
         userId: session.userId,
         goalId: a.targetId,
@@ -1315,7 +1316,7 @@ export async function distributeAguinaldo(
       await adjustGoalSaved(session.userId, a.targetId, credited);
     } else {
       const acc = accountMap.get(a.targetId)!;
-      const credited = convertAmount(a.amount, currency, acc.currency, dollarRate);
+      const credited = convertAmount(a.amount, a.currency, acc.currency, dollarRate);
       await db.insert(savingsMovement).values({
         userId: session.userId,
         accountId: a.targetId,

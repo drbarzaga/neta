@@ -46,10 +46,19 @@ interface Row {
   rowKey: string;
   destinationKey: string;
   amount: string;
+  currency: string;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const parseAmount = (v: string) => Number(v.trim().replace(',', '.')) || 0;
+
+/** Convierte entre moneda local y USD (las únicas posibles acá) para sumar el total repartido. */
+function convertCurrency(amount: number, from: string, to: string, localCurrency: string, dollarRate: number): number {
+  if (from === to || dollarRate <= 0) return amount;
+  if (from === 'USD' && to === localCurrency) return amount * dollarRate;
+  if (from === localCurrency && to === 'USD') return amount / dollarRate;
+  return amount;
+}
 
 function dismissKey(month: number, year: number) {
   return `aguinaldo-dismissed:${year}-${month}`;
@@ -80,7 +89,9 @@ function AguinaldoDialog({
 
   const currencyOptions = Array.from(new Set([localCurrency, 'USD']));
   const total = parseAmount(totalInput);
-  const allocated = round2(rows.reduce((s, r) => s + parseAmount(r.amount), 0));
+  const allocated = round2(
+    rows.reduce((s, r) => s + convertCurrency(parseAmount(r.amount), r.currency, currency, localCurrency, dollarRate), 0)
+  );
   const remaining = round2(total - allocated);
   const fmt = (n: number) => formatMoney(n, currency, locale);
 
@@ -89,7 +100,7 @@ function AguinaldoDialog({
     const next = destinations.find((d) => !used.has(d.key));
     setRows((rs) => [
       ...rs,
-      { rowKey: String(nextRowId.current++), destinationKey: next?.key ?? '', amount: '' },
+      { rowKey: String(nextRowId.current++), destinationKey: next?.key ?? '', amount: '', currency },
     ]);
   }
 
@@ -112,11 +123,15 @@ function AguinaldoDialog({
     if (validRows.length === 0) return;
     startTransition(async () => {
       const res = await distributeAguinaldo({
-        currency,
         dollarRate,
         allocations: validRows.map((r) => {
           const [kind, id] = r.destinationKey.split(':');
-          return { kind: kind as 'goal' | 'savings', targetId: id, amount: parseAmount(r.amount) };
+          return {
+            kind: kind as 'goal' | 'savings',
+            targetId: id,
+            amount: parseAmount(r.amount),
+            currency: r.currency,
+          };
         }),
       });
       if (!res.ok) {
@@ -132,7 +147,7 @@ function AguinaldoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="border-b px-6 py-5">
           <DialogTitle>Distribuir aguinaldo</DialogTitle>
           <DialogDescription>
@@ -175,12 +190,12 @@ function AguinaldoDialog({
               {rows.map((row) => {
                 const dest = destinations.find((d) => d.key === row.destinationKey);
                 return (
-                  <div key={row.rowKey} className="flex items-center gap-2">
+                  <div key={row.rowKey} className="flex flex-wrap items-center gap-2">
                     <Select
                       value={row.destinationKey}
                       onValueChange={(v) => updateRow(row.rowKey, { destinationKey: v })}
                     >
-                      <SelectTrigger className="h-9 min-w-0 flex-1">
+                      <SelectTrigger className="h-9 min-w-[160px] flex-1">
                         <SelectValue placeholder="Elegí un destino">
                           {dest && (
                             <span className="flex min-w-0 items-center gap-2">
@@ -223,8 +238,23 @@ function AguinaldoDialog({
                       placeholder="0"
                       value={row.amount}
                       onChange={(e) => updateRow(row.rowKey, { amount: e.target.value })}
-                      className="h-9 w-28 shrink-0 tabular-nums"
+                      className="h-9 w-24 shrink-0 tabular-nums"
                     />
+                    <Select
+                      value={row.currency}
+                      onValueChange={(v) => updateRow(row.rowKey, { currency: v })}
+                    >
+                      <SelectTrigger className="h-9 w-[4.5rem] shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencyOptions.map((c) => (
+                          <SelectItem key={c} value={c}>
+                            {c}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

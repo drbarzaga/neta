@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
+import { periodLabel, MONTHS_ES } from '@/lib/dates';
 
 const DEBT_COLOR = '#ef4444';
 const SAVINGS_COLOR = '#10b981';
@@ -46,6 +47,26 @@ function findCrossoverMonth(data: ChartRow[]): number | null {
   return data.find((row) => row.ahorro >= row.deuda && row.deuda > 0)?.month ?? null;
 }
 
+/** Mes/año calendario que cae `offset` meses después del mes/año base (mes 0 = hoy). */
+function monthYearAt(baseMonth: number, baseYear: number, offset: number): { month: number; year: number } {
+  const total = baseMonth - 1 + offset;
+  const month = (((total % 12) + 12) % 12) + 1;
+  const year = baseYear + Math.floor(total / 12);
+  return { month, year };
+}
+
+function addMonthsLabel(baseMonth: number, baseYear: number, offset: number): string {
+  const { month, year } = monthYearAt(baseMonth, baseYear, offset);
+  return periodLabel(month, year);
+}
+
+/** "jul 2027", para espacios angostos como el encabezado de la tabla. */
+function addMonthsShortLabel(baseMonth: number, baseYear: number, offset: number): string {
+  const { month, year } = monthYearAt(baseMonth, baseYear, offset);
+  const name = MONTHS_ES[month - 1]?.slice(0, 3).toLowerCase() ?? '';
+  return `${name} ${year}`;
+}
+
 /** ~8 meses repartidos a lo largo del plazo (más el mes de cruce, si no cae justo en uno de ellos). */
 function sampleMonths(data: ChartRow[], months: number, crossoverMonth: number | null): ChartRow[] {
   const step = Math.max(1, Math.round(months / 7));
@@ -65,14 +86,24 @@ function ChartTooltipContent({
   crossoverMonth,
   currency,
   locale,
-}: TooltipContentProps & { crossoverMonth: number | null; currency: string; locale: string }) {
+  baseMonth,
+  baseYear,
+}: TooltipContentProps & {
+  crossoverMonth: number | null;
+  currency: string;
+  locale: string;
+  baseMonth: number;
+  baseYear: number;
+}) {
   if (!active || !payload?.length) return null;
   const row = payload[0].payload as ChartRow;
   const readyForPayoff = crossoverMonth !== null && row.month >= crossoverMonth;
 
   return (
     <div className="bg-popover min-w-40 rounded-lg border px-3 py-2 text-xs shadow-xl">
-      <p className="mb-1.5 font-medium">Mes {row.month}</p>
+      <p className="mb-1.5 font-medium">
+        Mes {row.month} · {addMonthsLabel(baseMonth, baseYear, row.month)}
+      </p>
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Deuda</span>
         <span className="font-medium tabular-nums" style={{ color: DEBT_COLOR }}>
@@ -212,6 +243,11 @@ export function DebtVsSavingsChart({
   if (outstandingLoan <= 0 || monthlyPayment <= 0 || remainingInstallments <= 0) return null;
 
   const fmt = (n: number) => formatMoney(n, currency, locale);
+  const now = new Date();
+  const baseMonth = now.getMonth() + 1;
+  const baseYear = now.getFullYear();
+  const dateFor = (offset: number) => addMonthsLabel(baseMonth, baseYear, offset);
+  const dateForShort = (offset: number) => addMonthsShortLabel(baseMonth, baseYear, offset);
 
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
@@ -278,7 +314,10 @@ export function DebtVsSavingsChart({
             <span className="text-muted-foreground">Cargá un monto para ver la proyección.</span>
           ) : crossoverMonth !== null ? (
             <>
-              Ahorrando {fmt(monthlySavings)} por mes, en el <strong>mes {crossoverMonth}</strong>{' '}
+              Ahorrando {fmt(monthlySavings)} por mes, en el{' '}
+              <strong>
+                mes {crossoverMonth} ({dateFor(crossoverMonth)})
+              </strong>{' '}
               tu fondo supera el saldo pendiente ({fmt(outstandingLoan)}) y podrías cancelar el
               préstamo a sola firma.
             </>
@@ -331,6 +370,8 @@ export function DebtVsSavingsChart({
                     crossoverMonth={crossoverMonth}
                     currency={currency}
                     locale={locale}
+                    baseMonth={baseMonth}
+                    baseYear={baseYear}
                   />
                 )}
               />
@@ -387,7 +428,12 @@ export function DebtVsSavingsChart({
                         : undefined
                     }
                   >
-                    {row.month}
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span>{row.month}</span>
+                      <span className="text-muted-foreground text-[10px] font-normal whitespace-nowrap">
+                        {dateForShort(row.month)}
+                      </span>
+                    </div>
                   </th>
                 ))}
               </tr>

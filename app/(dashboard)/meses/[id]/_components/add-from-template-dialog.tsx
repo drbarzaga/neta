@@ -81,7 +81,7 @@ export function AddFromTemplateDialog({
       </DialogTrigger>
       <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="border-b px-6 py-5">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 pr-8">
             <div>
               <DialogTitle>Agregar desde plantilla</DialogTitle>
               <DialogDescription>
