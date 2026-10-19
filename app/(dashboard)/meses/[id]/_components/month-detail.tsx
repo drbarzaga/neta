@@ -53,6 +53,7 @@ import { ExpenseRow } from './expense-row';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { InstallmentDialog } from './installment-dialog';
 import { MonthActions } from './month-actions';
+import { AguinaldoCard } from './aguinaldo-card';
 import {
   addExpense,
   updatePeriodHeader,
@@ -80,6 +81,7 @@ export function MonthDetail({
   nextPeriod = null,
   locale = 'es-UY',
   displayCurrency = 'local',
+  country = 'UY',
 }: {
   period: Period;
   categories: Category[];
@@ -94,6 +96,7 @@ export function MonthDetail({
   nextPeriod?: { id: string; label: string } | null;
   locale?: string;
   displayCurrency?: 'local' | 'usd';
+  country?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [income, setIncome] = useState(String(period.incomeTotal));
@@ -440,6 +443,18 @@ export function MonthDetail({
           status={period.status}
         />
       </div>
+
+      {country === 'UY' && (period.month === 6 || period.month === 12) && (
+        <AguinaldoCard
+          month={period.month}
+          year={period.year}
+          dollarRate={liveRate}
+          localCurrency={localCurrency}
+          locale={locale}
+          goals={goals}
+          savingsAccounts={savingsAccounts}
+        />
+      )}
 
       {/* Resumen del mes */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

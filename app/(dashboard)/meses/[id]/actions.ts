@@ -22,7 +22,7 @@ import {
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { refreshRate } from '@/lib/exchange-rate';
-import { addMonths } from '@/lib/dates';
+import { addMonths, todayISO } from '@/lib/dates';
 import { getOrCreateUserSettings } from '../../configuracion/queries';
 import {
   addExpenseSchema,
@@ -38,6 +38,7 @@ import {
   setExpenseSavingsSchema,
   setExpenseTripSchema,
   setExpenseVehicleInstallmentSchema,
+  distributeAguinaldoSchema,
 } from './schema';
 
 function revalidate(periodId: string) {
@@ -1256,4 +1257,78 @@ export async function addExpensesFromTemplates(
 
   revalidate(periodId);
   return ok({ count: templates.length });
+}
+
+/**
+ * Reparte un monto (ej. aguinaldo) entre metas y/o apartados de ahorro
+ * propios. Cada destino recibe un abono/movimiento normal (mismo historial
+ * que uno manual), convertido de `currency` a la moneda del destino.
+ */
+export async function distributeAguinaldo(
+  input: unknown
+): Promise<ActionResult<{ count: number }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = distributeAguinaldoSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const { currency, dollarRate, allocations } = parsed.data;
+
+  const goalIds = allocations.filter((a) => a.kind === 'goal').map((a) => a.targetId);
+  const savingsIds = allocations.filter((a) => a.kind === 'savings').map((a) => a.targetId);
+
+  const [goals, accounts] = await Promise.all([
+    goalIds.length
+      ? db
+          .select({ id: goal.id, currency: goal.currency })
+          .from(goal)
+          .where(and(eq(goal.userId, session.userId), inArray(goal.id, goalIds)))
+      : [],
+    savingsIds.length
+      ? db
+          .select({ id: savingsAccount.id, currency: savingsAccount.currency })
+          .from(savingsAccount)
+          .where(and(eq(savingsAccount.userId, session.userId), inArray(savingsAccount.id, savingsIds)))
+      : [],
+  ]);
+  const goalMap = new Map(goals.map((g) => [g.id, g]));
+  const accountMap = new Map(accounts.map((a) => [a.id, a]));
+
+  for (const a of allocations) {
+    if (a.kind === 'goal' && !goalMap.has(a.targetId)) return fail('Meta no encontrada');
+    if (a.kind === 'savings' && !accountMap.has(a.targetId)) return fail('Apartado no encontrado');
+  }
+
+  const today = todayISO();
+  for (const a of allocations) {
+    if (a.kind === 'goal') {
+      const g = goalMap.get(a.targetId)!;
+      const credited = convertAmount(a.amount, currency, g.currency, dollarRate);
+      await db.insert(goalContribution).values({
+        userId: session.userId,
+        goalId: a.targetId,
+        amount: credited,
+        note: 'Aguinaldo',
+      });
+      await adjustGoalSaved(session.userId, a.targetId, credited);
+    } else {
+      const acc = accountMap.get(a.targetId)!;
+      const credited = convertAmount(a.amount, currency, acc.currency, dollarRate);
+      await db.insert(savingsMovement).values({
+        userId: session.userId,
+        accountId: a.targetId,
+        amount: credited,
+        note: 'Aguinaldo',
+        date: today,
+      });
+      await adjustSavingsBalance(session.userId, a.targetId, credited);
+    }
+  }
+
+  revalidatePath('/metas');
+  revalidatePath('/ahorros');
+  revalidatePath('/');
+  return ok({ count: allocations.length });
 }

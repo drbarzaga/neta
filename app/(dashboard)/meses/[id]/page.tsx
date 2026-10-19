@@ -67,6 +67,7 @@ export default async function MonthPage({
       nextPeriod={adjacentPeriods.next}
       locale={locale}
       displayCurrency={settings.displayCurrency === 'usd' ? 'usd' : 'local'}
+      country={settings.country}
     />
   );
 }
