@@ -23,7 +23,9 @@ export interface MonthlyRow {
   label: string;
   pagado: number;
   pendiente: number;
-  [category: string]: number | string;
+  ingreso?: number;
+  gasto?: number;
+  [category: string]: number | string | undefined;
 }
 
 export interface CategoryMeta {
@@ -117,6 +119,58 @@ export function CategoryAreaChart({
           ))}
         </BarChart>
       )}
+    </ChartContainer>
+  );
+}
+
+const incomeExpenseConfig: ChartConfig = {
+  ingreso: { label: 'Ingreso', color: 'var(--chart-1)' },
+  gasto: { label: 'Gasto', color: 'var(--chart-3)' },
+};
+
+/** Ingreso vs. gasto por mes, para ver de un vistazo cuándo el gasto se come el ingreso. */
+export function IncomeExpenseChart({
+  data,
+  currency = 'UYU',
+  locale = 'es-UY',
+}: {
+  data: MonthlyRow[];
+  currency?: string;
+  locale?: string;
+}) {
+  const animations = useAnimations();
+  return (
+    <ChartContainer config={incomeExpenseConfig} className="max-h-[300px] w-full">
+      <BarChart data={data} accessibilityLayer>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+        <ChartTooltip
+          content={
+            <ChartTooltipContent
+              formatter={(v, n) => moneyFormatter(v, n, incomeExpenseConfig, currency, locale)}
+            />
+          }
+        />
+        <ChartLegend content={<ChartLegendContent />} />
+        <Bar
+          dataKey="ingreso"
+          fill="var(--color-ingreso)"
+          maxBarSize={28}
+          radius={[6, 6, 0, 0]}
+          isAnimationActive={animations}
+          animationDuration={550}
+          animationEasing="ease-out"
+        />
+        <Bar
+          dataKey="gasto"
+          fill="var(--color-gasto)"
+          maxBarSize={28}
+          radius={[6, 6, 0, 0]}
+          isAnimationActive={animations}
+          animationDuration={550}
+          animationEasing="ease-out"
+        />
+      </BarChart>
     </ChartContainer>
   );
 }
