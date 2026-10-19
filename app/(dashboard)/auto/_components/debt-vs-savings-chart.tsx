@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RiArrowDownSLine, RiArrowRightDownLine } from '@remixicon/react';
 import {
-  Area,
+  Bar,
+  BarChart,
   CartesianGrid,
-  ComposedChart,
-  ReferenceLine,
+  Cell,
+  LabelList,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -45,6 +46,19 @@ function findCrossoverMonth(data: ChartRow[]): number | null {
   return data.find((row) => row.ahorro >= row.deuda && row.deuda > 0)?.month ?? null;
 }
 
+/** ~8 meses repartidos a lo largo del plazo (más el mes de cruce, si no cae justo en uno de ellos). */
+function sampleMonths(data: ChartRow[], months: number, crossoverMonth: number | null): ChartRow[] {
+  const step = Math.max(1, Math.round(months / 7));
+  const picked = new Set<number>();
+  for (let m = 0; m <= months; m += step) picked.add(m);
+  picked.add(months);
+  if (crossoverMonth !== null) picked.add(crossoverMonth);
+  return Array.from(picked)
+    .sort((a, b) => a - b)
+    .map((m) => data[m])
+    .filter((row): row is ChartRow => row !== undefined);
+}
+
 function ChartTooltipContent({
   active,
   payload,
@@ -80,35 +94,24 @@ function ChartTooltipContent({
   );
 }
 
-function CrossoverDot({
-  cx,
-  cy,
-  payload,
-  crossoverMonth,
-}: {
-  cx?: number;
-  cy?: number;
-  payload?: ChartRow;
+/** Insignia flotante "Mes N" sobre la barra del mes de cruce. */
+function CrossoverBarBadge(props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  value?: unknown;
   crossoverMonth: number | null;
 }) {
-  if (cx == null || cy == null || !payload || payload.month !== crossoverMonth) {
-    return <circle cx={cx} cy={cy} r={0} fill="transparent" />;
+  const { x, y, width, value, crossoverMonth } = props;
+  if (x == null || y == null || width == null || crossoverMonth == null || Number(value) !== crossoverMonth) {
+    return null;
   }
-  return (
-    <circle cx={cx} cy={cy} r={5.5} fill={SAVINGS_COLOR} stroke="var(--background)" strokeWidth={2} />
-  );
-}
-
-/** Insignia flotante "Mes N" sobre la línea de referencia del cruce, en vez de una etiqueta de texto suelta. */
-function CrossoverBadge(props: { x?: number; y?: number; crossoverMonth: number }) {
-  const { x, y, crossoverMonth } = props;
-  if (x == null || y == null) return null;
   const text = `Mes ${crossoverMonth}`;
-  const width = text.length * 6.5 + 18;
+  const badgeWidth = text.length * 6.5 + 18;
   return (
-    <g transform={`translate(${x - width / 2}, ${y - 24})`}>
-      <rect width={width} height={20} rx={10} fill={SAVINGS_COLOR} />
-      <text x={width / 2} y={14} textAnchor="middle" fontSize={11} fontWeight={600} fill="#06281d">
+    <g transform={`translate(${x + width / 2 - badgeWidth / 2}, ${y - 26})`}>
+      <rect width={badgeWidth} height={20} rx={10} fill={SAVINGS_COLOR} />
+      <text x={badgeWidth / 2} y={14} textAnchor="middle" fontSize={11} fontWeight={600} fill="#06281d">
         {text}
       </text>
     </g>
@@ -201,6 +204,10 @@ export function DebtVsSavingsChart({
     [outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments]
   );
   const crossoverMonth = useMemo(() => findCrossoverMonth(data), [data]);
+  const sampled = useMemo(
+    () => sampleMonths(data, remainingInstallments, crossoverMonth),
+    [data, remainingInstallments, crossoverMonth]
+  );
 
   if (outstandingLoan <= 0 || monthlyPayment <= 0 || remainingInstallments <= 0) return null;
 
@@ -296,37 +303,28 @@ export function DebtVsSavingsChart({
 
         <div className="h-[280px] -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 28, right: 16, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="debtAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={DEBT_COLOR} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={DEBT_COLOR} stopOpacity={0.02} />
-                </linearGradient>
-                <linearGradient id="savingsAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={SAVINGS_COLOR} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={SAVINGS_COLOR} stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <BarChart data={sampled} margin={{ top: 28, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="month"
+                type="category"
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 tickFormatter={(m: number) => `Mes ${m}`}
                 tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
-                interval={Math.max(0, Math.ceil(remainingInstallments / 8) - 1)}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
                 width={56}
+                domain={[0, (max: number) => Math.ceil((max * 1.15) / 1000) * 1000]}
                 tickFormatter={(v: number) => `${Math.round(v / 1000)}k`}
                 tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
               />
               <Tooltip
-                cursor={{ stroke: 'var(--border)' }}
+                cursor={{ fill: 'var(--muted)', opacity: 0.4 }}
                 content={(props) => (
                   <ChartTooltipContent
                     {...props}
@@ -336,47 +334,97 @@ export function DebtVsSavingsChart({
                   />
                 )}
               />
-              {crossoverMonth !== null && (
-                <ReferenceLine
-                  x={crossoverMonth}
-                  stroke={SAVINGS_COLOR}
-                  strokeOpacity={0.5}
-                  strokeDasharray="4 4"
-                  label={(props: { viewBox?: { x?: number; y?: number } }) => (
-                    <CrossoverBadge
-                      x={props.viewBox?.x}
-                      y={props.viewBox?.y}
+              <Bar dataKey="deuda" name="Deuda" stackId="s" radius={[0, 0, 6, 6]} isAnimationActive={false}>
+                {sampled.map((row) => (
+                  <Cell
+                    key={row.month}
+                    fill={DEBT_COLOR}
+                    fillOpacity={row.month === crossoverMonth ? 1 : 0.75}
+                    stroke={row.month === crossoverMonth ? SAVINGS_COLOR : 'transparent'}
+                    strokeWidth={row.month === crossoverMonth ? 1.5 : 0}
+                  />
+                ))}
+              </Bar>
+              <Bar dataKey="ahorro" name="Ahorro" stackId="s" radius={[6, 6, 0, 0]} isAnimationActive={false}>
+                {sampled.map((row) => (
+                  <Cell
+                    key={row.month}
+                    fill={SAVINGS_COLOR}
+                    fillOpacity={row.month === crossoverMonth ? 1 : 0.75}
+                    stroke={row.month === crossoverMonth ? SAVINGS_COLOR : 'transparent'}
+                    strokeWidth={row.month === crossoverMonth ? 1.5 : 0}
+                  />
+                ))}
+                <LabelList
+                  dataKey="month"
+                  content={(props) => (
+                    <CrossoverBarBadge
+                      x={props.x as number | undefined}
+                      y={props.y as number | undefined}
+                      width={props.width as number | undefined}
+                      value={props.value}
                       crossoverMonth={crossoverMonth}
                     />
                   )}
                 />
-              )}
-              <Area
-                type="monotone"
-                dataKey="deuda"
-                name="Deuda"
-                stroke={DEBT_COLOR}
-                strokeWidth={2.5}
-                fill="url(#debtAreaGradient)"
-                dot={false}
-                activeDot={{ r: 4 }}
-                isAnimationActive={false}
-              />
-              <Area
-                type="monotone"
-                dataKey="ahorro"
-                name="Ahorro"
-                stroke={SAVINGS_COLOR}
-                strokeWidth={2.5}
-                fill="url(#savingsAreaGradient)"
-                dot={(props: { cx?: number; cy?: number; payload?: ChartRow }) => (
-                  <CrossoverDot {...props} crossoverMonth={crossoverMonth} key={props.payload?.month} />
-                )}
-                activeDot={{ r: 5 }}
-                isAnimationActive={false}
-              />
-            </ComposedChart>
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] border-collapse text-xs">
+            <thead>
+              <tr>
+                <th className="text-muted-foreground w-24 py-1.5 pr-2 text-left font-normal">Mes</th>
+                {sampled.map((row) => (
+                  <th
+                    key={row.month}
+                    className="rounded-t-md px-2 py-1.5 text-center font-medium tabular-nums"
+                    style={
+                      row.month === crossoverMonth
+                        ? { color: SAVINGS_COLOR, backgroundColor: `${SAVINGS_COLOR}1a` }
+                        : undefined
+                    }
+                  >
+                    {row.month}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-t">
+                <td className="text-muted-foreground py-1.5 pr-2">Préstamo</td>
+                {sampled.map((row) => (
+                  <td
+                    key={row.month}
+                    className="px-2 py-1.5 text-center tabular-nums"
+                    style={{
+                      color: DEBT_COLOR,
+                      backgroundColor: row.month === crossoverMonth ? `${SAVINGS_COLOR}1a` : undefined,
+                    }}
+                  >
+                    {fmt(row.deuda)}
+                  </td>
+                ))}
+              </tr>
+              <tr className="border-t">
+                <td className="text-muted-foreground py-1.5 pr-2">Ahorro</td>
+                {sampled.map((row) => (
+                  <td
+                    key={row.month}
+                    className="rounded-b-md px-2 py-1.5 text-center tabular-nums"
+                    style={{
+                      color: SAVINGS_COLOR,
+                      backgroundColor: row.month === crossoverMonth ? `${SAVINGS_COLOR}1a` : undefined,
+                    }}
+                  >
+                    {fmt(row.ahorro)}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
       </CollapsibleContent>
     </Collapsible>
