@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { db, eq, and, vehicle, vehicleExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
-import { addMonths, daysInMonth } from '@/lib/dates';
+import { addMonths } from '@/lib/dates';
 import { getLatestUiValue } from '@/lib/ui-value';
 import { recalculateUiInstallments } from '@/lib/vehicle-ui-loan';
 import {
@@ -240,8 +240,10 @@ export async function createUiIndexedLoan(
   const data = parsed.data;
 
   const uiNow = await getLatestUiValue();
-  const firstPaymentPesos =
-    Math.round(data.monthlyPaymentUi * uiNow * 100) / 100 + data.fixedSurchargeUyu;
+  // Todo en un solo ítem mensual: recargo fijo confirmado ($361) + estimado
+  // de seguro de vida y tasas, ambos no indexados, se suman al mismo campo.
+  const totalSurcharge = data.fixedSurchargeUyu + data.insuranceEstimateUyu;
+  const firstPaymentPesos = Math.round(data.monthlyPaymentUi * uiNow * 100) / 100 + totalSurcharge;
 
   const [v] = await db
     .insert(vehicle)
@@ -281,36 +283,21 @@ export async function createUiIndexedLoan(
       userId: session.userId,
       vehicleId: v.id,
       category: LOAN_INSTALLMENT_CATEGORY,
-      concept: `Cuota ${i + 1}/${data.totalInstallments} (UI ${data.monthlyPaymentUi.toFixed(2)} + $${data.fixedSurchargeUyu})`,
+      concept: `Cuota ${i + 1}/${data.totalInstallments} (UI ${data.monthlyPaymentUi.toFixed(2)} + $${data.fixedSurchargeUyu} + seguro est. $${data.insuranceEstimateUyu})`,
       amount: firstPaymentPesos,
       amountUi: data.monthlyPaymentUi,
-      fixedSurchargeUyu: data.fixedSurchargeUyu,
+      fixedSurchargeUyu: totalSurcharge,
       currency: 'UYU',
       month,
       year,
       dueDate: isoDate(year, month, 5),
       paid: false,
+      note:
+        data.insuranceEstimateUyu > 0
+          ? `Incluye recargo fijo $${data.fixedSurchargeUyu} + estimado de seguro de vida y tasas $${data.insuranceEstimateUyu} (sin fórmula confirmada: ajustar cuando tengas el resumen real).`
+          : null,
       sortOrder: i,
     });
-  }
-  if (data.insuranceEstimateUyu > 0) {
-    for (let i = 0; i < data.totalInstallments; i++) {
-      const { month, year } = addMonths(data.firstInstallmentMonth, data.firstInstallmentYear, i);
-      rows.push({
-        userId: session.userId,
-        vehicleId: v.id,
-        category: 'Seguro',
-        concept: 'Seguro de vida + tasas (misma cuenta BBVA, débito fin de mes) — estimado',
-        amount: data.insuranceEstimateUyu,
-        currency: 'UYU',
-        month,
-        year,
-        dueDate: isoDate(year, month, daysInMonth(year, month)),
-        paid: false,
-        note: 'Monto estimado: no hay fórmula confirmada. Ajustar con el resumen real cada mes.',
-        sortOrder: data.totalInstallments + i,
-      });
-    }
   }
   await db.insert(vehicleExpense).values(rows);
 
