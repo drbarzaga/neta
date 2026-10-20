@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { db, eq, and, vehicle, vehicleExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
-import { addMonths, resolveSalaryDepositDay, daysInMonth } from '@/lib/dates';
+import { addMonths, daysInMonth } from '@/lib/dates';
 import { getLatestUiValue } from '@/lib/ui-value';
 import { recalculateUiInstallments } from '@/lib/vehicle-ui-loan';
 import {
@@ -274,8 +274,9 @@ export async function createUiIndexedLoan(
   const rows: (typeof vehicleExpense.$inferInsert)[] = [];
   for (let i = 0; i < data.totalInstallments; i++) {
     const { month, year } = addMonths(data.firstInstallmentMonth, data.firstInstallmentYear, i);
-    // Día 5, corrido al siguiente día hábil si cae fin de semana.
-    const day = resolveSalaryDepositDay(year, month, 'fixed_day', 5);
+    // Día 5 fijo: el plan de pagos oficial de BBVA no corre la fecha por fin
+    // de semana (confirmado con el plan real: la cuota 1 vence 5/12/2026, un
+    // sábado).
     rows.push({
       userId: session.userId,
       vehicleId: v.id,
@@ -287,7 +288,7 @@ export async function createUiIndexedLoan(
       currency: 'UYU',
       month,
       year,
-      dueDate: isoDate(year, month, day),
+      dueDate: isoDate(year, month, 5),
       paid: false,
       sortOrder: i,
     });
