@@ -128,3 +128,32 @@ export type OnboardingVehicleInput = z.infer<typeof onboardingVehicleSchema>;
 
 export type CreateVehicleInput = z.infer<typeof createVehicleSchema>;
 export type UpdateVehicleInput = z.infer<typeof updateVehicleSchema>;
+
+// Alta de un préstamo de auto indexado a la Unidad Indexada (UI, Uruguay).
+// Tres componentes mensuales, misma cuenta BBVA pero distinta fecha de débito:
+//  1. Cuota (capital+interés+IVA), fija en UI, débito día 5.
+//  2. Recargo fijo en pesos (no indexado), debitado junto con la cuota (mismo
+//     día 5) — ej. el fijo de $361.
+//  3. Seguro de vida + tasas (TCRSF/prestación social), débito a fin de mes
+//     (mismo canal/cuenta, solo que más tarde); si no hay saldo, el banco
+//     reintenta cuando lo haya. Monto variable mes a mes (no hay fórmula
+//     confirmada), se carga como estimado editable.
+export const createUiLoanSchema = z.object({
+  name: z.string().trim().min(1, 'Ponle un nombre al vehículo').max(120),
+  version: z.string().trim().max(60).nullable().optional(),
+  year: z.number().int().min(1990).max(2100).nullable().optional(),
+  vehiclePriceUsd: z.number().min(0).default(0), // valor vehículo USD (informativo)
+  downPaymentUsd: z.number().min(0).default(0), // inicial dado, en USD (informativo)
+  loanAmount: z.number().min(0), // capital total prestado, en pesos (ej. 290299)
+  loanAmountUi: z.number().min(0), // capital total prestado, en UI (ej. 43515.91)
+  monthlyPaymentUi: z.number().min(0), // cuota fija en UI (capital+interés+IVA), ej. 2028.9
+  fixedSurchargeUyu: z.number().min(0).default(0), // recargo fijo en pesos junto a la cuota, ej. 361
+  totalInstallments: z.number().int().min(1).max(120), // 24
+  firstInstallmentMonth: z.number().int().min(1).max(12), // mes de la 1era cuota (ej. 12 = diciembre)
+  firstInstallmentYear: z.number().int().min(2000).max(2100),
+  uiRateAtOrigination: z.number().min(0), // UI del día de la liquidación (solo referencia)
+  dollarRate: z.number().min(0).default(0), // pesos por USD, para convertir totales a USD en la UI
+  insuranceEstimateUyu: z.number().min(0).default(0), // estimado mensual seguro de vida + tasas (tarjeta, fin de mes)
+});
+
+export type CreateUiLoanInput = z.infer<typeof createUiLoanSchema>;

@@ -5,6 +5,8 @@ import { db, eq, and, vehicle, vehicleExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { addMonths } from '@/lib/dates';
+import { getLatestUiValue } from '@/lib/ui-value';
+import { recalculateUiInstallments } from '@/lib/vehicle-ui-loan';
 import {
   createVehicleSchema,
   updateVehicleSchema,
@@ -15,6 +17,7 @@ import {
   contributeDownPaymentSchema,
   payOffLoanSchema,
   onboardingVehicleSchema,
+  createUiLoanSchema,
   LOAN_INSTALLMENT_CATEGORY,
 } from './schema';
 
@@ -215,6 +218,107 @@ export async function completeVehicleOnboarding(
 
   revalidate();
   return ok({ id: v.id });
+}
+
+/**
+ * Alta de un préstamo de auto indexado a la Unidad Indexada (UI, Uruguay):
+ * genera las N cuotas con el monto fijo en UI (`amountUi`) y el estimado en
+ * pesos de hoy (`amount`), que luego se recalcula solo con la UI vigente
+ * (cron diario). Si se pasa `accountMaintenanceFee`, agrega también una fila
+ * mensual de mantenimiento de cuenta, en la misma ventana de meses.
+ */
+export async function createUiIndexedLoan(
+  input: unknown
+): Promise<ActionResult<{ id: string }>> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  const parsed = createUiLoanSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? 'Datos inválidos');
+  }
+  const data = parsed.data;
+
+  const uiNow = await getLatestUiValue();
+  const firstPaymentPesos =
+    Math.round(data.monthlyPaymentUi * uiNow * 100) / 100 + data.fixedSurchargeUyu;
+
+  const [v] = await db
+    .insert(vehicle)
+    .values({
+      userId: session.userId,
+      name: data.name,
+      version: data.version ?? null,
+      year: data.year ?? null,
+      totalPrice: data.vehiclePriceUsd,
+      downPaymentTarget: data.downPaymentUsd,
+      downPaymentSaved: data.downPaymentUsd,
+      loanAmount: data.loanAmount,
+      loanMonths: data.totalInstallments,
+      loanStartMonth: data.firstInstallmentMonth,
+      loanStartYear: data.firstInstallmentYear,
+      monthlyPayment: firstPaymentPesos,
+      currency: 'USD',
+      monthlyPaymentCurrency: 'UYU',
+      dollarRate: data.dollarRate,
+      status: 'financiando',
+      loanUnit: 'ui',
+      monthlyPaymentUi: data.monthlyPaymentUi,
+      uiRateAtOrigination: data.uiRateAtOrigination,
+    })
+    .returning({ id: vehicle.id });
+
+  const rows: (typeof vehicleExpense.$inferInsert)[] = [];
+  for (let i = 0; i < data.totalInstallments; i++) {
+    const { month, year } = addMonths(data.firstInstallmentMonth, data.firstInstallmentYear, i);
+    rows.push({
+      userId: session.userId,
+      vehicleId: v.id,
+      category: LOAN_INSTALLMENT_CATEGORY,
+      concept: `Cuota ${i + 1}/${data.totalInstallments} (UI ${data.monthlyPaymentUi.toFixed(2)} + $${data.fixedSurchargeUyu})`,
+      amount: firstPaymentPesos,
+      amountUi: data.monthlyPaymentUi,
+      fixedSurchargeUyu: data.fixedSurchargeUyu,
+      currency: 'UYU',
+      month,
+      year,
+      paid: false,
+      sortOrder: i,
+    });
+  }
+  if (data.insuranceEstimateUyu > 0) {
+    for (let i = 0; i < data.totalInstallments; i++) {
+      const { month, year } = addMonths(data.firstInstallmentMonth, data.firstInstallmentYear, i);
+      rows.push({
+        userId: session.userId,
+        vehicleId: v.id,
+        category: 'Seguro',
+        concept: 'Seguro de vida + tasas (misma cuenta BBVA, débito fin de mes) — estimado',
+        amount: data.insuranceEstimateUyu,
+        currency: 'UYU',
+        month,
+        year,
+        paid: false,
+        note: 'Monto estimado: no hay fórmula confirmada. Ajustar con el resumen real cada mes.',
+        sortOrder: data.totalInstallments + i,
+      });
+    }
+  }
+  await db.insert(vehicleExpense).values(rows);
+
+  revalidate();
+  return ok({ id: v.id });
+}
+
+/** Refresca la UI y recalcula en pesos las cuotas pendientes indexadas (botón manual). */
+export async function refreshUiLoanInstallments(vehicleId?: string): Promise<ActionResult> {
+  const session = await verifySession();
+  if (!session) return UNAUTHORIZED;
+
+  await recalculateUiInstallments(vehicleId);
+
+  revalidate();
+  return ok();
 }
 
 export async function updateVehicle(input: unknown): Promise<ActionResult> {

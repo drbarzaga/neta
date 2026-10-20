@@ -21,3 +21,4 @@ export * from './trip-expense';
 export * from './trip-day';
 export * from './vehicle';
 export * from './vehicle-expense';
+export * from './ui-value';

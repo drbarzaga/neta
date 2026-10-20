@@ -52,6 +52,16 @@ export const vehicle = pgTable('vehicle', {
     .default(0), // moneda local por 1 USD, para convertir gastos en moneda local
   status: vehicleStatus().notNull().default('financiando'),
   color: text().notNull().default('#2563eb'),
+  // Préstamo indexado a la Unidad Indexada (UI, Uruguay): la cuota es fija en
+  // UI y se paga en pesos al valor del día. `monthlyPayment`/`currency`
+  // siguen reflejando el estimado en pesos (recalculado vía `lib/ui-value.ts`).
+  loanUnit: text().notNull().default('currency'), // 'currency' | 'ui'
+  monthlyPaymentUi: numeric({ precision: 14, scale: 4, mode: 'number' })
+    .notNull()
+    .default(0), // cuota fija en UI (capital+interés+IVA+seguro de vida+tasas)
+  uiRateAtOrigination: numeric({ precision: 10, scale: 4, mode: 'number' })
+    .notNull()
+    .default(0), // cotización de la UI el día de la liquidación (solo referencia)
   createdAt: timestamp().notNull().defaultNow(),
 });
 

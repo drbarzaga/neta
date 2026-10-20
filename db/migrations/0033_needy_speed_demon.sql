@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_expense" ADD COLUMN "fixed_surcharge_uyu" numeric(14, 2);
