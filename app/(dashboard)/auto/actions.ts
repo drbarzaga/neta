@@ -255,7 +255,12 @@ export async function createUiIndexedLoan(
       totalPrice: data.vehiclePriceUsd,
       downPaymentTarget: data.downPaymentUsd,
       downPaymentSaved: data.downPaymentUsd,
-      loanAmount: data.loanAmount,
+      // `loanAmount` comparte moneda con `totalPrice`/`downPaymentTarget`
+      // (`vehicle.currency`, acá USD) para que "Precio = Inicial + Préstamo"
+      // cierre en la cabecera. `data.loanAmount`/`data.loanAmountUi` (capital
+      // total en pesos/UI, con gastos administrativos incluidos) quedan
+      // registrados en el mismo `monthlyPaymentUi`/cuotas, no acá.
+      loanAmount: data.vehiclePriceUsd - data.downPaymentUsd,
       loanMonths: data.totalInstallments,
       loanStartMonth: data.firstInstallmentMonth,
       loanStartYear: data.firstInstallmentYear,
