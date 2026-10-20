@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { db, eq, and, vehicle, vehicleExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
-import { addMonths } from '@/lib/dates';
+import { addMonths, resolveSalaryDepositDay, daysInMonth } from '@/lib/dates';
 import { getLatestUiValue } from '@/lib/ui-value';
 import { recalculateUiInstallments } from '@/lib/vehicle-ui-loan';
 import {
@@ -268,9 +268,14 @@ export async function createUiIndexedLoan(
     })
     .returning({ id: vehicle.id });
 
+  const isoDate = (year: number, month: number, day: number) =>
+    `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
   const rows: (typeof vehicleExpense.$inferInsert)[] = [];
   for (let i = 0; i < data.totalInstallments; i++) {
     const { month, year } = addMonths(data.firstInstallmentMonth, data.firstInstallmentYear, i);
+    // Día 5, corrido al siguiente día hábil si cae fin de semana.
+    const day = resolveSalaryDepositDay(year, month, 'fixed_day', 5);
     rows.push({
       userId: session.userId,
       vehicleId: v.id,
@@ -282,6 +287,7 @@ export async function createUiIndexedLoan(
       currency: 'UYU',
       month,
       year,
+      dueDate: isoDate(year, month, day),
       paid: false,
       sortOrder: i,
     });
@@ -298,6 +304,7 @@ export async function createUiIndexedLoan(
         currency: 'UYU',
         month,
         year,
+        dueDate: isoDate(year, month, daysInMonth(year, month)),
         paid: false,
         note: 'Monto estimado: no hay fórmula confirmada. Ajustar con el resumen real cada mes.',
         sortOrder: data.totalInstallments + i,
@@ -450,6 +457,7 @@ export async function addVehicleExpense(
       currency: data.currency,
       month: data.month,
       year: data.year,
+      dueDate: data.dueDate ?? null,
       paid: data.paid,
       note: data.note ?? null,
       sortOrder: nextOrder,

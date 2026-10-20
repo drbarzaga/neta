@@ -39,6 +39,7 @@ import { CategoryIcon } from '@/components/category-icon';
 import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { VehiclePhoto } from '@/components/vehicle-photo';
 import { InstallmentGrid } from '@/components/installment-grid';
+import { DatePicker } from '@/components/date-picker';
 import { VehicleOnboarding } from './vehicle-onboarding';
 import { DebtVsSavingsChart } from './debt-vs-savings-chart';
 import { StatCard } from '../../_components/stat-card';
@@ -46,6 +47,11 @@ import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import { MONTHS_ES, periodLabel } from '@/lib/dates';
 import { fireConfetti } from '@/lib/confetti';
+
+function formatDueDate(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  return d.toLocaleDateString('es-UY', { day: '2-digit', month: 'short', year: 'numeric' });
+}
 import type { VehicleExpense } from '@/db';
 import type { VehicleWithExpenses } from '../queries';
 import {
@@ -898,7 +904,10 @@ function VehicleExpenseRow({
         <p className={cn('truncate text-sm', expense.paid && 'text-muted-foreground line-through')}>
           {expense.concept}
         </p>
-        <p className="text-muted-foreground text-xs">{expense.category}</p>
+        <p className="text-muted-foreground text-xs">
+          {expense.category}
+          {expense.dueDate && ` · vence ${formatDueDate(expense.dueDate)}`}
+        </p>
       </div>
       <div className="text-right">
         <p className="text-sm font-medium tabular-nums">{fmt(expense.amount)}</p>
@@ -1014,6 +1023,7 @@ function VehicleExpenseDialog({
   const [currency, setCurrency] = useState(expense?.currency ?? defaultCurrency ?? localCurrency);
   const [expMonth, setExpMonth] = useState(expense?.month ?? month);
   const [expYear, setExpYear] = useState(expense?.year ?? year);
+  const [dueDate, setDueDate] = useState(expense?.dueDate ?? null);
   const [paid, setPaid] = useState(expense?.paid ?? false);
 
   const isEdit = expense !== null;
@@ -1036,6 +1046,7 @@ function VehicleExpenseDialog({
       currency,
       month: expMonth,
       year: expYear,
+      dueDate,
       paid,
     };
     startTransition(async () => {
@@ -1127,6 +1138,11 @@ function VehicleExpenseDialog({
             onMonthChange={setExpMonth}
             onYearChange={setExpYear}
           />
+
+          <div className="grid gap-1.5">
+            <Label>Vencimiento (opcional)</Label>
+            <DatePicker value={dueDate} onChange={setDueDate} placeholder="Sin fecha" />
+          </div>
 
           <div className="flex items-center gap-2">
             <Checkbox id="ve-paid" checked={paid} onCheckedChange={(v) => setPaid(v === true)} />

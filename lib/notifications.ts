@@ -18,9 +18,10 @@ import {
   savingsAccount,
   savingsMovement,
   userSettings,
+  vehicleExpense,
 } from '@/db';
 import { periodTotals, formatUSD, formatMoney } from '@/lib/money';
-import { todayISO, nowInTimezone, resolveSalaryDepositDay } from '@/lib/dates';
+import { todayISO, nowInTimezone, resolveSalaryDepositDay, periodLabel } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import { sendEmail } from '@/lib/email';
 import { DueReminderEmail, type DueItem } from '@/emails/due-reminder';
@@ -77,14 +78,44 @@ export async function runDueReminders(): Promise<{ sent: number }> {
         )
       );
 
-    if (rows.length === 0) continue;
+    // Cuotas/gastos de vehículo (préstamo, seguro…), que viven en su propia
+    // tabla en vez de `expense`/`period` (ver `app/(dashboard)/auto`).
+    const vehicleRows = await db
+      .select({
+        concept: vehicleExpense.concept,
+        amount: vehicleExpense.amount,
+        currency: vehicleExpense.currency,
+        dueDate: vehicleExpense.dueDate,
+        month: vehicleExpense.month,
+        year: vehicleExpense.year,
+      })
+      .from(vehicleExpense)
+      .where(
+        and(
+          eq(vehicleExpense.userId, p.userId),
+          isNotNull(vehicleExpense.dueDate),
+          gte(vehicleExpense.dueDate, today),
+          lte(vehicleExpense.dueDate, until),
+          eq(vehicleExpense.paid, false)
+        )
+      );
 
-    const items: DueItem[] = rows.map((r) => ({
-      concept: r.concept,
-      amountLabel: formatMoney(r.amount, r.currency),
-      dueDateLabel: r.dueDate ? formatDate(r.dueDate) : '',
-      periodLabel: r.periodLabel,
-    }));
+    if (rows.length === 0 && vehicleRows.length === 0) continue;
+
+    const items: DueItem[] = [
+      ...rows.map((r) => ({
+        concept: r.concept,
+        amountLabel: formatMoney(r.amount, r.currency),
+        dueDateLabel: r.dueDate ? formatDate(r.dueDate) : '',
+        periodLabel: r.periodLabel,
+      })),
+      ...vehicleRows.map((r) => ({
+        concept: r.concept,
+        amountLabel: formatMoney(r.amount, r.currency),
+        dueDateLabel: r.dueDate ? formatDate(r.dueDate) : '',
+        periodLabel: periodLabel(r.month, r.year),
+      })),
+    ];
 
     await sendEmail({
       to: p.email,

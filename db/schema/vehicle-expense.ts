@@ -5,6 +5,7 @@ import {
   numeric,
   boolean,
   integer,
+  date,
   timestamp,
 } from 'drizzle-orm/pg-core';
 import { user } from './auth';
@@ -38,6 +39,10 @@ export const vehicleExpense = pgTable('vehicle_expense', {
   fixedSurchargeUyu: numeric({ precision: 14, scale: 2, mode: 'number' }),
   month: integer().notNull(), // 1-12
   year: integer().notNull(),
+  // Fecha exacta de vencimiento (ej. día 5 de la cuota, fin de mes del
+  // seguro), para mostrarla y para los recordatorios por email. Opcional:
+  // los gastos libres agregados a mano pueden no tenerla.
+  dueDate: date({ mode: 'string' }),
   paid: boolean().notNull().default(false),
   note: text(),
   sortOrder: integer().notNull().default(0),

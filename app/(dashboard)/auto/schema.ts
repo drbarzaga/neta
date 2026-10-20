@@ -70,6 +70,7 @@ export const addVehicleExpenseSchema = z.object({
   currency: currencyEnum.default('USD'),
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2000).max(2100),
+  dueDate: z.string().nullable().optional(),
   paid: z.boolean().default(false),
   note: z.string().trim().max(280).nullable().optional(),
 });
@@ -82,6 +83,7 @@ export const updateVehicleExpenseSchema = z.object({
   currency: currencyEnum.optional(),
   month: z.number().int().min(1).max(12).optional(),
   year: z.number().int().min(2000).max(2100).optional(),
+  dueDate: z.string().nullable().optional(),
   paid: z.boolean().optional(),
   note: z.string().trim().max(280).nullable().optional(),
 });

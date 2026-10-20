@@ -239,6 +239,13 @@
       "when": 1792526717043,
       "tag": "0033_needy_speed_demon",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792527582602,
+      "tag": "0034_high_hiroim",
+      "breakpoints": true
     }
   ]
 }

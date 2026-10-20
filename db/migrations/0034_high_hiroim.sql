@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_expense" ADD COLUMN "due_date" date;
