@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { RiWalletLine, RiArrowRightLine, RiBankCardLine, RiPieChartLine, RiSafeLine, RiRepeatLine, RiTimeLine, RiTargetLine, RiSparklingLine } from '@remixicon/react';
+import { RiWalletLine, RiArrowRightLine, RiBankCardLine, RiPieChartLine, RiSafeLine, RiRepeatLine, RiTimeLine, RiTargetLine, RiSparklingLine, RiTrophyLine, RiFireLine, RiRocketLine, RiHeartLine, RiFlagLine, type RemixiconComponentType } from '@remixicon/react';
 import { requireSession } from '@/lib/auth-server';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,7 @@ import { detectBrand } from '@/lib/brands';
 import { formatMoney } from '@/lib/money';
 import { getCountry } from '@/lib/countries';
 import { buildAdvisorInsights, type AdvisorInsight } from '@/lib/advisor-context';
+import { buildGoalMotivation, type MotivationKind } from '@/lib/motivation';
 import { getOrCreateUserSettings } from './configuracion/queries';
 import { getPeriodsWithTotals } from './meses/queries';
 import { getCategories, getExpenses } from './meses/[id]/queries';
@@ -39,6 +40,15 @@ function topInsights(insights: AdvisorInsight[], n: number): AdvisorInsight[] {
     .sort((a, b) => LEVEL_PRIORITY[a.level] - LEVEL_PRIORITY[b.level])
     .slice(0, n);
 }
+
+const MOTIVATION_ICON: Record<MotivationKind, RemixiconComponentType> = {
+  celebrate: RiTrophyLine,
+  almost: RiFireLine,
+  urgent: RiRocketLine,
+  progress: RiHeartLine,
+  stalled: RiHeartLine,
+  empty: RiFlagLine,
+};
 
 export default async function DashboardPage() {
   const { userId, user } = await requireSession();
@@ -149,6 +159,8 @@ export default async function DashboardPage() {
 
   const over = current.totals.restante < 0;
   const shownInsights = topInsights(insights, 2);
+  const motivation = buildGoalMotivation(goals);
+  const MotivationIcon = MOTIVATION_ICON[motivation.kind];
 
   return (
     <div className="flex flex-col gap-6">
@@ -192,6 +204,27 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       )}
+
+      <Card variant="forest">
+        <CardContent className="flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-white/15">
+              <MotivationIcon className="size-5" />
+            </span>
+            <p className="min-w-0 text-sm leading-snug font-medium">{motivation.text}</p>
+          </div>
+          <Button
+            variant="lime"
+            size="sm"
+            className="shrink-0 self-start sm:self-auto"
+            asChild
+          >
+            <Link href={motivation.goalId ? `/metas/${motivation.goalId}` : '/metas'}>
+              {motivation.kind === 'empty' ? 'Crear meta' : 'Ver meta'} <RiArrowRightLine />
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
