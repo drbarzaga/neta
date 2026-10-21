@@ -450,6 +450,7 @@ function VehicleSection({
             dollarRate={vehicle.dollarRate}
             localCurrency={localCurrency}
             locale={locale}
+            capitalSchedule={vehicle.capitalSchedule}
           />
         </CardContent>
       )}

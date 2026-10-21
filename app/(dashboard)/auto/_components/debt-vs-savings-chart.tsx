@@ -4,10 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { RiArrowDownSLine, RiArrowRightDownLine } from '@remixicon/react';
 import {
   Bar,
-  BarChart,
   CartesianGrid,
   Cell,
+  ComposedChart,
   LabelList,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,6 +25,7 @@ import { periodLabel, MONTHS_ES } from '@/lib/dates';
 
 const DEBT_COLOR = '#ef4444';
 const SAVINGS_COLOR = '#10b981';
+const CAPITAL_COLOR = '#1e293b';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -31,14 +33,27 @@ interface ChartRow {
   month: number;
   deuda: number;
   ahorro: number;
+  /** Saldo de capital real (sin interés/IVA/recargos), si se pudo calcular. */
+  capital?: number;
 }
 
-/** Saldo real del préstamo (cuotas fijas, sin interés) y ahorro acumulado a un ritmo constante. */
-function buildData(outstandingLoan: number, monthlyPayment: number, monthlySavings: number, months: number): ChartRow[] {
+/**
+ * Saldo restante de cuotas (capital+interés+IVA+recargos, sin indexar a
+ * futuro) y ahorro acumulado a un ritmo constante. `capitalSchedule`, si se
+ * pasa, es el saldo de capital real mes a mes (ver `buildCapitalSchedule`).
+ */
+function buildData(
+  outstandingLoan: number,
+  monthlyPayment: number,
+  monthlySavings: number,
+  months: number,
+  capitalSchedule?: number[] | null
+): ChartRow[] {
   return Array.from({ length: months + 1 }, (_, month) => ({
     month,
     deuda: round2(Math.max(0, outstandingLoan - monthlyPayment * month)),
     ahorro: round2(monthlySavings * month),
+    capital: capitalSchedule?.[month],
   }));
 }
 
@@ -110,6 +125,14 @@ function ChartTooltipContent({
           {formatMoney(row.deuda, currency, locale)}
         </span>
       </div>
+      {row.capital != null && (
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-muted-foreground">Capital</span>
+          <span className="font-medium tabular-nums" style={{ color: CAPITAL_COLOR }}>
+            {formatMoney(row.capital, currency, locale)}
+          </span>
+        </div>
+      )}
       <div className="flex items-center justify-between gap-4">
         <span className="text-muted-foreground">Ahorro</span>
         <span className="font-medium tabular-nums" style={{ color: SAVINGS_COLOR }}>
@@ -175,6 +198,7 @@ export function DebtVsSavingsChart({
   dollarRate,
   localCurrency,
   locale = 'es-UY',
+  capitalSchedule,
 }: {
   vehicleId: string;
   outstandingLoan: number;
@@ -184,6 +208,8 @@ export function DebtVsSavingsChart({
   dollarRate: number;
   localCurrency: string;
   locale?: string;
+  /** Saldo de capital real mes a mes (ver `buildCapitalSchedule`), si está disponible. */
+  capitalSchedule?: number[] | null;
 }) {
   const [open, setOpen] = useState(false);
   const [savingsInput, setSavingsInput] = useState(String(monthlyPayment || ''));
@@ -231,8 +257,8 @@ export function DebtVsSavingsChart({
   const monthlySavings = convertCurrency(rawSavings, savingsCurrency, currency, localCurrency, dollarRate);
 
   const data = useMemo(
-    () => buildData(outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments),
-    [outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments]
+    () => buildData(outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments, capitalSchedule),
+    [outstandingLoan, monthlyPayment, monthlySavings, remainingInstallments, capitalSchedule]
   );
   const crossoverMonth = useMemo(() => findCrossoverMonth(data), [data]);
   const sampled = useMemo(
@@ -329,11 +355,17 @@ export function DebtVsSavingsChart({
           )}
         </p>
 
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex flex-wrap items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: DEBT_COLOR }} />
             <span className="text-muted-foreground">Saldo del préstamo</span>
           </span>
+          {capitalSchedule && (
+            <span className="flex items-center gap-1.5">
+              <span className="h-0.5 w-3 rounded-full" style={{ backgroundColor: CAPITAL_COLOR }} />
+              <span className="text-muted-foreground">Capital pendiente</span>
+            </span>
+          )}
           <span className="flex items-center gap-1.5">
             <span className="size-2.5 rounded-[3px]" style={{ backgroundColor: SAVINGS_COLOR }} />
             <span className="text-muted-foreground">Tu ahorro</span>
@@ -342,7 +374,7 @@ export function DebtVsSavingsChart({
 
         <div className="h-[280px] -ml-2">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sampled} margin={{ top: 28, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
+            <ComposedChart data={sampled} margin={{ top: 28, right: 16, left: 0, bottom: 0 }} barCategoryGap="28%">
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="month"
@@ -409,7 +441,17 @@ export function DebtVsSavingsChart({
                   )}
                 />
               </Bar>
-            </BarChart>
+              {capitalSchedule && (
+                <Line
+                  dataKey="capital"
+                  stroke={CAPITAL_COLOR}
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: CAPITAL_COLOR, strokeWidth: 0 }}
+                  activeDot={{ r: 4 }}
+                  isAnimationActive={false}
+                />
+              )}
+            </ComposedChart>
           </ResponsiveContainer>
         </div>
 
@@ -454,6 +496,23 @@ export function DebtVsSavingsChart({
                   </td>
                 ))}
               </tr>
+              {capitalSchedule && (
+                <tr className="border-t">
+                  <td className="text-muted-foreground py-1.5 pr-2">Capital</td>
+                  {sampled.map((row) => (
+                    <td
+                      key={row.month}
+                      className="px-2 py-1.5 text-center tabular-nums"
+                      style={{
+                        color: CAPITAL_COLOR,
+                        backgroundColor: row.month === crossoverMonth ? `${SAVINGS_COLOR}1a` : undefined,
+                      }}
+                    >
+                      {row.capital != null ? fmt(row.capital) : '—'}
+                    </td>
+                  ))}
+                </tr>
+              )}
               <tr className="border-t">
                 <td className="text-muted-foreground py-1.5 pr-2">Ahorro</td>
                 {sampled.map((row) => (

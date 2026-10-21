@@ -1,0 +1,1 @@
+ALTER TABLE "vehicle_expense" ADD COLUMN "capital_ui" numeric(14, 4);

@@ -11,6 +11,8 @@ import {
   type VehicleExpense,
 } from '@/db';
 import { LOAN_INSTALLMENT_CATEGORY } from './schema';
+import { getLatestUiValue } from '@/lib/ui-value';
+import { buildCapitalSchedule } from '@/lib/vehicle-ui-loan';
 
 export interface VehicleInstallmentOption {
   id: string;
@@ -73,6 +75,12 @@ export interface VehicleTotals {
 export interface VehicleWithExpenses extends Vehicle {
   expenses: VehicleExpense[];
   totals: VehicleTotals;
+  /**
+   * Saldo de CAPITAL pendiente real (sin interés/IVA/recargos), mes a mes,
+   * a partir del `capitalUi` de cada cuota (ver `buildCapitalSchedule`).
+   * `null` si el préstamo no tiene ese detalle cargado.
+   */
+  capitalSchedule: number[] | null;
 }
 
 /** Convierte un importe a USD: 1:1 si ya está en USD, o vía la cotización local. */
@@ -92,13 +100,14 @@ export async function getVehicles(
   userId: string,
   localCurrency: string
 ): Promise<VehicleWithExpenses[]> {
-  const [vehicles, allExpenses] = await Promise.all([
+  const [vehicles, allExpenses, uiNow] = await Promise.all([
     db
       .select()
       .from(vehicle)
       .where(eq(vehicle.userId, userId))
       .orderBy(asc(vehicle.createdAt)),
     db.select().from(vehicleExpense).where(eq(vehicleExpense.userId, userId)),
+    getLatestUiValue(),
   ]);
 
   const byVehicle = new Map<string, VehicleExpense[]>();
@@ -140,6 +149,8 @@ export async function getVehicles(
       }
     }
 
+    const loanExpenses = expenses.filter((e) => e.category === LOAN_INSTALLMENT_CATEGORY);
+
     return {
       ...v,
       expenses,
@@ -154,6 +165,7 @@ export async function getVehicles(
         installmentsPaid,
         installmentsTotal,
       },
+      capitalSchedule: buildCapitalSchedule(loanExpenses, uiNow),
     };
   });
 }

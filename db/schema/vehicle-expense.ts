@@ -37,6 +37,12 @@ export const vehicleExpense = pgTable('vehicle_expense', {
   // cargo fijo de $361 que BBVA debita junto con la cuota del préstamo UI,
   // además del monto indexado). No se indexa ni cambia con la UI.
   fixedSurchargeUyu: numeric({ precision: 14, scale: 2, mode: 'number' }),
+  // Porción de capital (amortización) de esta cuota puntual, en Unidad
+  // Indexada, tomada del cuadro de amortización real del banco (distinta de
+  // `amountUi`, que es la cuota completa: capital + interés + IVA). Sirve
+  // para reconstruir el saldo de capital pendiente real, mes a mes, sin
+  // confundirlo con el total que se debita (ver `lib/vehicle-ui-loan.ts`).
+  capitalUi: numeric({ precision: 14, scale: 4, mode: 'number' }),
   month: integer().notNull(), // 1-12
   year: integer().notNull(),
   // Fecha exacta de vencimiento (ej. día 5 de la cuota, fin de mes del
