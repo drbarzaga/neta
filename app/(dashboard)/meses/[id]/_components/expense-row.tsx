@@ -355,21 +355,20 @@ export function ExpenseRow({
           className="h-8 w-full border-transparent bg-transparent px-2 text-sm hover:border-input"
         />
       </TableCell>
-      <TableCell className="w-44 px-4">
+      <TableCell className="w-14 px-4">
         {linkedGoal || linkedSavings || linkedTrip || linkedInstallment ? (
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex items-center gap-1">
             {linkedGoal && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    className="inline-flex shrink-0 items-center justify-center rounded-full p-1"
                     style={{
                       backgroundColor: `${linkedGoal.color}1a`,
                       color: linkedGoal.color,
                     }}
                   >
-                    <RiTargetLine className="size-3 shrink-0" />
-                    <span className="truncate">{linkedGoal.title}</span>
+                    <RiTargetLine className="size-3.5" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Este gasto aporta a la meta: {linkedGoal.title}</TooltipContent>
@@ -379,14 +378,13 @@ export function ExpenseRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    className="inline-flex shrink-0 items-center justify-center rounded-full p-1"
                     style={{
                       backgroundColor: `${linkedSavings.color}1a`,
                       color: linkedSavings.color,
                     }}
                   >
-                    <RiSafeLine className="size-3 shrink-0" />
-                    <span className="truncate">{linkedSavings.name}</span>
+                    <RiSafeLine className="size-3.5" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Este gasto aporta al ahorro: {linkedSavings.name}</TooltipContent>
@@ -396,14 +394,13 @@ export function ExpenseRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <span
-                    className="inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium"
+                    className="inline-flex shrink-0 items-center justify-center rounded-full p-1"
                     style={{
                       backgroundColor: `${linkedTrip.color}1a`,
                       color: linkedTrip.color,
                     }}
                   >
-                    <RiPlaneLine className="size-3 shrink-0" />
-                    <span className="truncate">{linkedTrip.name}</span>
+                    <RiPlaneLine className="size-3.5" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>Este gasto pertenece al viaje: {linkedTrip.name}</TooltipContent>
@@ -412,9 +409,8 @@ export function ExpenseRow({
             {linkedInstallment && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="text-muted-foreground bg-muted inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium">
-                    <RiCarLine className="size-3 shrink-0" />
-                    <span className="truncate">{linkedInstallment.concept}</span>
+                  <span className="text-muted-foreground bg-muted inline-flex shrink-0 items-center justify-center rounded-full p-1">
+                    <RiCarLine className="size-3.5" />
                   </span>
                 </TooltipTrigger>
                 <TooltipContent>

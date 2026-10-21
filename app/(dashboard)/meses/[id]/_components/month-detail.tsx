@@ -801,7 +801,7 @@ function SortableSection({
                   <TableHead className="w-28 px-4 text-right">USD aprox</TableHead>
                   <TableHead className="w-32 px-4">Estado</TableHead>
                   <TableHead className="w-36 px-4">Vencimiento</TableHead>
-                  <TableHead className="w-44 px-4">Aporta a</TableHead>
+                  <TableHead className="w-14 px-4">Aporta a</TableHead>
                   <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
