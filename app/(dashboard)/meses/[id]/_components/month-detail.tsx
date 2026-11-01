@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'react';
 import { RiAddLine, RiArrowLeftLine, RiArrowRightLine, RiArrowDownSLine, RiContractUpDownLine, RiExpandUpDownLine, RiDraggable, RiWalletLine, RiBankCardLine, RiSafeLine, RiPieChartLine, RiRefreshLine } from '@remixicon/react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -50,6 +50,7 @@ import type { TemplateRow } from '../../../plantillas/queries';
 import type { VehicleInstallmentOption } from '../../../auto/queries';
 import { StatCard } from '../../../_components/stat-card';
 import { ExpenseRow } from './expense-row';
+import { applyExpenseOptimistic, ExpenseOptimisticContext } from './expense-optimistic';
 import { AddFromTemplateDialog } from './add-from-template-dialog';
 import { InstallmentDialog } from './installment-dialog';
 import { MonthActions } from './month-actions';
@@ -116,6 +117,10 @@ export function MonthDetail({
     setPrevExpenses(expenses);
     setItems(expenses);
   }
+
+  // Lo que se pinta: `items` más los cambios que el servidor aún no confirmó.
+  // Si la acción falla, React vuelve solo a `items`.
+  const [optimisticItems, addOptimistic] = useOptimistic(items, applyExpenseOptimistic);
 
   // Orden local de las categorías/secciones (drag & drop optimista).
   const [cats, setCats] = useState<Category[]>(categories);
@@ -244,19 +249,19 @@ export function MonthDetail({
   const toAlt = (local: number) => (showUsd ? local : liveRate > 0 ? local / liveRate : 0);
 
   const totals = useMemo(
-    () => periodTotals(expenses, liveRate, liveIncome),
-    [expenses, liveRate, liveIncome]
+    () => periodTotals(optimisticItems, liveRate, liveIncome),
+    [optimisticItems, liveRate, liveIncome]
   );
 
   const grouped = useMemo(() => {
     const map = new Map<string, Expense[]>();
     for (const c of categories) map.set(c.id, []);
-    for (const e of items) {
+    for (const e of optimisticItems) {
       if (!map.has(e.categoryId)) map.set(e.categoryId, []);
       map.get(e.categoryId)!.push(e);
     }
     return map;
-  }, [categories, items]);
+  }, [categories, optimisticItems]);
 
   // Plantillas ya presentes en el mes (clave categoría|concepto), para no
   // ofrecerlas de nuevo en "Agregar desde plantilla".
@@ -576,7 +581,7 @@ export function MonthDetail({
       {/* Toolbar */}
       <div className="flex items-center justify-between">
         <p className="text-muted-foreground text-sm">
-          {categories.length} categoría(s) · {expenses.length} gasto(s)
+          {categories.length} categoría(s) · {optimisticItems.length} gasto(s)
         </p>
         <Button variant="ghost" size="sm" onClick={toggleAll}>
           {allOpen ? <RiContractUpDownLine /> : <RiExpandUpDownLine />}
@@ -586,6 +591,7 @@ export function MonthDetail({
 
       {/* Secciones por categoría (colapsables). Un solo DndContext permite
           reordenar dentro de una categoría y mover gastos entre categorías. */}
+      <ExpenseOptimisticContext value={addOptimistic}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -622,6 +628,7 @@ export function MonthDetail({
         </div>
       </SortableContext>
       </DndContext>
+      </ExpenseOptimisticContext>
     </div>
   );
 }

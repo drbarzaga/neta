@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
+  experimental: {
+    viewTransition: true,
+  },
   // El proyecto vive en /Develop/finanzas; fijamos la raíz para que Turbopack
   // no infiera el directorio padre (que tiene otro lockfile).
   turbopack: {

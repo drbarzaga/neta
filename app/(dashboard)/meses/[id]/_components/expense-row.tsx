@@ -37,6 +37,8 @@ import { LinkInstallmentDialog } from './link-installment-dialog';
 import { Money } from '@/components/money';
 import { toUsd } from '@/lib/money';
 import type { Expense, Goal, SavingsAccount } from '@/db';
+import type { UpdateExpenseInput } from '../schema';
+import { useExpenseOptimistic } from './expense-optimistic';
 import type { VehicleInstallmentOption } from '../../../auto/queries';
 import {
   updateExpense,
@@ -85,6 +87,9 @@ export function ExpenseRow({
   otherPeriods?: { id: string; label: string }[];
 }) {
   const [pending, startTransition] = useTransition();
+  // Los cambios optimistas se ven al instante: no atenúan la fila mientras guardan.
+  const [, startOptimisticSave] = useTransition();
+  const addOptimistic = useExpenseOptimistic();
   const confirm = useConfirm();
   const {
     attributes,
@@ -99,10 +104,17 @@ export function ExpenseRow({
   const [convertOpen, setConvertOpen] = useState(false);
   const [installmentDialogOpen, setInstallmentDialogOpen] = useState(false);
 
-  function save(fields: Parameters<typeof updateExpense>[0]) {
-    startTransition(async () => {
-      const res = await updateExpense(fields);
-      if (!res.ok) toast.error(res.error ?? 'Error al guardar');
+  function save(input: UpdateExpenseInput) {
+    const { id, ...fields } = input;
+    startOptimisticSave(async () => {
+      addOptimistic({ type: 'patch', id, fields });
+      const res = await updateExpense(input);
+      if (!res.ok) {
+        toast.error(res.error ?? 'Error al guardar');
+        // useOptimistic revierte la lista; los inputs tienen estado propio.
+        setConcept(expense.concept);
+        setAmount(expense.amount ? String(expense.amount) : '');
+      }
     });
   }
 
@@ -132,7 +144,8 @@ export function ExpenseRow({
       destructive: true,
     });
     if (!ok) return;
-    startTransition(async () => {
+    startOptimisticSave(async () => {
+      addOptimistic({ type: 'remove', id: expense.id });
       const res = await deleteExpense(expense.id);
       if (!res.ok) toast.error(res.error ?? 'Error al eliminar');
     });
@@ -194,7 +207,8 @@ export function ExpenseRow({
 
   function toggleRecurring() {
     const next = !expense.recurring;
-    startTransition(async () => {
+    startOptimisticSave(async () => {
+      addOptimistic({ type: 'patch', id: expense.id, fields: { recurring: next } });
       const res = await updateExpense({ id: expense.id, recurring: next });
       if (!res.ok) toast.error(res.error ?? 'Error al guardar');
       else
