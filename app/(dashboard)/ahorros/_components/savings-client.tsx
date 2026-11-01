@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { RiAddLine, RiSafeLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiArrowDownCircleLine, RiArrowUpCircleLine, RiArrowLeftRightLine, RiWalletLine, RiEyeLine, RiEyeCloseLine } from '@remixicon/react';
 import { toast } from 'sonner';
@@ -67,6 +67,12 @@ import {
   deleteSavingsMovement,
   transferBetweenSavings,
 } from '../actions';
+import {
+  applySavingsOptimistic,
+  createOptimisticMovement,
+  isOptimisticMovement,
+  type SavingsOptimisticAction,
+} from './savings-optimistic';
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 
@@ -109,8 +115,8 @@ function buildChartData(
 }
 
 export function SavingsClient({
-  accounts,
-  movements,
+  accounts: serverAccounts,
+  movements: serverMovements,
   rate,
   locale,
   localCurrency,
@@ -121,6 +127,15 @@ export function SavingsClient({
   locale: string;
   localCurrency: string;
 }) {
+  const serverState = useMemo(
+    () => ({ accounts: serverAccounts, movements: serverMovements }),
+    [serverAccounts, serverMovements]
+  );
+  const [{ accounts, movements }, applyOptimistic] = useOptimistic(
+    serverState,
+    applySavingsOptimistic
+  );
+
   const [dialog, setDialog] = useState<{ open: boolean; account: SavingsAccount | null }>({
     open: false,
     account: null,
@@ -161,6 +176,9 @@ export function SavingsClient({
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
+
+  // `sheet.account` es una copia de cuando se abrió; el saldo vigente sale de la lista.
+  const sheetAccount = accounts.find((a) => a.id === sheet.account?.id) ?? null;
 
   const [hidden, setHidden] = useState(false);
 
@@ -333,6 +351,7 @@ export function SavingsClient({
                 onEdit={() => setDialog({ open: true, account: acc })}
                 onMovement={(kind) => setSheet({ open: true, account: acc, kind })}
                 onTransfer={() => openTransfer(acc.id)}
+                applyOptimistic={applyOptimistic}
               />
             ))}
           </div>
@@ -347,16 +366,17 @@ export function SavingsClient({
         onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
       />
 
-      {sheet.account && (
+      {sheetAccount && (
         <MovementSheet
-          key={sheet.account.id}
+          key={sheetAccount.id}
           open={sheet.open}
-          account={sheet.account}
+          account={sheetAccount}
           initialKind={sheet.kind}
-          movements={movementsByAccount.get(sheet.account.id) ?? []}
+          movements={movementsByAccount.get(sheetAccount.id) ?? []}
           locale={locale}
           hidden={hidden}
           onOpenChange={(open) => setSheet((s) => ({ ...s, open }))}
+          applyOptimistic={applyOptimistic}
         />
       )}
 
@@ -384,6 +404,7 @@ function AccountCard({
   onEdit,
   onMovement,
   onTransfer,
+  applyOptimistic,
 }: {
   account: SavingsAccount;
   locale: string;
@@ -393,6 +414,7 @@ function AccountCard({
   onEdit: () => void;
   onMovement: (kind: 'deposit' | 'withdraw') => void;
   onTransfer: () => void;
+  applyOptimistic: (action: SavingsOptimisticAction) => void;
 }) {
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
@@ -406,6 +428,7 @@ function AccountCard({
     });
     if (!ok) return;
     startTransition(async () => {
+      applyOptimistic({ type: 'remove-account', id: account.id });
       const res = await deleteSavingsAccount(account.id);
       if (!res.ok) toast.error(res.error ?? 'Error al eliminar');
     });
@@ -609,6 +632,7 @@ function MovementSheet({
   locale,
   hidden,
   onOpenChange,
+  applyOptimistic,
 }: {
   open: boolean;
   account: SavingsAccount;
@@ -617,6 +641,7 @@ function MovementSheet({
   locale: string;
   hidden: boolean;
   onOpenChange: (open: boolean) => void;
+  applyOptimistic: (action: SavingsOptimisticAction) => void;
 }) {
   const confirm = useConfirm();
   const [pending, startTransition] = useTransition();
@@ -635,25 +660,44 @@ function MovementSheet({
   function submit() {
     const value = amount.trim() === '' ? 0 : Number(amount.replace(',', '.'));
     if (!(value > 0)) return;
+    if (kind === 'withdraw' && value > account.balance) {
+      toast.error('No tienes saldo suficiente para ese retiro');
+      return;
+    }
+    const typedAmount = amount;
+    const typedNote = note;
+    const trimmedNote = note.trim() || null;
+    // Fuera de la transición: dentro, React no los aplicaría hasta que termine.
+    setAmount('');
+    setNote('');
     startTransition(async () => {
+      applyOptimistic({
+        type: 'add-movement',
+        movement: createOptimisticMovement({
+          accountId: account.id,
+          amount: kind === 'withdraw' ? -value : value,
+          note: trimmedNote,
+          date,
+        }),
+      });
       const res = await addSavingsMovement({
         accountId: account.id,
         kind,
         amount: value,
-        note: note.trim() || null,
+        note: trimmedNote,
         date,
       });
       if (!res.ok) {
         toast.error(res.error ?? 'Error al registrar');
+        setAmount(typedAmount);
+        setNote(typedNote);
         return;
       }
       toast.success(kind === 'deposit' ? 'Depósito registrado' : 'Retiro registrado');
-      setAmount('');
-      setNote('');
     });
   }
 
-  async function removeMovement(id: string) {
+  async function removeMovement(movement: SavingsMovement) {
     const ok = await confirm({
       title: 'Eliminar movimiento',
       description: 'Se revertirá su efecto en el saldo.',
@@ -662,7 +706,11 @@ function MovementSheet({
     });
     if (!ok) return;
     startTransition(async () => {
-      const res = await deleteSavingsMovement({ id });
+      // Los que vienen de un gasto vinculado los rechaza el servidor.
+      if (!movement.expenseId) {
+        applyOptimistic({ type: 'remove-movement', id: movement.id });
+      }
+      const res = await deleteSavingsMovement({ id: movement.id });
       if (!res.ok) toast.error(res.error ?? 'Error al eliminar');
     });
   }
@@ -772,7 +820,8 @@ function MovementSheet({
                       variant="ghost"
                       size="icon"
                       className="text-muted-foreground size-7 shrink-0 opacity-0 group-hover:opacity-100"
-                      onClick={() => removeMovement(m.id)}
+                      onClick={() => removeMovement(m)}
+                      disabled={isOptimisticMovement(m)}
                       aria-label="Eliminar movimiento"
                     >
                       <RiDeleteBinLine className="size-3.5" />

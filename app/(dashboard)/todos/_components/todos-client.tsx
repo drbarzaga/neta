@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useTransition } from 'react';
+import { useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RiAddLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiDraggable, RiCalendarCheckLine, RiListCheck2 } from '@remixicon/react';
 import { toast } from 'sonner';
@@ -112,6 +112,14 @@ export function TodosClient({
     setItems(todos);
   }
 
+  // Lo que se pinta: la lista menos lo que se está eliminando en el servidor.
+  const [visibleCols, removeColOptimistic] = useOptimistic(cols, (list, id: string) =>
+    list.filter((c) => c.id !== id)
+  );
+  const [visibleItems, removeItemOptimistic] = useOptimistic(items, (list, id: string) =>
+    list.filter((t) => t.id !== id)
+  );
+
   const [columnDialog, setColumnDialog] = useState<{
     open: boolean;
     column: TodoColumn | null;
@@ -129,13 +137,13 @@ export function TodosClient({
 
   const grouped = useMemo(() => {
     const map = new Map<string, TodoWithItems[]>();
-    for (const c of cols) map.set(c.id, []);
-    for (const t of items) {
+    for (const c of visibleCols) map.set(c.id, []);
+    for (const t of visibleItems) {
       if (!map.has(t.columnId)) map.set(t.columnId, []);
       map.get(t.columnId)!.push(t);
     }
     return map;
-  }, [cols, items]);
+  }, [visibleCols, visibleItems]);
 
   function containerOf(list: TodoWithItems[], id: string): string | undefined {
     if (id.startsWith('col:')) return id.slice(4);
@@ -190,7 +198,10 @@ export function TodosClient({
       setCols(nextCols);
       startTransition(async () => {
         const res = await reorderColumns({ orderedIds: nextCols.map((c) => c.id) });
-        if (!res.ok) toast.error(res.error ?? 'No se pudo reordenar');
+        if (!res.ok) {
+          toast.error(res.error ?? 'No se pudo reordenar');
+          setCols(columns);
+        }
       });
       return;
     }
@@ -218,12 +229,33 @@ export function TodosClient({
     const orderedIds = next.filter((t) => t.columnId === container).map((t) => t.id);
     startTransition(async () => {
       const res = await moveTodo({ id: activeId, columnId: container, orderedIds });
-      if (!res.ok) toast.error(res.error ?? 'No se pudo mover');
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo mover');
+        setItems(todos);
+      }
     });
   }
 
-  const totalCount = items.length;
-  const doneCount = items.filter((t) => t.completedAt).length;
+  function handleDeleteTodo(id: string) {
+    startTransition(async () => {
+      removeItemOptimistic(id);
+      const res = await deleteTodo(id);
+      if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
+    });
+  }
+
+  function handleDeleteColumn(id: string) {
+    startTransition(async () => {
+      // Con tareas el servidor la rechaza: no la ocultamos para que no parpadee.
+      if ((grouped.get(id) ?? []).length === 0) removeColOptimistic(id);
+      const res = await deleteColumn(id);
+      if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
+      else toast.success('Columna eliminada');
+    });
+  }
+
+  const totalCount = visibleItems.length;
+  const doneCount = visibleItems.filter((t) => t.completedAt).length;
   const pendingCount = totalCount - doneCount;
   const donePct = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
 
@@ -293,11 +325,11 @@ export function TodosClient({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={cols.map((c) => `col:${c.id}`)}
+          items={visibleCols.map((c) => `col:${c.id}`)}
           strategy={horizontalListSortingStrategy}
         >
           <div className="flex items-start gap-4 overflow-x-auto pb-4">
-            {cols.map((col) => (
+            {visibleCols.map((col) => (
               <ColumnView
                 key={col.id}
                 column={col}
@@ -305,11 +337,8 @@ export function TodosClient({
                 onAddTodo={() => setTodoDialog({ open: true, todo: null, columnId: col.id })}
                 onEditTodo={(t) => setTodoDialog({ open: true, todo: t, columnId: t.columnId })}
                 onEditColumn={() => setColumnDialog({ open: true, column: col })}
-                onDeleteColumn={async () => {
-                  const res = await deleteColumn(col.id);
-                  if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
-                  else toast.success('Columna eliminada');
-                }}
+                onDeleteColumn={() => handleDeleteColumn(col.id)}
+                onDeleteTodo={handleDeleteTodo}
               />
             ))}
           </div>
@@ -342,6 +371,7 @@ function ColumnView({
   onEditTodo,
   onEditColumn,
   onDeleteColumn,
+  onDeleteTodo,
 }: {
   column: TodoColumn;
   todos: TodoWithItems[];
@@ -349,6 +379,7 @@ function ColumnView({
   onEditTodo: (todo: TodoWithItems) => void;
   onEditColumn: () => void;
   onDeleteColumn: () => void;
+  onDeleteTodo: (id: string) => void;
 }) {
   const confirm = useConfirm();
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } =
@@ -435,7 +466,12 @@ function ColumnView({
             </p>
           ) : (
             todos.map((t) => (
-              <TodoCard key={t.id} todo={t} onEdit={() => onEditTodo(t)} />
+              <TodoCard
+                key={t.id}
+                todo={t}
+                onEdit={() => onEditTodo(t)}
+                onDelete={() => onDeleteTodo(t.id)}
+              />
             ))
           )}
         </SortableContext>
@@ -448,7 +484,15 @@ function ColumnView({
   );
 }
 
-function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void }) {
+function TodoCard({
+  todo,
+  onEdit,
+  onDelete,
+}: {
+  todo: TodoWithItems;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const confirm = useConfirm();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: todo.id });
@@ -464,8 +508,7 @@ function TodoCard({ todo, onEdit }: { todo: TodoWithItems; onEdit: () => void })
       destructive: true,
     });
     if (!ok) return;
-    const res = await deleteTodo(todo.id);
-    if (!res.ok) toast.error(res.error ?? 'No se pudo eliminar');
+    onDelete();
   }
 
   return (
@@ -775,6 +818,14 @@ function TodoItemsEditor({
   const [items, setItems] = useState<ItemRow[]>(
     initialItems.map((i) => ({ id: i.id, text: i.text, checked: i.checked }))
   );
+  const [, startItemTransition] = useTransition();
+  const [visibleItems, applyItemOptimistic] = useOptimistic(
+    items,
+    (list, op: { type: 'toggle'; id: string; checked: boolean } | { type: 'remove'; id: string }) =>
+      op.type === 'remove'
+        ? list.filter((i) => i.id !== op.id)
+        : list.map((i) => (i.id === op.id ? { ...i, checked: op.checked } : i))
+  );
   const [newText, setNewText] = useState('');
   const [adding, setAdding] = useState(false);
   // Último texto confirmado por el servidor para cada ítem, para poder
@@ -796,14 +847,19 @@ function TodoItemsEditor({
     setNewText('');
   }
 
-  async function handleToggle(item: ItemRow) {
+  function handleToggle(item: ItemRow) {
     const checked = !item.checked;
-    setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked } : i)));
-    const res = await updateTodoItem({ id: item.id, checked });
-    if (!res.ok) {
-      toast.error(res.error ?? 'No se pudo actualizar');
-      setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked: !checked } : i)));
-    }
+    startItemTransition(async () => {
+      applyItemOptimistic({ type: 'toggle', id: item.id, checked });
+      const res = await updateTodoItem({ id: item.id, checked });
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo actualizar');
+        return;
+      }
+      startItemTransition(() => {
+        setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, checked } : i)));
+      });
+    });
   }
 
   function handleTextChange(id: string, text: string) {
@@ -827,20 +883,25 @@ function TodoItemsEditor({
     savedText.current.set(item.id, trimmed);
   }
 
-  async function handleDelete(item: ItemRow) {
-    setItems((prev) => prev.filter((i) => i.id !== item.id));
-    const res = await deleteTodoItem({ id: item.id });
-    if (!res.ok) {
-      toast.error(res.error ?? 'No se pudo eliminar');
-      setItems((prev) => [...prev, item]);
-    }
+  function handleDelete(item: ItemRow) {
+    startItemTransition(async () => {
+      applyItemOptimistic({ type: 'remove', id: item.id });
+      const res = await deleteTodoItem({ id: item.id });
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo eliminar');
+        return;
+      }
+      startItemTransition(() => {
+        setItems((prev) => prev.filter((i) => i.id !== item.id));
+      });
+    });
   }
 
   return (
     <div className="flex flex-col gap-2">
-      {items.length > 0 && (
+      {visibleItems.length > 0 && (
         <div className="flex flex-col gap-1 rounded-lg border p-1.5">
-          {items.map((item) => (
+          {visibleItems.map((item) => (
             <div key={item.id} className="group flex items-center gap-2 rounded-md px-1.5 py-1">
               <Checkbox checked={item.checked} onCheckedChange={() => handleToggle(item)} />
               <input
