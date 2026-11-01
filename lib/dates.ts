@@ -56,6 +56,33 @@ export function daysBetween(start: string, end: string): string[] {
 }
 
 /** { year, month, day } de "ahora" en una zona horaria IANA (ej. 'America/Montevideo'). */
+/** Meses de hoy hacia atrás. Conserva el orden recibido (más reciente primero). */
+export function pastOrCurrentPeriods<T extends { year: number; month: number }>(
+  periods: T[],
+  now: Date = new Date()
+): T[] {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return periods.filter((p) => p.year < year || (p.year === year && p.month <= month));
+}
+
+/**
+ * El mes "actual" es el de hoy, no el más reciente que exista: con "Crear año
+ * completo" puede haber meses futuros ya cargados. `periods` va del más
+ * reciente al más antiguo.
+ */
+export function pickCurrentPeriod<T extends { year: number; month: number }>(
+  periods: T[],
+  now: Date = new Date()
+): T | undefined {
+  const past = pastOrCurrentPeriods(periods, now);
+  return (
+    past.find((p) => p.year === now.getFullYear() && p.month === now.getMonth() + 1) ??
+    past[0] ??
+    periods[periods.length - 1]
+  );
+}
+
 export function nowInTimezone(timeZone: string, date: Date = new Date()): {
   year: number;
   month: number;

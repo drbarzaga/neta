@@ -17,17 +17,18 @@ import { AskAdvisorButton } from '@/components/advisor/ask-advisor-button';
 import { detectBrand } from '@/lib/brands';
 import { formatMoney } from '@/lib/money';
 import { getCountry } from '@/lib/countries';
-import { buildAdvisorInsights, type AdvisorInsight } from '@/lib/advisor-context';
+import { computeAdvisorInsights, type AdvisorInsight } from '@/lib/advisor-context';
+import { pastOrCurrentPeriods, pickCurrentPeriod } from '@/lib/dates';
 import { buildGoalMotivation, type MotivationKind } from '@/lib/motivation';
-import { getOrCreateUserSettings } from './configuracion/queries';
-import { getPeriodsWithTotals } from './meses/queries';
-import { getCategories, getExpenses } from './meses/[id]/queries';
-import { getGoals } from './metas/queries';
-import { StatCard } from './_components/stat-card';
-import { CategoryStack } from './_components/category-stack';
-import type { PieDatum } from './_components/category-pie';
-import { LazyTrendBar } from './_components/lazy-trend-bar';
-import type { TrendDatum } from './_components/trend-bar';
+import { getOrCreateUserSettings } from '../configuracion/queries';
+import { getPeriodsAndExpenses } from '../meses/queries';
+import { getCategories } from '../meses/[id]/queries';
+import { getGoals } from '../metas/queries';
+import { StatCard } from '../_components/stat-card';
+import { CategoryStack } from '../_components/category-stack';
+import type { PieDatum } from '../_components/category-pie';
+import { LazyTrendBar } from '../_components/lazy-trend-bar';
+import type { TrendDatum } from '../_components/trend-bar';
 
 /** El insight más relevante primero: alerta > advertencia > todo en orden. */
 const LEVEL_PRIORITY: Record<AdvisorInsight['level'], number> = {
@@ -53,16 +54,18 @@ const MOTIVATION_ICON: Record<MotivationKind, RemixiconComponentType> = {
 
 export default async function DashboardPage() {
   const { userId, user } = await requireSession();
-  const [periods, settings, insights] = await Promise.all([
-    getPeriodsWithTotals(userId),
+  const [{ periods, expenses }, settings, categories, goals] = await Promise.all([
+    getPeriodsAndExpenses(userId),
     getOrCreateUserSettings(userId),
-    buildAdvisorInsights(userId),
+    getCategories(userId),
+    getGoals(userId),
   ]);
   const country = getCountry(settings.country);
   const locale = country.locale;
   const showUsd = settings.displayCurrency === 'usd';
 
-  if (periods.length === 0) {
+  const current = pickCurrentPeriod(periods);
+  if (!current) {
     return (
       <Card className="mx-auto mt-8 w-full max-w-xl">
         <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
@@ -84,26 +87,8 @@ export default async function DashboardPage() {
     );
   }
 
-  // "Actual" es siempre el mes de hoy, no el más reciente que exista: con
-  // "Crear año completo" puede haber meses futuros ya cargados (ej. todo
-  // 2027), y no queremos que el Resumen salte a diciembre de 2027 por error.
-  const now = new Date();
-  const curMonth = now.getMonth() + 1;
-  const curYear = now.getFullYear();
-  // `periods` viene ordenado del más reciente al más antiguo, así que esto
-  // conserva ese orden quedándose solo con los meses de hoy hacia atrás.
-  const pastOrCurrent = periods.filter(
-    (p) => p.year < curYear || (p.year === curYear && p.month <= curMonth)
-  );
-  const current =
-    pastOrCurrent.find((p) => p.year === curYear && p.month === curMonth) ??
-    pastOrCurrent[0] ??
-    periods[periods.length - 1];
-  const [categories, currentExpenses, goals] = await Promise.all([
-    getCategories(userId),
-    getExpenses(userId, current.id),
-    getGoals(userId),
-  ]);
+  const currentExpenses = expenses.filter((e) => e.periodId === current.id);
+  const insights = computeAdvisorInsights(current, currentExpenses, goals);
   const activeGoal = goals.find((g) => !g.completed) ?? null;
   const categoryById = new Map(categories.map((c) => [c.id, c]));
   const pendientes = currentExpenses
@@ -148,6 +133,7 @@ export default async function DashboardPage() {
 
   // Igual que `current`: la tendencia mira hacia atrás desde hoy, nunca
   // hacia meses futuros ya creados por adelantado.
+  const pastOrCurrent = pastOrCurrentPeriods(periods);
   const trendSource = pastOrCurrent.length > 0 ? pastOrCurrent : periods;
   const trendData: TrendDatum[] = trendSource
     .slice(0, 6)
