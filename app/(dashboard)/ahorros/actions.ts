@@ -6,6 +6,12 @@ import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { todayISO } from '@/lib/dates';
 import { getLatestRate } from '@/lib/exchange-rate';
+import {
+  addSavingsMovementIfFunds,
+  createSavingsAccountWithBalance,
+  deleteManualSavingsMovement,
+  transferSavingsIfFunds,
+} from '@/lib/ledger';
 import { getOrCreateUserSettings } from '../configuracion/queries';
 import {
   createAccountSchema,
@@ -40,29 +46,18 @@ export async function createSavingsAccount(
     .where(eq(savingsAccount.userId, session.userId));
   const nextOrder = existing.reduce((m, a) => Math.max(m, a.sortOrder), -1) + 1;
 
-  const [acc] = await db
-    .insert(savingsAccount)
-    .values({
-      userId: session.userId,
-      name: data.name,
-      icon: data.icon,
-      color: data.color,
-      currency: data.currency,
-      balance: data.initialBalance,
-      sortOrder: nextOrder,
-    })
-    .returning({ id: savingsAccount.id });
-
   // Saldo inicial: se registra como primer depósito para que quede en el historial.
-  if (data.initialBalance > 0) {
-    await db.insert(savingsMovement).values({
-      userId: session.userId,
-      accountId: acc.id,
-      amount: data.initialBalance,
-      note: 'Saldo inicial',
-      date: todayISO(),
-    });
-  }
+  await createSavingsAccountWithBalance({
+    userId: session.userId,
+    name: data.name,
+    icon: data.icon,
+    color: data.color,
+    currency: data.currency,
+    balance: data.initialBalance,
+    sortOrder: nextOrder,
+    note: 'Saldo inicial',
+    date: todayISO(),
+  });
 
   revalidate();
   return ok();
@@ -115,27 +110,19 @@ export async function addSavingsMovement(input: unknown): Promise<ActionResult> 
   const { accountId, kind, amount, note, date } = parsed.data;
 
   const [acc] = await db
-    .select({ balance: savingsAccount.balance })
+    .select({ id: savingsAccount.id })
     .from(savingsAccount)
     .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, session.userId)));
   if (!acc) return UNAUTHORIZED;
 
-  const delta = kind === 'withdraw' ? -amount : amount;
-  if (kind === 'withdraw' && amount > acc.balance) {
-    return fail('No tienes saldo suficiente para ese retiro');
-  }
-
-  await db.insert(savingsMovement).values({
+  const applied = await addSavingsMovementIfFunds({
     userId: session.userId,
     accountId,
-    amount: delta,
+    amount: kind === 'withdraw' ? -amount : amount,
     note: note ?? null,
     date,
   });
-  await db
-    .update(savingsAccount)
-    .set({ balance: acc.balance + delta })
-    .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, session.userId)));
+  if (!applied) return fail('No tienes saldo suficiente para ese retiro');
 
   revalidate();
   return ok();
@@ -175,30 +162,17 @@ export async function transferBetweenSavings(input: unknown): Promise<ActionResu
     credited = round2(to.currency === 'USD' ? (rate > 0 ? local / rate : 0) : local);
   }
 
-  await db.insert(savingsMovement).values([
-    {
-      userId: session.userId,
-      accountId: fromAccountId,
-      amount: -amount,
-      note: note ? `A ${to.name}: ${note}` : `Transferencia a ${to.name}`,
-      date,
-    },
-    {
-      userId: session.userId,
-      accountId: toAccountId,
-      amount: credited,
-      note: note ? `De ${from.name}: ${note}` : `Transferencia de ${from.name}`,
-      date,
-    },
-  ]);
-  await db
-    .update(savingsAccount)
-    .set({ balance: round2(from.balance - amount) })
-    .where(eq(savingsAccount.id, fromAccountId));
-  await db
-    .update(savingsAccount)
-    .set({ balance: round2(to.balance + credited) })
-    .where(eq(savingsAccount.id, toAccountId));
+  const applied = await transferSavingsIfFunds({
+    userId: session.userId,
+    fromAccountId,
+    toAccountId,
+    amount,
+    credited,
+    fromNote: note ? `A ${to.name}: ${note}` : `Transferencia a ${to.name}`,
+    toNote: note ? `De ${from.name}: ${note}` : `Transferencia de ${from.name}`,
+    date,
+  });
+  if (!applied) return fail('No tienes saldo suficiente para esa transferencia');
 
   revalidate();
   return ok();
@@ -215,11 +189,7 @@ export async function deleteSavingsMovement(
   if (!parsed.success) return fail('Datos inválidos');
 
   const [m] = await db
-    .select({
-      amount: savingsMovement.amount,
-      accountId: savingsMovement.accountId,
-      expenseId: savingsMovement.expenseId,
-    })
+    .select({ expenseId: savingsMovement.expenseId })
     .from(savingsMovement)
     .where(and(eq(savingsMovement.id, parsed.data.id), eq(savingsMovement.userId, session.userId)));
   if (!m) return UNAUTHORIZED;
@@ -227,18 +197,8 @@ export async function deleteSavingsMovement(
     return fail('Este movimiento viene de un gasto vinculado; edítalo desde el mes.');
   }
 
-  const [acc] = await db
-    .select({ balance: savingsAccount.balance })
-    .from(savingsAccount)
-    .where(eq(savingsAccount.id, m.accountId));
-
-  await db.delete(savingsMovement).where(eq(savingsMovement.id, parsed.data.id));
-  if (acc) {
-    await db
-      .update(savingsAccount)
-      .set({ balance: Math.max(0, acc.balance - m.amount) })
-      .where(eq(savingsAccount.id, m.accountId));
-  }
+  const deleted = await deleteManualSavingsMovement(session.userId, parsed.data.id);
+  if (!deleted) return UNAUTHORIZED;
 
   revalidate();
   return ok();

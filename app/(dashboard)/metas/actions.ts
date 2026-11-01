@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db, eq, and, goal, goalContribution } from '@/db';
+import { adjustGoalSavedQuery, runBatch } from '@/lib/ledger';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import {
@@ -88,17 +89,15 @@ export async function contributeGoal(input: unknown): Promise<ActionResult> {
     .where(and(eq(goal.id, id), eq(goal.userId, session.userId)));
   if (!current) return UNAUTHORIZED;
 
-  const next = Math.max(0, current.saved + amount);
-  await db
-    .update(goal)
-    .set({ savedAmount: next })
-    .where(and(eq(goal.id, id), eq(goal.userId, session.userId)));
-  await db.insert(goalContribution).values({
-    userId: session.userId,
-    goalId: id,
-    amount,
-    note: note ?? null,
-  });
+  await runBatch([
+    adjustGoalSavedQuery(session.userId, id, amount),
+    db.insert(goalContribution).values({
+      userId: session.userId,
+      goalId: id,
+      amount,
+      note: note ?? null,
+    }),
+  ]);
 
   revalidate(id);
   return ok();
@@ -130,20 +129,10 @@ export async function deleteContribution(input: unknown): Promise<ActionResult> 
     return fail('Este abono viene de un gasto vinculado; edítalo desde el mes.');
   }
 
-  const [g] = await db
-    .select({ saved: goal.savedAmount })
-    .from(goal)
-    .where(and(eq(goal.id, c.goalId), eq(goal.userId, session.userId)));
-
-  await db
-    .delete(goalContribution)
-    .where(eq(goalContribution.id, parsed.data.id));
-  if (g) {
-    await db
-      .update(goal)
-      .set({ savedAmount: Math.max(0, g.saved - c.amount) })
-      .where(and(eq(goal.id, c.goalId), eq(goal.userId, session.userId)));
-  }
+  await runBatch([
+    db.delete(goalContribution).where(eq(goalContribution.id, parsed.data.id)),
+    adjustGoalSavedQuery(session.userId, c.goalId, -c.amount),
+  ]);
 
   revalidate(c.goalId);
   return ok();
