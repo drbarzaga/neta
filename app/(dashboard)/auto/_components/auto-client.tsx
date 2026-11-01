@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import dynamic from 'next/dynamic';
 import { RiAddLine, RiPencilLine, RiDeleteBinLine, RiMore2Line, RiCarLine, RiBankLine, RiWalletLine, RiCalendarCheckLine, RiArrowDownSLine, RiHistoryLine, RiCupLine } from '@remixicon/react';
 import { toast } from 'sonner';
 import { Card, CardContent } from '@/components/ui/card';
@@ -41,12 +42,16 @@ import { VehiclePhoto } from '@/components/vehicle-photo';
 import { InstallmentGrid } from '@/components/installment-grid';
 import { DatePicker } from '@/components/date-picker';
 import { VehicleOnboarding } from './vehicle-onboarding';
-import { DebtVsSavingsChart } from './debt-vs-savings-chart';
+import { ChartSkeleton } from '@/components/chart-skeleton';
 import { StatCard } from '../../_components/stat-card';
 import { cn } from '@/lib/utils';
 import { formatMoney } from '@/lib/money';
 import { MONTHS_ES, periodLabel } from '@/lib/dates';
-import { fireConfetti } from '@/lib/confetti';
+
+const DebtVsSavingsChart = dynamic(
+  () => import('./debt-vs-savings-chart').then((m) => m.DebtVsSavingsChart),
+  { ssr: false, loading: () => <ChartSkeleton className="h-[340px]" /> }
+);
 
 function formatDueDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00`);
@@ -327,7 +332,7 @@ function VehicleSection({
   const wasFullyPaidRef = useRef(fullyPaid);
   useEffect(() => {
     if (fullyPaid && !wasFullyPaidRef.current && animations) {
-      fireConfetti();
+      void import('@/lib/confetti').then((m) => m.fireConfetti());
       toast.success('¡Préstamo saldado! 🎉');
     }
     wasFullyPaidRef.current = fullyPaid;
