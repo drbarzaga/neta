@@ -29,12 +29,11 @@ import { getPeriodsWithTotals } from '../meses/queries';
 import { getCategories } from '../meses/[id]/queries';
 import { StatCard } from '../_components/stat-card';
 import {
-  CategoryAreaChart,
-  StatusBarChart,
-  IncomeExpenseChart,
-  type MonthlyRow,
-  type CategoryMeta,
-} from './_components/analytics-charts';
+  LazyCategoryAreaChart,
+  LazyIncomeExpenseChart,
+  LazyStatusBarChart,
+} from './_components/lazy-analytics-charts';
+import type { MonthlyRow, CategoryMeta } from './_components/analytics-charts';
 
 export const metadata: Metadata = { title: 'Analítica — Neta' };
 
@@ -201,7 +200,7 @@ export default async function AnalyticsPage() {
           <CardDescription>Cuánto entró y cuánto se usó cada mes ({localCurrency}).</CardDescription>
         </CardHeader>
         <CardContent>
-          <IncomeExpenseChart data={monthly} currency={localCurrency} locale={locale} />
+          <LazyIncomeExpenseChart data={monthly} currency={localCurrency} locale={locale} />
         </CardContent>
       </Card>
 
@@ -211,7 +210,7 @@ export default async function AnalyticsPage() {
           <CardDescription>Apilado por mes ({localCurrency}).</CardDescription>
         </CardHeader>
         <CardContent>
-          <CategoryAreaChart data={monthly} categories={catMeta} currency={localCurrency} locale={locale} />
+          <LazyCategoryAreaChart data={monthly} categories={catMeta} currency={localCurrency} locale={locale} />
         </CardContent>
       </Card>
 
@@ -261,7 +260,7 @@ export default async function AnalyticsPage() {
           <CardDescription>Estado de los gastos por mes ({localCurrency}).</CardDescription>
         </CardHeader>
         <CardContent>
-          <StatusBarChart data={monthly} currency={localCurrency} locale={locale} />
+          <LazyStatusBarChart data={monthly} currency={localCurrency} locale={locale} />
         </CardContent>
       </Card>
     </div>

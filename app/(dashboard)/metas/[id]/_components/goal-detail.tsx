@@ -16,23 +16,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import dynamic from 'next/dynamic';
+import { ChartSkeleton } from '@/components/chart-skeleton';
 import { ProgressRing } from '@/components/progress-ring';
 import { CategoryIcon } from '@/components/category-icon';
-import { useAnimations } from '@/components/animations-provider';
 import { RiArrowRightUpLine } from '@remixicon/react';
 import { useConfirm } from '@/components/confirm-provider';
 import { cn } from '@/lib/utils';
@@ -61,6 +48,11 @@ function formatDateTime(date: Date, locale: string) {
     year: 'numeric',
   });
 }
+
+const GoalChart = dynamic(() => import('./goal-chart').then((m) => m.GoalChart), {
+  ssr: false,
+  loading: () => <ChartSkeleton className="h-[260px]" />,
+});
 
 function formatShort(date: Date, locale: string) {
   return new Date(date).toLocaleDateString(locale, {
@@ -154,7 +146,6 @@ export function GoalDetail({
 }) {
   const router = useRouter();
   const confirm = useConfirm();
-  const animations = useAnimations();
   const [pending, startTransition] = useTransition();
   const [editing, setEditing] = useState(false);
   const [amount, setAmount] = useState('');
@@ -173,9 +164,6 @@ export function GoalDetail({
 
   const { chartData, pace, projectedDate, onTrack, showChart } =
     computeGoalInsights(goal, contributions, locale);
-  const chartConfig: ChartConfig = {
-    saved: { label: 'Ahorrado', color: goal.color },
-  };
   const showProjection = !goal.completed && pace !== null;
 
   function run(
@@ -379,54 +367,13 @@ export function GoalDetail({
             <CardTitle className="text-base">Evolución del ahorro</CardTitle>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="max-h-[260px] w-full">
-              <AreaChart data={chartData} accessibilityLayer>
-                <CartesianGrid vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  tickMargin={8}
-                />
-                <YAxis
-                  hide
-                  domain={[0, Math.max(goal.targetAmount, goal.savedAmount)]}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value) => (
-                        <span className="font-medium tabular-nums">
-                          {fmt(Number(value))}
-                        </span>
-                      )}
-                    />
-                  }
-                />
-                {goal.targetAmount > 0 && (
-                  <ReferenceLine
-                    y={goal.targetAmount}
-                    stroke="var(--muted-foreground)"
-                    strokeDasharray="4 4"
-                    label={{
-                      value: 'Objetivo',
-                      position: 'insideTopRight',
-                      fontSize: 10,
-                      fill: 'var(--muted-foreground)',
-                    }}
-                  />
-                )}
-                <Area
-                  dataKey="saved"
-                  type="monotone"
-                  stroke={goal.color}
-                  fill={goal.color}
-                  fillOpacity={0.2}
-                  isAnimationActive={animations}
-                  animationDuration={550}
-                />
-              </AreaChart>
-            </ChartContainer>
+            <GoalChart
+              data={chartData}
+              color={goal.color}
+              targetAmount={goal.targetAmount}
+              savedAmount={goal.savedAmount}
+              formatValue={fmt}
+            />
           </CardContent>
         </Card>
       )}

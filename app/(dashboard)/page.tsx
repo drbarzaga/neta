@@ -26,7 +26,8 @@ import { getGoals } from './metas/queries';
 import { StatCard } from './_components/stat-card';
 import { CategoryStack } from './_components/category-stack';
 import type { PieDatum } from './_components/category-pie';
-import { TrendBar, type TrendDatum } from './_components/trend-bar';
+import { LazyTrendBar } from './_components/lazy-trend-bar';
+import type { TrendDatum } from './_components/trend-bar';
 
 /** El insight más relevante primero: alerta > advertencia > todo en orden. */
 const LEVEL_PRIORITY: Record<AdvisorInsight['level'], number> = {
@@ -283,7 +284,7 @@ export default async function DashboardPage() {
             <CardTitle>Tendencia mensual</CardTitle>
           </CardHeader>
           <CardContent>
-            <TrendBar data={trendData} currency={dispCode} locale={locale} />
+            <LazyTrendBar data={trendData} currency={dispCode} locale={locale} />
           </CardContent>
         </Card>
       </div>

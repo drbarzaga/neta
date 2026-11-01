@@ -4,13 +4,7 @@ import { useEffect, useMemo, useOptimistic, useState, useTransition } from 'reac
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { RiAddLine, RiSafeLine, RiMore2Line, RiPencilLine, RiDeleteBinLine, RiArrowDownCircleLine, RiArrowUpCircleLine, RiArrowLeftRightLine, RiWalletLine, RiEyeLine, RiEyeCloseLine } from '@remixicon/react';
 import { toast } from 'sonner';
-import {
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,12 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { ChartSkeleton } from '@/components/chart-skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useConfirm } from '@/components/confirm-provider';
 import { IconPicker } from '@/components/icon-picker';
@@ -80,6 +69,11 @@ const HIDE_KEY = 'neta:hideSavings';
 const MASK = '••••••';
 
 /** Formatea un monto o lo enmascara si los saldos están ocultos. */
+const SavingsChart = dynamic(() => import('./savings-chart').then((m) => m.SavingsChart), {
+  ssr: false,
+  loading: () => <ChartSkeleton className="h-[180px] bg-white/10" />,
+});
+
 function money(hidden: boolean, n: number, currency: string, locale: string): string {
   return hidden ? MASK : formatMoney(n, currency, locale);
 }
@@ -211,10 +205,6 @@ export function SavingsClient({
     [accounts, movements, rate, localCurrency]
   );
 
-  const chartConfig: ChartConfig = {
-    total: { label: 'Total ahorrado', color: 'var(--lime)' },
-  };
-
   const movementsByAccount = useMemo(() => {
     const map = new Map<string, SavingsMovement[]>();
     for (const m of movements) {
@@ -302,38 +292,7 @@ export function SavingsClient({
 
               {chartData.length > 1 && (
                 <div className="min-w-0 flex-1">
-                  <ChartContainer config={chartConfig} className="max-h-[180px] w-full">
-                    <AreaChart data={chartData} accessibilityLayer>
-                      <CartesianGrid vertical={false} stroke="rgba(255,255,255,.12)" />
-                      <XAxis
-                        dataKey="label"
-                        tickLine={false}
-                        axisLine={false}
-                        tickMargin={8}
-                        tick={{ fontFamily: 'var(--font-geist-mono)', fontSize: 12, fill: 'rgba(255,255,255,.6)' }}
-                      />
-                      <YAxis hide domain={[0, 'dataMax']} />
-                      <ChartTooltip
-                        content={
-                          <ChartTooltipContent
-                            formatter={(value) => (
-                              <span className="font-medium tabular-nums">
-                                {money(hidden, Number(value), localCurrency, locale)}
-                              </span>
-                            )}
-                          />
-                        }
-                      />
-                      <Area
-                        dataKey="total"
-                        type="monotone"
-                        stroke="var(--lime)"
-                        fill="var(--lime)"
-                        fillOpacity={0.18}
-                        strokeWidth={2.5}
-                      />
-                    </AreaChart>
-                  </ChartContainer>
+                  <SavingsChart data={chartData} formatValue={(n) => money(hidden, n, localCurrency, locale)} />
                 </div>
               )}
             </CardContent>
@@ -717,7 +676,14 @@ function MovementSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 p-0 sm:max-w-md"
+        // El diálogo de confirmación vive fuera del panel: usarlo no debe cerrarlo.
+        onInteractOutside={(e) => {
+          if ((e.target as Element | null)?.closest?.('[role="alertdialog"]')) e.preventDefault();
+        }}
+      >
         <SheetHeader className="border-b">
           <SheetTitle>{account.name}</SheetTitle>
           <SheetDescription>
