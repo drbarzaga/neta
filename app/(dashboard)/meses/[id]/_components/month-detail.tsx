@@ -194,7 +194,10 @@ export function MonthDetail({
         const res = await reorderCategories({
           orderedIds: nextCats.map((c) => c.id),
         });
-        if (!res.ok) toast.error(res.error ?? 'No se pudo reordenar');
+        if (!res.ok) {
+          toast.error(res.error ?? 'No se pudo reordenar');
+          setCats(categories);
+        }
       });
       return;
     }
@@ -229,7 +232,10 @@ export function MonthDetail({
         toCategoryId: container,
         orderedIds,
       });
-      if (!res.ok) toast.error(res.error ?? 'No se pudo mover');
+      if (!res.ok) {
+        toast.error(res.error ?? 'No se pudo mover');
+        setItems(expenses);
+      }
     });
   }
 
