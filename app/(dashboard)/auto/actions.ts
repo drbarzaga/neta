@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { db, eq, and, vehicle, vehicleExpense } from '@/db';
+import { db, eq, and, sql, vehicle, vehicleExpense } from '@/db';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { addMonths } from '@/lib/dates';
@@ -362,16 +362,12 @@ export async function contributeDownPayment(input: unknown): Promise<ActionResul
   const { id, amount } = parsed.data;
   if (amount === 0) return fail('El monto no puede ser 0');
 
-  const [current] = await db
-    .select({ saved: vehicle.downPaymentSaved })
-    .from(vehicle)
-    .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)));
-  if (!current) return UNAUTHORIZED;
-
-  await db
+  const updated = await db
     .update(vehicle)
-    .set({ downPaymentSaved: Math.max(0, current.saved + amount) })
-    .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)));
+    .set({ downPaymentSaved: sql`greatest(0, ${vehicle.downPaymentSaved} + ${amount})` })
+    .where(and(eq(vehicle.id, id), eq(vehicle.userId, session.userId)))
+    .returning({ id: vehicle.id });
+  if (updated.length === 0) return UNAUTHORIZED;
 
   revalidate();
   return ok();

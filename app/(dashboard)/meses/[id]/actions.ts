@@ -19,6 +19,7 @@ import {
   tripExpense,
   vehicleExpense,
 } from '@/db';
+import { adjustGoalSavedQuery, adjustSavingsBalanceQuery, runBatch } from '@/lib/ledger';
 import { verifySession } from '@/lib/auth-server';
 import { UNAUTHORIZED, ok, fail, type ActionResult } from '@/lib/action-result';
 import { refreshRate } from '@/lib/exchange-rate';
@@ -71,19 +72,6 @@ function convertAmount(
 }
 
 /** Suma `delta` al ahorrado de una meta (sin bajar de 0) y revalida su detalle. */
-async function adjustGoalSaved(userId: string, goalId: string, delta: number) {
-  if (delta === 0) return;
-  const [g] = await db
-    .select({ saved: goal.savedAmount })
-    .from(goal)
-    .where(and(eq(goal.id, goalId), eq(goal.userId, userId)));
-  if (!g) return;
-  await db
-    .update(goal)
-    .set({ savedAmount: Math.max(0, g.saved + delta) })
-    .where(and(eq(goal.id, goalId), eq(goal.userId, userId)));
-  revalidatePath(`/metas/${goalId}`);
-}
 
 /**
  * Reconcilia el abono automático de un gasto vinculado a una meta. La regla:
@@ -119,10 +107,11 @@ async function syncExpenseGoalContribution(userId: string, expenseId: string) {
 
   if (!desired || !targetGoalId) {
     if (existing) {
-      await adjustGoalSaved(userId, existing.goalId, -existing.amount);
-      await db
-        .delete(goalContribution)
-        .where(eq(goalContribution.id, existing.id));
+      await runBatch([
+        adjustGoalSavedQuery(userId, existing.goalId, -existing.amount),
+        db.delete(goalContribution).where(eq(goalContribution.id, existing.id)),
+      ]);
+      revalidatePath(`/metas/${existing.goalId}`);
     }
     return;
   }
@@ -133,10 +122,11 @@ async function syncExpenseGoalContribution(userId: string, expenseId: string) {
     .where(and(eq(goal.id, targetGoalId), eq(goal.userId, userId)));
   if (!g) {
     if (existing) {
-      await adjustGoalSaved(userId, existing.goalId, -existing.amount);
-      await db
-        .delete(goalContribution)
-        .where(eq(goalContribution.id, existing.id));
+      await runBatch([
+        adjustGoalSavedQuery(userId, existing.goalId, -existing.amount),
+        db.delete(goalContribution).where(eq(goalContribution.id, existing.id)),
+      ]);
+      revalidatePath(`/metas/${existing.goalId}`);
     }
     return;
   }
@@ -149,50 +139,40 @@ async function syncExpenseGoalContribution(userId: string, expenseId: string) {
   const note = `Gasto: ${e.concept}`;
 
   if (!existing) {
-    await db.insert(goalContribution).values({
-      userId,
-      goalId: targetGoalId,
-      expenseId,
-      amount,
-      note,
-    });
-    await adjustGoalSaved(userId, targetGoalId, amount);
+    await runBatch([
+      db.insert(goalContribution).values({
+        userId,
+        goalId: targetGoalId,
+        expenseId,
+        amount,
+        note,
+      }),
+      adjustGoalSavedQuery(userId, targetGoalId, amount),
+    ]);
+    revalidatePath(`/metas/${targetGoalId}`);
     return;
   }
 
   if (existing.goalId === targetGoalId) {
-    await adjustGoalSaved(userId, targetGoalId, amount - existing.amount);
-    await db
-      .update(goalContribution)
-      .set({ amount, note })
-      .where(eq(goalContribution.id, existing.id));
+    await runBatch([
+      adjustGoalSavedQuery(userId, targetGoalId, amount - existing.amount),
+      db.update(goalContribution).set({ amount, note }).where(eq(goalContribution.id, existing.id)),
+    ]);
   } else {
-    await adjustGoalSaved(userId, existing.goalId, -existing.amount);
-    await adjustGoalSaved(userId, targetGoalId, amount);
-    await db
-      .update(goalContribution)
-      .set({ goalId: targetGoalId, amount, note })
-      .where(eq(goalContribution.id, existing.id));
+    await runBatch([
+      adjustGoalSavedQuery(userId, existing.goalId, -existing.amount),
+      adjustGoalSavedQuery(userId, targetGoalId, amount),
+      db
+        .update(goalContribution)
+        .set({ goalId: targetGoalId, amount, note })
+        .where(eq(goalContribution.id, existing.id)),
+    ]);
+    revalidatePath(`/metas/${existing.goalId}`);
   }
+  revalidatePath(`/metas/${targetGoalId}`);
 }
 
 /** Suma `delta` al saldo de un apartado de ahorro (sin bajar de 0). */
-async function adjustSavingsBalance(
-  userId: string,
-  accountId: string,
-  delta: number
-) {
-  if (delta === 0) return;
-  const [a] = await db
-    .select({ balance: savingsAccount.balance })
-    .from(savingsAccount)
-    .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, userId)));
-  if (!a) return;
-  await db
-    .update(savingsAccount)
-    .set({ balance: Math.max(0, a.balance + delta) })
-    .where(and(eq(savingsAccount.id, accountId), eq(savingsAccount.userId, userId)));
-}
 
 /**
  * Reconcilia el aporte automático de un gasto vinculado a un apartado de ahorro.
@@ -230,8 +210,10 @@ async function syncExpenseSavingsMovement(userId: string, expenseId: string) {
   // No corresponde (desvinculado / no pagado): revierte y borra el movimiento.
   const removeExisting = async () => {
     if (existing) {
-      await adjustSavingsBalance(userId, existing.accountId, -existing.amount);
-      await db.delete(savingsMovement).where(eq(savingsMovement.id, existing.id));
+      await runBatch([
+        adjustSavingsBalanceQuery(userId, existing.accountId, -existing.amount),
+        db.delete(savingsMovement).where(eq(savingsMovement.id, existing.id)),
+      ]);
     }
   };
 
@@ -258,31 +240,34 @@ async function syncExpenseSavingsMovement(userId: string, expenseId: string) {
   const today = new Date().toISOString().slice(0, 10);
 
   if (!existing) {
-    await db.insert(savingsMovement).values({
-      userId,
-      accountId: targetAccountId,
-      expenseId,
-      amount,
-      note,
-      date: today,
-    });
-    await adjustSavingsBalance(userId, targetAccountId, amount);
+    await runBatch([
+      db.insert(savingsMovement).values({
+        userId,
+        accountId: targetAccountId,
+        expenseId,
+        amount,
+        note,
+        date: today,
+      }),
+      adjustSavingsBalanceQuery(userId, targetAccountId, amount),
+    ]);
     return;
   }
 
   if (existing.accountId === targetAccountId) {
-    await adjustSavingsBalance(userId, targetAccountId, amount - existing.amount);
-    await db
-      .update(savingsMovement)
-      .set({ amount, note })
-      .where(eq(savingsMovement.id, existing.id));
+    await runBatch([
+      adjustSavingsBalanceQuery(userId, targetAccountId, amount - existing.amount),
+      db.update(savingsMovement).set({ amount, note }).where(eq(savingsMovement.id, existing.id)),
+    ]);
   } else {
-    await adjustSavingsBalance(userId, existing.accountId, -existing.amount);
-    await adjustSavingsBalance(userId, targetAccountId, amount);
-    await db
-      .update(savingsMovement)
-      .set({ accountId: targetAccountId, amount, note })
-      .where(eq(savingsMovement.id, existing.id));
+    await runBatch([
+      adjustSavingsBalanceQuery(userId, existing.accountId, -existing.amount),
+      adjustSavingsBalanceQuery(userId, targetAccountId, amount),
+      db
+        .update(savingsMovement)
+        .set({ accountId: targetAccountId, amount, note })
+        .where(eq(savingsMovement.id, existing.id)),
+    ]);
   }
 }
 
@@ -1050,9 +1035,6 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
         eq(goalContribution.expenseId, id)
       )
     );
-  if (contrib) {
-    await adjustGoalSaved(session.userId, contrib.goalId, -contrib.amount);
-  }
 
   // Ídem para el aporte automático a un apartado de ahorro.
   const [mov] = await db
@@ -1064,13 +1046,14 @@ export async function deleteExpense(id: string): Promise<ActionResult> {
         eq(savingsMovement.expenseId, id)
       )
     );
-  if (mov) {
-    await adjustSavingsBalance(session.userId, mov.accountId, -mov.amount);
-  }
 
-  await db
-    .delete(expense)
-    .where(and(eq(expense.id, id), eq(expense.userId, session.userId)));
+  // El borrado del gasto elimina en cascada el aporte y el movimiento.
+  await runBatch([
+    ...(contrib ? [adjustGoalSavedQuery(session.userId, contrib.goalId, -contrib.amount)] : []),
+    ...(mov ? [adjustSavingsBalanceQuery(session.userId, mov.accountId, -mov.amount)] : []),
+    db.delete(expense).where(and(eq(expense.id, id), eq(expense.userId, session.userId))),
+  ]);
+  if (contrib) revalidatePath(`/metas/${contrib.goalId}`);
 
   revalidate(current.periodId);
   return ok();
@@ -1114,9 +1097,6 @@ export async function clearPeriodExpenses(
     .where(
       and(eq(goalContribution.userId, session.userId), inArray(goalContribution.expenseId, ids))
     );
-  for (const c of contribs) {
-    await adjustGoalSaved(session.userId, c.goalId, -c.amount);
-  }
 
   const movs = await db
     .select({ accountId: savingsMovement.accountId, amount: savingsMovement.amount })
@@ -1124,13 +1104,13 @@ export async function clearPeriodExpenses(
     .where(
       and(eq(savingsMovement.userId, session.userId), inArray(savingsMovement.expenseId, ids))
     );
-  for (const m of movs) {
-    await adjustSavingsBalance(session.userId, m.accountId, -m.amount);
-  }
 
-  await db
-    .delete(expense)
-    .where(and(eq(expense.userId, session.userId), eq(expense.periodId, periodId)));
+  await runBatch([
+    ...contribs.map((c) => adjustGoalSavedQuery(session.userId, c.goalId, -c.amount)),
+    ...movs.map((m) => adjustSavingsBalanceQuery(session.userId, m.accountId, -m.amount)),
+    db.delete(expense).where(and(eq(expense.userId, session.userId), eq(expense.periodId, periodId))),
+  ]);
+  for (const c of contribs) revalidatePath(`/metas/${c.goalId}`);
 
   revalidate(periodId);
   return ok({ count: ids.length });
@@ -1303,30 +1283,37 @@ export async function distributeAguinaldo(
   }
 
   const today = todayISO();
+  const queries: Parameters<typeof runBatch>[0] = [];
   for (const a of allocations) {
     if (a.kind === 'goal') {
       const g = goalMap.get(a.targetId)!;
       const credited = convertAmount(a.amount, a.currency, g.currency, dollarRate);
-      await db.insert(goalContribution).values({
-        userId: session.userId,
-        goalId: a.targetId,
-        amount: credited,
-        note: 'Aguinaldo',
-      });
-      await adjustGoalSaved(session.userId, a.targetId, credited);
+      queries.push(
+        db.insert(goalContribution).values({
+          userId: session.userId,
+          goalId: a.targetId,
+          amount: credited,
+          note: 'Aguinaldo',
+        }),
+        adjustGoalSavedQuery(session.userId, a.targetId, credited)
+      );
+      revalidatePath(`/metas/${a.targetId}`);
     } else {
       const acc = accountMap.get(a.targetId)!;
       const credited = convertAmount(a.amount, a.currency, acc.currency, dollarRate);
-      await db.insert(savingsMovement).values({
-        userId: session.userId,
-        accountId: a.targetId,
-        amount: credited,
-        note: 'Aguinaldo',
-        date: today,
-      });
-      await adjustSavingsBalance(session.userId, a.targetId, credited);
+      queries.push(
+        db.insert(savingsMovement).values({
+          userId: session.userId,
+          accountId: a.targetId,
+          amount: credited,
+          note: 'Aguinaldo',
+          date: today,
+        }),
+        adjustSavingsBalanceQuery(session.userId, a.targetId, credited)
+      );
     }
   }
+  await runBatch(queries);
 
   revalidatePath('/metas');
   revalidatePath('/ahorros');

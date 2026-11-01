@@ -16,11 +16,11 @@ import {
   todo,
   salaryDeposit,
   savingsAccount,
-  savingsMovement,
   userSettings,
   vehicleExpense,
 } from '@/db';
 import { periodTotals, formatUSD, formatMoney } from '@/lib/money';
+import { depositSalaryOnce } from '@/lib/ledger';
 import { todayISO, nowInTimezone, resolveSalaryDepositDay, periodLabel } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import { sendEmail } from '@/lib/email';
@@ -375,23 +375,17 @@ export async function runSalaryDeposits(): Promise<{ deposited: number }> {
 
     const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
-    await db.insert(savingsMovement).values({
+    const applied = await depositSalaryOnce({
+      depositId: row.id,
       userId: row.userId,
       accountId: row.accountId,
       amount: row.amount,
       note: SALARY_DEPOSIT_NOTE,
       date,
+      year,
+      month,
     });
-    await db
-      .update(savingsAccount)
-      .set({ balance: row.accountBalance + row.amount })
-      .where(eq(savingsAccount.id, row.accountId));
-    await db
-      .update(salaryDeposit)
-      .set({ lastRunYear: year, lastRunMonth: month, lastRunAt: new Date() })
-      .where(eq(salaryDeposit.id, row.id));
-
-    deposited++;
+    if (applied) deposited++;
   }
 
   return { deposited };
