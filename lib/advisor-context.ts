@@ -13,9 +13,11 @@ import {
   savingsAccount,
   trip,
   tripExpense,
+  type Expense,
+  type Period,
 } from '@/db';
 import { periodTotals, tripTotals, toUsd, toLocal, formatMoney } from '@/lib/money';
-import { addMonths, periodLabel } from '@/lib/dates';
+import { addMonths, periodLabel, pickCurrentPeriod } from '@/lib/dates';
 import { getCountry } from '@/lib/countries';
 import { getLatestRate } from '@/lib/exchange-rate';
 import { TRIP_STATUS_LABEL } from '@/app/(dashboard)/viajes/schema';
@@ -324,20 +326,30 @@ export interface AdvisorInsight {
 const DAY_MS = 1000 * 60 * 60 * 24;
 
 /**
- * Chequeo rápido de salud financiera (determinista, sin IA) sobre el mes más
- * reciente y las metas. Se muestra al abrir el asesor como resumen proactivo.
+ * Chequeo rápido de salud financiera (determinista, sin IA) sobre el mes actual
+ * y las metas. Se muestra al abrir el asesor como resumen proactivo.
  */
 export async function buildAdvisorInsights(
   userId: string
 ): Promise<AdvisorInsight[]> {
-  const [latest] = await db
-    .select()
-    .from(period)
-    .where(eq(period.userId, userId))
-    .orderBy(desc(period.year), desc(period.month))
-    .limit(1);
+  const [periods, goals] = await Promise.all([
+    db
+      .select()
+      .from(period)
+      .where(eq(period.userId, userId))
+      .orderBy(desc(period.year), desc(period.month)),
+    db
+      .select({
+        title: goal.title,
+        targetDate: goal.targetDate,
+        completed: goal.completed,
+      })
+      .from(goal)
+      .where(eq(goal.userId, userId)),
+  ]);
 
-  if (!latest) {
+  const current = pickCurrentPeriod(periods);
+  if (!current) {
     return [
       { level: 'warn', text: 'Todavía no creaste ningún mes. Empieza creando uno.' },
     ];
@@ -346,7 +358,16 @@ export async function buildAdvisorInsights(
   const items = await db
     .select()
     .from(expense)
-    .where(eq(expense.periodId, latest.id));
+    .where(eq(expense.periodId, current.id));
+  return computeAdvisorInsights(current, items, goals);
+}
+
+/** Calcula los avisos a partir de datos ya cargados, sin consultar la BD. */
+export function computeAdvisorInsights(
+  latest: Period,
+  items: Expense[],
+  goals: { title: string; targetDate: string | null; completed: boolean }[]
+): AdvisorInsight[] {
   const t = periodTotals(items, latest.dollarRate, latest.incomeTotal);
   const cur = latest.localCurrency;
   const money = (n: number) => formatMoney(n, cur, 'es-UY');
@@ -416,17 +437,7 @@ export async function buildAdvisorInsights(
   }
 
   // Metas con fecha objetivo vencida.
-  const overdueGoals = goalsWithPassedTarget(
-    await db
-      .select({
-        title: goal.title,
-        targetDate: goal.targetDate,
-        completed: goal.completed,
-      })
-      .from(goal)
-      .where(eq(goal.userId, userId)),
-    today
-  );
+  const overdueGoals = goalsWithPassedTarget(goals, today);
   for (const g of overdueGoals) {
     insights.push({
       level: 'warn',
